@@ -9,12 +9,10 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 const shapes = [];
 const lines = [];
-const epsilon = Number.EPSILON; // A small value for floating-point comparisons
-const tempVector = new THREE.Vector3(); // for calculations
-const shapeFloatSpeed = 0.03;
-const shapeFloatForce = 0.3;
+const tetherForce = 0.15;
 const shapeMinProximity = 4;
 const shapeMaxProximity = 3;
+const dragForceMultiplier = 1.05; // strength applied to tethered objects if the other object is being dragged
 
 // Setup
 // mouse functionality
@@ -69,7 +67,7 @@ function mainloop() {
         applyShapeIdleAnimation();
         
         // physics
-        applyTethers(shapeMinProximity, shapeMaxProximity, shapeFloatSpeed, shapeFloatForce);
+        applyTethers(shapeMinProximity, shapeMaxProximity, tetherForce, dragForceMultiplier);
 
         // update all connecting lines
         applyLineUpdates();
@@ -217,11 +215,11 @@ function applyLineUpdates() {
         }
     });
 }
-function applyTethers(attractProximity, repelProximity, force) {
+function applyTethers(attractProximity, repelProximity, force, dragForceMultiplier) {
     // positive forceVec attracts, negative repeals
     lines.forEach(line => {
         const attractiveVector = new THREE.Vector3();
-        const magnitude = ((attractProximity - line.length) / attractProximity) * force;
+        const magnitude = ((attractProximity - line.length) / attractProximity) * (force * (line.target.dragged || line.origin.dragged) ? dragForceMultiplier : 1);
         if (line.length > attractProximity) {
             attractiveVector.add(line.direction.clone().multiplyScalar(magnitude));
         } else if (line.length < repelProximity) {
