@@ -7,3 +7,6 @@ The app this project is based on is still available today. Please give it a shot
 
 ### Frontend
 Three.js for rendering
+
+# Reviews from real people
+"that is not a cube" - some hater
