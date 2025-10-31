@@ -2,20 +2,19 @@ import WebGL from "three/addons/capabilities/WebGL.js";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { Line2 } from 'three/addons/lines/Line2.js';
-import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
-import { DragControls } from 'three/addons/controls/DragControls.js';
-import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+import { Line2 } from "three/addons/lines/Line2.js";
+import { LineMaterial } from "three/addons/lines/LineMaterial.js";
+import { DragControls } from "three/addons/controls/DragControls.js";
+import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
 const shapes = [];
-
-// [!] this might fuck with people tapping with fat pudgy fingers on mobile devices. 
-//  Make sure to retest on touchscreen to get appropriate threshold and distinguish
-//  the host device type in code at some point.
-const mouseClickThreshold = 150; // in ms
-const shapeReturnSpeed = 0.03;
+const lines = [];
+const epsilon = Number.EPSILON; // A small value for floating-point comparisons
+const tempVector = new THREE.Vector3(); // for calculations
+const shapeFloatSpeed = 0.03;
+const shapeFloatForce = 0.3;
 const shapeMinProximity = 4;
-const shapeMaxProximity = 2;
+const shapeMaxProximity = 3;
 
 // Setup
 // mouse functionality
@@ -37,16 +36,12 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-if ( WebGL.isWebGL2Available() ) {
-
-  // Initiate function or other initializations here
-  mainloop();
-
+if (WebGL.isWebGL2Available()) {
+    // Initiate function or other initializations here
+    mainloop();
 } else {
-
-  const warning = WebGL.getWebGL2ErrorMessage();
-  document.getElementById( "container" ).appendChild( warning );
-
+    const warning = WebGL.getWebGL2ErrorMessage();
+    document.getElementById("container").appendChild(warning);
 }
 
 function mainloop() {
@@ -54,51 +49,31 @@ function mainloop() {
 
     // Setup external (yawn) library controls
     const controls = {
-        drag: new DragControls( shapes, camera, renderer.domElement ), // drag n' drop
-        camera: new OrbitControls( camera, renderer.domElement ) // camera
+        drag: new DragControls(shapes, camera, renderer.domElement), // drag n' drop
+        camera: new OrbitControls(camera, renderer.domElement), // camera
     };
 
-    controls.drag.addEventListener( 'dragstart', function ( event ) {
+    controls.drag.addEventListener("dragstart", function (event) {
         controls.camera.enabled = false;
-        event.object.material.emissive.set( 0xaaaaaa );
+        event.object.dragged = true;
+        event.object.material.emissive.set(0x999999);
     });
-    controls.drag.addEventListener( 'dragend', function ( event ) {
+    controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
-        event.object.material.emissive.set( 0x000000 );
+        event.object.dragged = false;
+        event.object.material.emissive.set(0x000000);
     });
 
     function animate() {
-        for (let shapeIdx in shapes) {
-            const shape = shapes[shapeIdx];
-            // ambient motion
-            shape.rotation.y += 0.005 + (shapeIdx / 1000);
+        // ambient animation
+        applyShapeIdleAnimation();
+        
+        // physics
+        applyTethers(shapeMinProximity, shapeMaxProximity, shapeFloatSpeed, shapeFloatForce);
 
-            // slowly move all shapes closer to each other if dragged
-            if (shape.lines) {
-                for (let i in shape.lines.origin) {
-                    let other = shape.lines.origin[i].target;
-                    if (shape.position.distanceTo(other.position) > shapeMinProximity) {
-                        shape.position.lerpVectors(shape.position, other.position, shapeReturnSpeed)
-                        updateLine(shape.lines.origin[i], other.position, shape.position);
-                    } else if (shape.position.distanceTo(other.position) < shapeMaxProximity) {
-                        let oppositeVec = other.position.clone().negate();
-                        shape.position.lerpVectors(shape.position, oppositeVec, shapeReturnSpeed*2);
-                        updateLine(shape.lines.origin[i], other.position, shape.position);
-                    }
-                }
-                for (let i in shape.lines.target) {
-                    let other = shape.lines.target[i].origin;
-                    if (shape.position.distanceTo(other.position) > shapeMinProximity) {
-                        shape.position.lerpVectors(shape.position, other.position, shapeReturnSpeed)
-                        updateLine(shape.lines.target[i], shape.position, other.position);
-                    } else if (shape.position.distanceTo(other.position) < shapeMaxProximity) {
-                        let oppositeVec = other.position.clone().negate();
-                        shape.position.lerpVectors(shape.position, oppositeVec, shapeReturnSpeed*2);
-                        updateLine(shape.lines.target[i], shape.position, other.position);
-                    }
-                }
-            }
-        }
+        // update all connecting lines
+        applyLineUpdates();
+
         // required if controls.enableDamping or controls.autoRotate are set to true
         controls.camera.update(); // must be called after any manual changes to the camera"s transform
         renderer.render(scene, camera);
@@ -106,16 +81,16 @@ function mainloop() {
 
     // render a plane
     const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
-    const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x090909}); // dark gray, single-sided
+    const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x090909 }); // dark gray, single-sided
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     scene.add(plane);
     plane.receiveShadow = true;
     plane.rotation.set(-Math.PI / 2, 0, 0); // Rotate to lie flat on the XZ plane
     plane.position.set(0, -1, 0);
-    
+
     // Control shadows
-    const ambientLight = new THREE.AmbientLight( 0x404040, 15 ); // soft white light
-    scene.add( ambientLight );
+    const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
+    scene.add(ambientLight);
 
     // render a light
     const light = new THREE.PointLight(0xffffff, 3500);
@@ -123,16 +98,16 @@ function mainloop() {
     scene.add(light);
     light.castShadow = true;
     light.shadow.camera.top = 2;
-    light.shadow.camera.bottom = - 2;
-    light.shadow.camera.left = - 2;
+    light.shadow.camera.bottom = -2;
+    light.shadow.camera.left = -2;
     light.shadow.camera.right = 2;
     light.shadow.camera.near = 1;
     light.shadow.camera.far = 10;
 
     // load everything
-    loadScene( "source/not-cube.glb")
-        .then( sc => getGeometry( sc ))
-        .then( geometry => {
+    loadScene("source/not-cube.glb")
+        .then((sc) => getGeometry(sc))
+        .then((geometry) => {
             const cube = createShape(geometry);
             cube.position.set(0, 0, 0);
             scene.add(cube);
@@ -156,13 +131,13 @@ function mainloop() {
 
             // render the stuff
             renderer.setAnimationLoop(animate);
-        })
+        });
 }
 
 function getHoveredShape() {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
-    return (intersects.length > 0) ? intersects[0].object : undefined;
+    return intersects.length > 0 ? intersects[0].object : undefined;
 }
 
 function createShape(geometry, clickable = true) {
@@ -172,48 +147,108 @@ function createShape(geometry, clickable = true) {
     console.info("Loaded mesh:", mesh);
     mesh.castShadow = true;
     mesh.clickable = clickable;
-    mesh.ogPosition = new THREE.Vector3(0, 0, 0);
+    mesh.dragged = false;
     mesh.lines = {
         origin: [],
-        target: []
+        target: [],
     };
     return mesh;
 }
-
-function updateLine(line, position, position2) {
-    line.geometry.setFromPoints([position, position2]);
+function getLineVectors(line) {
+    const positionAttribute = line.geometry.attributes.position;
+    return {
+        origin: new THREE.Vector3().fromBufferAttribute(positionAttribute, 0),
+        target: new THREE.Vector3().fromBufferAttribute(positionAttribute, 1),
+    };
+}
+function getLineLength(line) {
+    let {p1, p2} = getLineVectors(line);
+    return p1.distanceTo(p2);
+}
+function setLine(line, origin, target) {
+    line.origin = origin;
+    line.target = target;
+    updateLine(line);
+}
+function updateLine(line) {
+    line.geometry.setFromPoints([line.origin.position, line.target.position]);
+    line.length = line.origin.position.distanceTo(line.target.position);
+    line.direction.subVectors(line.target.position, line.origin.position).normalize(); // always points from target to origin
     line.geometry.attributes.position.needsUpdate = true;
 }
-
-function connectLine(shape, shape2, color = 0xc0c0c0) {
-    const material = new LineMaterial( {
-            color: color,
-            linewidth: 2.5, 
-            alphaToCoverage: true,
-        });
+function connectLine(origin, target, color = 0xc0c0c0) {
+    const material = new LineMaterial({
+        color: color,
+        linewidth: 2.5,
+        alphaToCoverage: true,
+    });
     const geometry = new LineGeometry();
-    geometry.setFromPoints([shape.position, shape2.position]);
-    const line = new Line2( geometry, material );
-    line.origin = shape;
-    line.target = shape2;
-    if (shape.lines) {
-        shape.lines.origin.push(line);
+    const line = new Line2(geometry, material);
+    line.direction = new THREE.Vector3();
+    setLine(line, origin, target);
+    lines.push(line);
+    if (origin.lines) {
+        origin.lines.origin.push(line);
     }
-    if (shape2.lines) {
-        shape2.lines.target.push(line);
+    if (target.lines) {
+        target.lines.target.push(line);
     }
     return line;
 }
-
 function random(min, max) {
-  return Math.random() * (max - min) + min;
+    return Math.random() * (max - min) + min;
+}
+function applyShapeIdleAnimation() {
+    shapes.forEach((shape, i) => {
+        // ambient motion
+        if (!shape.dragged) {
+            shape.rotation.y += 0.005 + i / 1000;
+        }
+    })
+}
+function applyLineUpdates() {
+    lines.forEach((line) => {
+        let lineVectors = getLineVectors(line);
+        if (
+            line.origin.position != lineVectors.origin ||
+            line.target.position != lineVectors.target
+        ) {
+            updateLine(line);
+        }
+    });
+}
+function applyTethers(attractProximity, repelProximity, force) {
+    // positive forceVec attracts, negative repeals
+    lines.forEach(line => {
+        const attractiveVector = new THREE.Vector3();
+        const magnitude = ((attractProximity - line.length) / attractProximity) * force;
+        if (line.length > attractProximity) {
+            attractiveVector.add(line.direction.clone().multiplyScalar(magnitude));
+        } else if (line.length < repelProximity) {
+            attractiveVector.sub(line.direction.clone().multiplyScalar(-magnitude));
+        }
+        if (!isVectorZero(attractiveVector))
+            if (!line.origin.dragged)
+                line.origin.position.sub(attractiveVector);
+            if (!line.target.dragged)
+                line.target.position.add(attractiveVector);
+    });
+}
+
+function isVectorZero(vector) {
+    // meant for handling floating-point bullshit
+    return (
+        Math.abs(vector.x) < Number.EPSILON &&
+        Math.abs(vector.y) < Number.EPSILON &&
+        Math.abs(vector.z) < Number.EPSILON
+    );
 }
 
 async function getGeometry(scene) {
     let promise = Promise.resolve(false);
     scene.traverse(function (child) {
         if (child.isMesh) {
-            console.info(`Found Geometry:`, child.geometry)
+            console.info(`Found Geometry:`, child.geometry);
             // "child" is a THREE.Mesh object
             // "child.geometry" is the THREE.BufferGeometry associated with this mesh
             promise = Promise.resolve(child.geometry);
@@ -222,7 +257,7 @@ async function getGeometry(scene) {
     let result = await promise;
     if (result == false) {
         console.error("Error getting geometry");
-        return
+        return;
     }
     return result;
 }
