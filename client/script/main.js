@@ -14,6 +14,8 @@ const shapes = [];
 //  the host device type in code at some point.
 const mouseClickThreshold = 150; // in ms
 const shapeReturnSpeed = 0.03;
+const shapeMinProximity = 4;
+const shapeMaxProximity = 2;
 
 // Setup
 // mouse functionality
@@ -71,16 +73,28 @@ function mainloop() {
             // ambient motion
             shape.rotation.y += 0.005 + (shapeIdx / 1000);
 
-            // slowly return all shapes to their original positions if dragged
-            if (shape.ogPosition && shape.position.distanceTo(shape.ogPosition) != 0) {
-                shape.position.lerpVectors(shape.position, shape.ogPosition, shapeReturnSpeed);
-                // update any connect lines
-                if (shape.lines) {
-                    for (let i in shape.lines.origin) {
-                        updateLine(shape.lines.origin[i], shape.position);
+            // slowly move all shapes closer to each other if dragged
+            if (shape.lines) {
+                for (let i in shape.lines.origin) {
+                    let other = shape.lines.origin[i].target;
+                    if (shape.position.distanceTo(other.position) > shapeMinProximity) {
+                        shape.position.lerpVectors(shape.position, other.position, shapeReturnSpeed)
+                        updateLine(shape.lines.origin[i], other.position, shape.position);
+                    } else if (shape.position.distanceTo(other.position) < shapeMaxProximity) {
+                        let oppositeVec = other.position.clone().negate();
+                        shape.position.lerpVectors(shape.position, oppositeVec, shapeReturnSpeed*2);
+                        updateLine(shape.lines.origin[i], other.position, shape.position);
                     }
-                    for (let i in shape.lines.target) {
-                        updateLine(shape.lines.target[i], undefined, shape.position);
+                }
+                for (let i in shape.lines.target) {
+                    let other = shape.lines.target[i].origin;
+                    if (shape.position.distanceTo(other.position) > shapeMinProximity) {
+                        shape.position.lerpVectors(shape.position, other.position, shapeReturnSpeed)
+                        updateLine(shape.lines.target[i], shape.position, other.position);
+                    } else if (shape.position.distanceTo(other.position) < shapeMaxProximity) {
+                        let oppositeVec = other.position.clone().negate();
+                        shape.position.lerpVectors(shape.position, oppositeVec, shapeReturnSpeed*2);
+                        updateLine(shape.lines.target[i], shape.position, other.position);
                     }
                 }
             }
@@ -121,17 +135,14 @@ function mainloop() {
         .then( geometry => {
             const cube = createShape(geometry);
             cube.position.set(0, 0, 0);
-            cube.ogPosition.set(0, 0, 0);
             scene.add(cube);
 
             const cube2 = createShape(geometry);
             cube2.position.set(3, 0, 3);
-            cube2.ogPosition.set(3, 0, 3);
             scene.add(cube2);
 
             const cube3 = createShape(geometry);
             cube3.position.set(-3, 0, 3);
-            cube3.ogPosition.set(-3, 0, 3);
             scene.add(cube3);
 
             const line = connectLine(cube, cube2);
@@ -169,11 +180,8 @@ function createShape(geometry, clickable = true) {
     return mesh;
 }
 
-function updateLine(line, position = undefined, position2 = undefined) {
-    const positions = line.geometry.attributes.position;
-    const p1 = (position != undefined) ? position : line.origin.position;
-    const p2 = (position2 != undefined) ? position2 : line.target.position;
-    line.geometry.setFromPoints([p1, p2]);
+function updateLine(line, position, position2) {
+    line.geometry.setFromPoints([position, position2]);
     line.geometry.attributes.position.needsUpdate = true;
 }
 
