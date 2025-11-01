@@ -16,6 +16,20 @@ function getHoveredShape(raycaster, mouse, camera, scene) {
             : intersects[0].object
         : undefined;
 }
+function getObjectScreenPosition(obj, camera, renderer) {
+    const worldPosition = new Vector3();
+    obj.getWorldPosition(worldPosition); // Get world position
+
+    worldPosition.project(camera); // Project to NDC
+
+    const canvas = renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+
+    const screenX = (worldPosition.x * 0.5 + 0.5) * rect.width + rect.left;
+    const screenY = (-worldPosition.y * 0.5 + 0.5) * rect.height + rect.top;
+
+    return { x: screenX, y: screenY, distance: camera.position.distanceTo(worldPosition)};
+}
 function isVectorZero(vector) {
     // meant for handling floating-point bullshit
     return (
@@ -74,5 +88,6 @@ export {
     loadGLTFShape,
     getHoveredShape,
     highlightObject,
-    unHighlightObject
+    unHighlightObject,
+    getObjectScreenPosition
 };

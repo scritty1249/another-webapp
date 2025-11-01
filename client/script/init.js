@@ -4,8 +4,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import { applyPhysicsForces } from "./physics.js";
 import * as MESH from "./mesh.js";
-import { loadGLTFShape, getHoveredShape, highlightObject, unHighlightObject } from "./three-utils.js";
+import { loadGLTFShape, getHoveredShape, highlightObject, unHighlightObject, getObjectScreenPosition } from "./three-utils.js";
 import * as LAYOUT from "./layout.js";
+import { overlayElement } from "./dom-utils.js";
 
 const shapes = {
     parents: [],
@@ -78,6 +79,16 @@ function mainloop() {
         controls.camera.enabled = false;
         event.object.userData.dragged = true;
         highlightObject(event.object.userData.subject);
+        const objPos = getObjectScreenPosition(event.object, camera, renderer);
+        const el = document.createElement("img");
+        el.src = "../source/circle.png";
+        el.classList.add("button");
+        el.dataset.focusedObjectUuid = event.object.uuid;
+        overlayElement(objPos, document.getElementById("overlay"), el);
+        setTimeout(() => {
+            el.remove();
+        }, 1500);
+        console.log(el);
     });
     controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
