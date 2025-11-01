@@ -1,23 +1,45 @@
 import {
     Vector3,
     MeshPhongMaterial,
-    Mesh
+    Mesh,
+    AnimationMixer,
+    Group
 } from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
-function Shape(geometry, clickable = true) {
+function DragShape(geometry) {
+    const parent = new Group();
+    parent.add(Shape(geometry, false));
+    parent.children[0].parent = parent; // may be bad to have a recursive reference here
+    parent.subject = parent.children[0] // easier access
+    parent.dragged = false;
+    parent.lines = {
+        origin: [],
+        target: [],
+    };
+    return parent;
+}
+function Shape(geometry) {
     const material = new MeshPhongMaterial({ color: 0x00ff00 });
     const mesh = new Mesh(geometry, material);
     console.info("Loaded mesh:", mesh);
     mesh.castShadow = true;
-    mesh.clickable = clickable;
-    mesh.dragged = false;
-    mesh.lines = {
-        origin: [],
-        target: [],
-    };
+    mesh.name = "shape"; // needed for animation binding
+    mesh.mixer = new AnimationMixer(mesh);
+    mesh.animation = {}; // yes, I've overriding "animations" attribute. When importing the whole Mesh the animation array is empty anyways and IDK and IDC how to fanangle this damn thing.
+    mesh.addAnimation = function(name, animation, secDelay = 0) {
+        mesh.animation[name] = mesh.mixer.clipAction(animation);
+        mesh.animation[name].startAt(mesh.mixer.time + secDelay);
+        return mesh.animation[name];
+    }
+    mesh.updateAnimation = function(timedelta) {
+        Array.from(mesh.animation).forEach(animationAction => animationAction.clampWhenFinished = mesh.dragged);
+        if (mesh.mixer) {
+            mesh.mixer.update(timedelta);
+        }
+    }
     return mesh;
 }
 
@@ -57,4 +79,4 @@ function Tether(origin, target, color = 0xc0c0c0) {
     return line;
 }
 
-export { Tether, Shape };
+export { Tether, Shape, DragShape };

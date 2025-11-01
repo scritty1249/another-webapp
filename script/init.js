@@ -4,9 +4,16 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import { applyTetherForces } from "./physics.js";
 import * as MESH from "./mesh.js";
-import { loadGeometry } from "./three-utils.js";
+import { loadGLTFShape } from "./three-utils.js";
 
-const shapes = [];
+const shapes = {
+    parents: [],
+    subjects: [],
+    add: function(shape) {
+        this.parents.push(shape);
+        this.subjects.push(shape.subject);
+    }
+};
 const tethers = [];
 const tetherForce = 0.15;
 const shapeMinProximity = 4;
@@ -43,42 +50,30 @@ if (WebGL.isWebGL2Available()) {
 
 function mainloop() {
     document.getElementById("container").appendChild(renderer.domElement);
+    const clock = new THREE.Clock();
     // start loading everything
     const geometries = Promise.all([
-        loadGeometry("source/not-cube.glb")
+        loadGLTFShape("source/moving-not-cube.glb")
     ]);
 
     // Setup external (yawn) library controls
     const controls = {
-        drag: new DragControls(shapes, camera, renderer.domElement), // drag n' drop
+        drag: new DragControls(shapes.parents, camera, renderer.domElement), // drag n' drop
         camera: new OrbitControls(camera, renderer.domElement), // camera
     };
-
+    // controls.drag.recursive = false; // don't select children independently
+    controls.drag.transformGroup = true;
     controls.drag.addEventListener("dragstart", function (event) {
         controls.camera.enabled = false;
         event.object.dragged = true;
-        event.object.material.emissive.set(0x999999);
+        event.object.subject.material.emissive.set(0x999999);
+        console.log(event.object.position, event.object.subject.position)
     });
     controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
         event.object.dragged = false;
-        event.object.material.emissive.set(0x000000);
+        event.object.subject.material.emissive.set(0x000000);
     });
-
-    function animate() {
-        // ambient animation
-        applyShapeIdleAnimation();
-        
-        // physics
-        applyTetherForces(tethers, shapeMinProximity, shapeMaxProximity, tetherForce, dragForceMultiplier);
-
-        // update all connecting lines
-        applyTetherUpdates();
-
-        // required if controls.enableDamping or controls.autoRotate are set to true
-        controls.camera.update(); // must be called after any manual changes to the camera"s transform
-        renderer.render(scene, camera);
-    }
 
     // render a plane
     const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
@@ -105,50 +100,90 @@ function mainloop() {
     light.shadow.camera.near = 1;
     light.shadow.camera.far = 10;
 
+    
+
     geometries.then(values => {
-        let [ notCubeGeometry, ..._] = values;
-        const cube = addNotCube( [0, 0, 0], notCubeGeometry);
-        const cube2 = addNotCube( [3, 0, 3], notCubeGeometry);
-        const cube3 = addNotCube( [-3, 0, 3], notCubeGeometry);
-        addTether(cube, cube2);
-        addTether(cube, cube3);
-        addTether(cube2, cube3);
+        const [ notCubeData, ..._] = values;
+        const notCubeGeometry = notCubeData.geometry;
+        const notCubeIdleAnimation = notCubeData.animation;
+        const cube = createCube( [0, 0, 0], notCubeGeometry);
+        
+        const cube2 = createCube( [3, 0, 3], notCubeGeometry);
+        const cube3 = createCube( [-3, 0, 3], notCubeGeometry);
+        linkCubes(cube, cube2);
+        linkCubes(cube, cube3);
+        linkCubes(cube2, cube3);
+        cube.subject.addAnimation("idle", notCubeIdleAnimation).play();
+        cube2.subject.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
+        cube3.subject.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
+
+        addNode(
+            [random(0, 15), 0, random(0, 15)],
+            notCubeGeometry,
+            notCubeIdleAnimation,
+            [cube, cube3]
+        );
 
         // render the stuff
+        function animate() {
+            // ambient animation
+            applyShapeIdleAnimation(clock.getDelta());
+            
+            // physics
+            applyTetherForces(tethers, shapeMinProximity, shapeMaxProximity, tetherForce, dragForceMultiplier);
+
+            // update all connecting lines
+            applyTetherUpdates();
+
+            // required if controls.enableDamping or controls.autoRotate are set to true
+            controls.camera.update(); // must be called after any manual changes to the camera"s transform
+            renderer.render(scene, camera);
+        }
         renderer.setAnimationLoop(animate);
     });
 }
 
-function addNotCube(position, geometry) {
-    const notCube = MESH.Shape(geometry);
+function addNode(position, geometry, defaultAnimation = undefined, neighbors = []) {
+    const node = createCube(position, geometry);
+    if (defaultAnimation) {
+        node.subject.addAnimation("idle", defaultAnimation, random(0.4, 1.6)).play();
+    }
+    neighbors.forEach(neighbor => {
+        linkCubes(node, neighbor);
+    });
+    return node;
+}
+function random(min, max) {
+  return Math.random() * (max - min) + min;
+}
+function createCube(position, geometry) {
+    const notCube = MESH.DragShape(geometry);
     notCube.position.set(...position);
-    shapes.push(notCube); // make interactable
+    shapes.add(notCube); // make interactable
     scene.add(notCube);
+    console.debug("Added Cube to scene:", notCube);
     return notCube;
 }
 
-function addTether(origin, target) {
+function linkCubes(origin, target) {
     const tether = MESH.Tether(origin, target);
     tethers.push(tether); // tracking
     scene.add(tether);
     return tether;
 }
-function applyShapeIdleAnimation() {
-    shapes.forEach((shape, i) => {
-        // ambient motion
-        if (!shape.dragged) {
-            shape.rotation.y += 0.005 + i / 1000;
-        }
-    })
+function applyShapeIdleAnimation(delta) {
+    // requestAnimationFrame(animate); // [!] google says I need this, but it runs fine without it and lags horribly...
+    shapes.subjects.forEach(shape => {
+        shape.updateAnimation(delta);
+    });
 }
 function applyTetherUpdates() {
     tethers.forEach(tether => {
         if (
-            tether.origin.position != tether.vectors.origin ||
-            tether.target.position != tether.vectors.target
+            tether.origin.subject.position != tether.vectors.origin ||
+            tether.target.subject.position != tether.vectors.target
         ) {
             tether.update();
         }
     });
 }
-
