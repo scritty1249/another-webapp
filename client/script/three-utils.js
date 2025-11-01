@@ -54,4 +54,4 @@ async function loadGLTF(gltfPath) {
     }
 }
 
-export { isVectorZero, loadGLTFShape };
+export { isVectorZero, loadGLTFShape, getHoveredShape };
