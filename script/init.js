@@ -25,7 +25,6 @@ const mouse = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 // scene
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xabcdef);
 const camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
@@ -84,7 +83,7 @@ function mainloop() {
         unHighlightObject(event.object.subject);
     });
     
-
+    scene.background = new THREE.Color(0xff3065);
     // render a plane
     const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
     const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x090909 }); // dark gray, single-sided
