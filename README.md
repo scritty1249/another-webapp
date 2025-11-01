@@ -8,5 +8,8 @@ The app this project is based on is still available today. Please give it a shot
 ### Frontend
 Three.js for rendering
 
+# Preview pre-alpha build
+https://scritty1249.github.io/another-webapp
+
 # Reviews from real people
 "that is not a cube" - some hater
