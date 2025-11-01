@@ -68,15 +68,11 @@ async function loadGLTF(gltfPath) {
         throw error; // Re-throw the error for further handling
     }
 }
-function layoutToJson(shapes) {
-    
-}
 
 export {
     isVectorZero,
     loadGLTFShape,
     getHoveredShape,
     highlightObject,
-    unHighlightObject,
-    layoutToJson
+    unHighlightObject
 };

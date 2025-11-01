@@ -9,10 +9,10 @@ function applyPhysicsRelation(
     force
 ) {
     const isNeighbor =
-        origin.lines.target.map((line) => line.origin).includes(target) ||
-        origin.lines.origin.map((line) => line.target).includes(target) ||
-        target.lines.target.map((line) => line.origin).includes(origin) ||
-        target.lines.origin.map((line) => line.target).includes(origin);
+        origin.userData.lines.target.map((line) => line.userData.origin).includes(target) ||
+        origin.userData.lines.origin.map((line) => line.userData.target).includes(target) ||
+        target.userData.lines.target.map((line) => line.userData.origin).includes(origin) ||
+        target.userData.lines.origin.map((line) => line.userData.target).includes(origin);
     const attractiveVector = new THREE.Vector3();
     const distance = origin.position.distanceTo(target.position);
     const direction = new THREE.Vector3().subVectors(
@@ -28,8 +28,8 @@ function applyPhysicsRelation(
         attractiveVector.add(direction.clone().multiplyScalar(-magnitude));
     }
     if (!isVectorZero(attractiveVector))
-        if (!origin.dragged) origin.position.sub(attractiveVector);
-    if (!target.dragged) target.position.add(attractiveVector);
+        if (!origin.userData.dragged) origin.position.sub(attractiveVector);
+    if (!target.userData.dragged) target.position.add(attractiveVector);
 }
 
 export function applyPhysicsForces(
