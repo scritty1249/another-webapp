@@ -13,9 +13,9 @@ function DragShape(geometry) {
     const parent = new Group();
     parent.add(Shape(geometry, false));
     parent.children[0].parent = parent; // may be bad to have a recursive reference here
-    parent.subject = parent.children[0] // easier access
-    parent.dragged = false;
-    parent.lines = {
+    parent.userData.subject = parent.children[0] // easier access
+    parent.userData.dragged = false;
+    parent.userData.lines = {
         origin: [],
         target: [],
     };
@@ -27,17 +27,17 @@ function Shape(geometry) {
     console.info("Loaded mesh:", mesh);
     mesh.castShadow = true;
     mesh.name = "shape"; // needed for animation binding
-    mesh.mixer = new AnimationMixer(mesh);
-    mesh.animation = {}; // yes, I've overriding "animations" attribute. When importing the whole Mesh the animation array is empty anyways and IDK and IDC how to fanangle this damn thing.
-    mesh.addAnimation = function(name, animation, secDelay = 0) {
-        mesh.animation[name] = mesh.mixer.clipAction(animation);
-        mesh.animation[name].startAt(mesh.mixer.time + secDelay);
-        return mesh.animation[name];
+    mesh.userData.mixer = new AnimationMixer(mesh);
+    mesh.userData.animation = {}; // yes, I've overriding "animations" attribute. When importing the whole Mesh the animation array is empty anyways and IDK and IDC how to fanangle this damn thing.
+    mesh.userData.addAnimation = function(name, animation, secDelay = 0) {
+        mesh.userData.animation[name] = mesh.userData.mixer.clipAction(animation);
+        mesh.userData.animation[name].startAt(mesh.userData.mixer.time + secDelay);
+        return mesh.userData.animation[name];
     }
-    mesh.updateAnimation = function(timedelta) {
-        Array.from(mesh.animation).forEach(animationAction => animationAction.clampWhenFinished = mesh.dragged);
-        if (mesh.mixer) {
-            mesh.mixer.update(timedelta);
+    mesh.userData.updateAnimation = function(timedelta) {
+        Array.from(mesh.userData.animation).forEach(animationAction => animationAction.clampWhenFinished = mesh.dragged);
+        if (mesh.userData.mixer) {
+            mesh.userData.mixer.update(timedelta);
         }
     }
     return mesh;
@@ -51,30 +51,27 @@ function Tether(origin, target, color = 0xc0c0c0) {
     });
     const geometry = new LineGeometry();
     const line = new Line2(geometry, material);
-    line.direction = new Vector3();
-    line.vectors = {
+    line.userData.vectors = {
         origin: new Vector3(),
         target: new Vector3()
     }
-    line.update = function () {
-        line.geometry.setFromPoints([line.origin.position, line.target.position]);
-        line.vectors.origin.set(line.origin.position);
-        line.vectors.target.set(line.target.position);
-        line.length = line.origin.position.distanceTo(line.target.position);
-        line.direction.subVectors(line.target.position, line.origin.position).normalize(); // always points from target to origin
+    line.userData.update = function () {
+        line.geometry.setFromPoints([line.userData.origin.position, line.userData.target.position]);
+        line.userData.vectors.origin.set(line.userData.origin.position);
+        line.userData.vectors.target.set(line.userData.target.position);
         line.geometry.attributes.position.needsUpdate = true;
     }
-    line.set = function (origin, target) {
-        line.origin = origin;
-        line.target = target;
-        line.update();
+    line.userData.set = function (origin, target) {
+        line.userData.origin = origin;
+        line.userData.target = target;
+        line.userData.update();
     }
-    line.set(origin, target);
-    if (origin.lines) {
-        origin.lines.origin.push(line);
+    line.userData.set(origin, target);
+    if (origin.userData.lines) {
+        origin.userData.lines.origin.push(line);
     }
-    if (target.lines) {
-        target.lines.target.push(line);
+    if (target.userData.lines) {
+        target.userData.lines.target.push(line);
     }
     return line;
 }

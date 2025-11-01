@@ -5,19 +5,20 @@ import { DragControls } from "three/addons/controls/DragControls.js";
 import { applyPhysicsForces } from "./physics.js";
 import * as MESH from "./mesh.js";
 import { loadGLTFShape, getHoveredShape, highlightObject, unHighlightObject } from "./three-utils.js";
+import * as LAYOUT from "./layout.js";
 
 const shapes = {
     parents: [],
     subjects: [],
     add: function(shape) {
         this.parents.push(shape);
-        this.subjects.push(shape.subject);
+        this.subjects.push(shape.userData.subject);
     }
 };
 const tethers = [];
 const tetherForce = 0.15;
-const shapeMinProximity = 5;
-const shapeMaxProximity = 3.5;
+const shapeMinProximity = 6;
+const shapeMaxProximity = 4;
 
 // Setup
 // mouse functionality
@@ -56,8 +57,9 @@ function mainloop() {
     document.getElementById("container").appendChild(renderer.domElement);
     const clock = new THREE.Clock();
     // start loading everything
-    const geometries = Promise.all([
-        loadGLTFShape("source/moving-not-cube.glb")
+    const gtlfData = Promise.all([
+        loadGLTFShape("source/moving-not-cube.glb"),
+        loadGLTFShape("source/empty-globe.glb")
     ]);
 
     // Setup external (yawn) library controls
@@ -74,13 +76,13 @@ function mainloop() {
     controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
     controls.drag.addEventListener("dragstart", function (event) {
         controls.camera.enabled = false;
-        event.object.dragged = true;
-        highlightObject(event.object.subject);
+        event.object.userData.dragged = true;
+        highlightObject(event.object.userData.subject);
     });
     controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
-        event.object.dragged = false;
-        unHighlightObject(event.object.subject);
+        event.object.userData.dragged = false;
+        unHighlightObject(event.object.userData.subject);
     });
     
     scene.background = new THREE.Color(0xff3065);
@@ -111,37 +113,39 @@ function mainloop() {
 
     
 
-    geometries.then(values => {
-        const [ notCubeData, ..._] = values;
+    gtlfData.then(values => {
+        const [ notCubeData, globeData, ..._] = values;
         const notCubeGeometry = notCubeData.geometry;
         const notCubeIdleAnimation = notCubeData.animation;
         const cube = createCube( [0, 0, 0], notCubeGeometry);
         
         const cube2 = createCube( [3, 0, 3], notCubeGeometry);
         const cube3 = createCube( [-3, 0, 3], notCubeGeometry);
-        linkCubes(cube, cube2);
-        linkCubes(cube, cube3);
-        linkCubes(cube2, cube3);
-        cube.subject.addAnimation("idle", notCubeIdleAnimation).play();
-        cube2.subject.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
-        cube3.subject.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
+        linkNodes(cube, cube2);
+        linkNodes(cube, cube3);
+        linkNodes(cube2, cube3);
+        cube.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation).play();
+        cube2.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
+        cube3.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
+
+        const globe = createGlobe([3, 0, 5], globeData.geometry);
 
         // for fun :)
         renderer.domElement.addEventListener("contextmenu", function(event) {
             const shape = getHoveredShape(raycaster, mouse, camera, scene);
             if (shapes.parents.includes(shape)) {
                 if (event.shiftKey) {
-                    highlightObject(shape.subject);
+                    highlightObject(shape.userData.subject);
                     renderer.domElement.addEventListener("click", function (event) {
                         const other = getHoveredShape(raycaster, mouse, camera, scene);
                         if (shapes.parents.includes(other)) {
                             console.log("interlinked");
-                            linkCubes(shape, other);
+                            linkNodes(shape, other);
                             
                         } else {
                             console.log("didnt link :(", other);
                         }
-                        unHighlightObject(shape.subject);
+                        unHighlightObject(shape.userData.subject);
                     }, { once: true });
                     console.log("looking to link");
                 } else {
@@ -171,6 +175,7 @@ function mainloop() {
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
             renderer.render(scene, camera);
         }
+        console.log("Exported layout:", LAYOUT.layoutToJson(shapes.parents));
         renderer.setAnimationLoop(animate);
     });
 }
@@ -178,10 +183,10 @@ function mainloop() {
 function addNode(position, geometry, defaultAnimation = undefined, neighbors = []) {
     const node = createCube(position, geometry);
     if (defaultAnimation) {
-        node.subject.addAnimation("idle", defaultAnimation, random(0.4, 1.6)).play();
+        node.userData.subject.userData.addAnimation("idle", defaultAnimation, random(0.4, 1.6)).play();
     }
     neighbors.forEach(neighbor => {
-        linkCubes(node, neighbor);
+        linkNodes(node, neighbor);
     });
     return node;
 }
@@ -190,14 +195,23 @@ function random(min, max) {
 }
 function createCube(position, geometry) {
     const notCube = MESH.DragShape(geometry);
+    notCube.userData.type = "cube";
     notCube.position.set(...position);
     shapes.add(notCube); // make interactable
     scene.add(notCube);
     console.debug("Added Cube to scene:", notCube);
     return notCube;
 }
-
-function linkCubes(origin, target) {
+function createGlobe(position, geometry) {
+    const globe = MESH.DragShape(geometry);
+    globe.userData.type = "globe";
+    globe.position.set(...position);
+    shapes.add(globe);
+    scene.add(globe);
+    console.debug("Added Globe to scene:", globe);
+    return globe;
+}
+function linkNodes(origin, target) {
     const tether = MESH.Tether(origin, target);
     tethers.push(tether); // tracking
     scene.add(tether);
@@ -206,16 +220,16 @@ function linkCubes(origin, target) {
 function applyShapeIdleAnimation(delta) {
     // requestAnimationFrame(animate); // [!] google says I need this, but it runs fine without it and lags horribly...
     shapes.subjects.forEach(shape => {
-        shape.updateAnimation(delta);
+        shape.userData.updateAnimation(delta);
     });
 }
 function applyTetherUpdates() {
     tethers.forEach(tether => {
         if (
-            tether.origin.subject.position != tether.vectors.origin ||
-            tether.target.subject.position != tether.vectors.target
+            tether.userData.origin.userData.subject.position != tether.userData.vectors.origin ||
+            tether.userData.target.userData.subject.position != tether.userData.vectors.target
         ) {
-            tether.update();
+            tether.userData.update();
         }
     });
 }
