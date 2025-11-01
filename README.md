@@ -8,5 +8,11 @@ The app this project is based on is still available today. Please give it a shot
 ### Frontend
 Three.js for rendering
 
+# Preview pre-alpha build
+https://scritty1249.github.io/another-webapp
+- RClick any node - spawns cube node attached to it
+- Shift + RClick any node, then LClick any other node to connect them
+> *raycasting from camera a little finicky here, may need to click in odd places to select things*
+
 # Reviews from real people
 "that is not a cube" - some hater
