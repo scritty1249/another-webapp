@@ -1,14 +1,13 @@
 import WebGL from "three/addons/capabilities/WebGL.js";
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { Line2 } from "three/addons/lines/Line2.js";
-import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
-import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import { applyTetherForces } from "./physics.js";
+import * as MESH from "./mesh.js";
+import { loadGeometry } from "./three-utils.js";
 
 const shapes = [];
-const lines = [];
+const tethers = [];
 const tetherForce = 0.15;
 const shapeMinProximity = 4;
 const shapeMaxProximity = 3;
@@ -44,6 +43,10 @@ if (WebGL.isWebGL2Available()) {
 
 function mainloop() {
     document.getElementById("container").appendChild(renderer.domElement);
+    // start loading everything
+    const geometries = Promise.all([
+        loadGeometry("source/not-cube.glb")
+    ]);
 
     // Setup external (yawn) library controls
     const controls = {
@@ -67,10 +70,10 @@ function mainloop() {
         applyShapeIdleAnimation();
         
         // physics
-        applyTethers(shapeMinProximity, shapeMaxProximity, tetherForce, dragForceMultiplier);
+        applyTetherForces(tethers, shapeMinProximity, shapeMaxProximity, tetherForce, dragForceMultiplier);
 
         // update all connecting lines
-        applyLineUpdates();
+        applyTetherUpdates();
 
         // required if controls.enableDamping or controls.autoRotate are set to true
         controls.camera.update(); // must be called after any manual changes to the camera"s transform
@@ -102,99 +105,33 @@ function mainloop() {
     light.shadow.camera.near = 1;
     light.shadow.camera.far = 10;
 
-    // load everything
-    loadScene("source/not-cube.glb")
-        .then((sc) => getGeometry(sc))
-        .then((geometry) => {
-            const cube = createShape(geometry);
-            cube.position.set(0, 0, 0);
-            scene.add(cube);
+    geometries.then(values => {
+        let [ notCubeGeometry, ..._] = values;
+        const cube = addNotCube( [0, 0, 0], notCubeGeometry);
+        const cube2 = addNotCube( [3, 0, 3], notCubeGeometry);
+        const cube3 = addNotCube( [-3, 0, 3], notCubeGeometry);
+        addTether(cube, cube2);
+        addTether(cube, cube3);
+        addTether(cube2, cube3);
 
-            const cube2 = createShape(geometry);
-            cube2.position.set(3, 0, 3);
-            scene.add(cube2);
-
-            const cube3 = createShape(geometry);
-            cube3.position.set(-3, 0, 3);
-            scene.add(cube3);
-
-            const line = connectLine(cube, cube2);
-            scene.add(line);
-
-            const line2 = connectLine(cube, cube3);
-            scene.add(line2);
-
-            const line3 = connectLine(cube2, cube3);
-            scene.add(line3);
-
-            // render the stuff
-            renderer.setAnimationLoop(animate);
-        });
-}
-
-function getHoveredShape() {
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    return intersects.length > 0 ? intersects[0].object : undefined;
-}
-
-function createShape(geometry, clickable = true) {
-    const material = new THREE.MeshPhongMaterial({ color: 0x00ff00 });
-    const mesh = new THREE.Mesh(geometry, material);
-    shapes.push(mesh);
-    console.info("Loaded mesh:", mesh);
-    mesh.castShadow = true;
-    mesh.clickable = clickable;
-    mesh.dragged = false;
-    mesh.lines = {
-        origin: [],
-        target: [],
-    };
-    return mesh;
-}
-function getLineVectors(line) {
-    const positionAttribute = line.geometry.attributes.position;
-    return {
-        origin: new THREE.Vector3().fromBufferAttribute(positionAttribute, 0),
-        target: new THREE.Vector3().fromBufferAttribute(positionAttribute, 1),
-    };
-}
-function getLineLength(line) {
-    let {p1, p2} = getLineVectors(line);
-    return p1.distanceTo(p2);
-}
-function setLine(line, origin, target) {
-    line.origin = origin;
-    line.target = target;
-    updateLine(line);
-}
-function updateLine(line) {
-    line.geometry.setFromPoints([line.origin.position, line.target.position]);
-    line.length = line.origin.position.distanceTo(line.target.position);
-    line.direction.subVectors(line.target.position, line.origin.position).normalize(); // always points from target to origin
-    line.geometry.attributes.position.needsUpdate = true;
-}
-function connectLine(origin, target, color = 0xc0c0c0) {
-    const material = new LineMaterial({
-        color: color,
-        linewidth: 2.5,
-        alphaToCoverage: true,
+        // render the stuff
+        renderer.setAnimationLoop(animate);
     });
-    const geometry = new LineGeometry();
-    const line = new Line2(geometry, material);
-    line.direction = new THREE.Vector3();
-    setLine(line, origin, target);
-    lines.push(line);
-    if (origin.lines) {
-        origin.lines.origin.push(line);
-    }
-    if (target.lines) {
-        target.lines.target.push(line);
-    }
-    return line;
 }
-function random(min, max) {
-    return Math.random() * (max - min) + min;
+
+function addNotCube(position, geometry) {
+    const notCube = MESH.Shape(geometry);
+    notCube.position.set(...position);
+    shapes.push(notCube); // make interactable
+    scene.add(notCube);
+    return notCube;
+}
+
+function addTether(origin, target) {
+    const tether = MESH.Tether(origin, target);
+    tethers.push(tether); // tracking
+    scene.add(tether);
+    return tether;
 }
 function applyShapeIdleAnimation() {
     shapes.forEach((shape, i) => {
@@ -204,71 +141,14 @@ function applyShapeIdleAnimation() {
         }
     })
 }
-function applyLineUpdates() {
-    lines.forEach((line) => {
-        let lineVectors = getLineVectors(line);
+function applyTetherUpdates() {
+    tethers.forEach(tether => {
         if (
-            line.origin.position != lineVectors.origin ||
-            line.target.position != lineVectors.target
+            tether.origin.position != tether.vectors.origin ||
+            tether.target.position != tether.vectors.target
         ) {
-            updateLine(line);
+            tether.update();
         }
     });
 }
-function applyTethers(attractProximity, repelProximity, force, dragForceMultiplier) {
-    // positive forceVec attracts, negative repeals
-    lines.forEach(line => {
-        const attractiveVector = new THREE.Vector3();
-        const magnitude = ((attractProximity - line.length) / attractProximity) * (force * (line.target.dragged || line.origin.dragged) ? dragForceMultiplier : 1);
-        if (line.length > attractProximity) {
-            attractiveVector.add(line.direction.clone().multiplyScalar(magnitude));
-        } else if (line.length < repelProximity) {
-            attractiveVector.sub(line.direction.clone().multiplyScalar(-magnitude));
-        }
-        if (!isVectorZero(attractiveVector))
-            if (!line.origin.dragged)
-                line.origin.position.sub(attractiveVector);
-            if (!line.target.dragged)
-                line.target.position.add(attractiveVector);
-    });
-}
 
-function isVectorZero(vector) {
-    // meant for handling floating-point bullshit
-    return (
-        Math.abs(vector.x) < Number.EPSILON &&
-        Math.abs(vector.y) < Number.EPSILON &&
-        Math.abs(vector.z) < Number.EPSILON
-    );
-}
-
-async function getGeometry(scene) {
-    let promise = Promise.resolve(false);
-    scene.traverse(function (child) {
-        if (child.isMesh) {
-            console.info(`Found Geometry:`, child.geometry);
-            // "child" is a THREE.Mesh object
-            // "child.geometry" is the THREE.BufferGeometry associated with this mesh
-            promise = Promise.resolve(child.geometry);
-        }
-    });
-    let result = await promise;
-    if (result == false) {
-        console.error("Error getting geometry");
-        return;
-    }
-    return result;
-}
-
-async function loadScene(gltfPath) {
-    const loader = new GLTFLoader();
-    try {
-        const gltf = await loader.loadAsync(gltfPath);
-        // Access the loaded scene, animations, etc.
-        console.info("Scene loaded successfully:", gltf.scene);
-        return gltf.scene;
-    } catch (error) {
-        console.error("Error loading model:", error);
-        throw error; // Re-throw the error for further handling
-    }
-}
