@@ -14,9 +14,15 @@ function isVectorZero(vector) {
         Math.abs(vector.z) < Number.EPSILON
     );
 }
-function loadGeometry(gltfPath) {
-    return loadScene(gltfPath)
-        .then(sc => { return getGeometry(sc) });
+function loadGLTFShape(gltfPath) {
+    return loadGLTF(gltfPath)
+        .then(gltf => Promise.all([getGeometry(gltf.scene), Promise.resolve(gltf.animations[0])]) )
+        .then(values => {
+            return {
+                geometry: values[0],
+                animation: values[1]
+            };
+        });
 }
 async function getGeometry(scene) {
     let promise = Promise.resolve(false);
@@ -35,17 +41,17 @@ async function getGeometry(scene) {
     }
     return result;
 }
-async function loadScene(gltfPath) {
+async function loadGLTF(gltfPath) {
     const loader = new GLTFLoader();
     try {
         const gltf = await loader.loadAsync(gltfPath);
         // Access the loaded scene, animations, etc.
         console.info("Scene loaded successfully:", gltf.scene);
-        return gltf.scene;
+        return gltf;
     } catch (error) {
         console.error("Error loading model:", error);
         throw error; // Re-throw the error for further handling
     }
 }
 
-export { isVectorZero, loadGeometry };
+export { isVectorZero, loadGLTFShape };

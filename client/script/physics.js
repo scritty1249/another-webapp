@@ -18,3 +18,13 @@ export function applyTetherForces(tethers, attractProximity, repelProximity, for
                 tether.target.position.add(attractiveVector);
     });
 }
+
+export function applyPhysicsForces(
+    shapes,
+    attractProximity,
+    repelProximity,
+    force,
+    tetherAttractMultiplier = 1.5,
+) {
+    
+}
