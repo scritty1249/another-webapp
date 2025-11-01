@@ -2,9 +2,9 @@ import WebGL from "three/addons/capabilities/WebGL.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
-import { applyTetherForces } from "./physics.js";
+import { applyPhysicsForces } from "./physics.js";
 import * as MESH from "./mesh.js";
-import { loadGLTFShape } from "./three-utils.js";
+import { loadGLTFShape, getHoveredShape } from "./three-utils.js";
 
 const shapes = {
     parents: [],
@@ -16,12 +16,12 @@ const shapes = {
 };
 const tethers = [];
 const tetherForce = 0.15;
-const shapeMinProximity = 4;
-const shapeMaxProximity = 3;
-const dragForceMultiplier = 1.05; // strength applied to tethered objects if the other object is being dragged
+const shapeMinProximity = 5;
+const shapeMaxProximity = 3.5;
 
 // Setup
 // mouse functionality
+const mouse = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 // scene
 const scene = new THREE.Scene();
@@ -58,22 +58,32 @@ function mainloop() {
 
     // Setup external (yawn) library controls
     const controls = {
-        drag: new DragControls(shapes.parents, camera, renderer.domElement), // drag n' drop
+        drag: new DragControls(shapes.parents, camera, renderer.domElement), // drag n" drop
         camera: new OrbitControls(camera, renderer.domElement), // camera
     };
-    // controls.drag.recursive = false; // don't select children independently
+    controls.camera.enablePan = false;
     controls.drag.transformGroup = true;
+    controls.drag.rotateSpeed = 0;
+
+    // release right click
+    controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
+    controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
+
+    window.addEventListener('mousemove', function (event) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+    }, false);
     controls.drag.addEventListener("dragstart", function (event) {
         controls.camera.enabled = false;
         event.object.dragged = true;
         event.object.subject.material.emissive.set(0x999999);
-        console.log(event.object.position, event.object.subject.position)
     });
     controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
         event.object.dragged = false;
         event.object.subject.material.emissive.set(0x000000);
     });
+    
 
     // render a plane
     const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
@@ -117,12 +127,26 @@ function mainloop() {
         cube2.subject.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
         cube3.subject.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
 
-        addNode(
-            [random(0, 15), 0, random(0, 15)],
-            notCubeGeometry,
-            notCubeIdleAnimation,
-            [cube, cube3]
-        );
+        // for fun :)
+        renderer.domElement.addEventListener("contextmenu", function(event) {
+            event.preventDefault();
+            const shape = getHoveredShape(raycaster, mouse, camera, scene);
+            if (shapes.subjects.includes(shape)) {
+                addNode(
+                    [random(0, 15), 0, random(0, 15)],
+                    notCubeGeometry,
+                    notCubeIdleAnimation,
+                    [shape.parent]
+                );
+            } else if (shapes.parents.includes(shape)) {
+                addNode(
+                    [random(0, 15), 0, random(0, 15)],
+                    notCubeGeometry,
+                    notCubeIdleAnimation,
+                    [shape]
+                );
+            }
+        });
 
         // render the stuff
         function animate() {
@@ -130,7 +154,7 @@ function mainloop() {
             applyShapeIdleAnimation(clock.getDelta());
             
             // physics
-            applyTetherForces(tethers, shapeMinProximity, shapeMaxProximity, tetherForce, dragForceMultiplier);
+            applyPhysicsForces(shapes.parents, shapeMinProximity, shapeMaxProximity, tetherForce);
 
             // update all connecting lines
             applyTetherUpdates();
