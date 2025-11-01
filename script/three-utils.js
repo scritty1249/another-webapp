@@ -1,10 +1,20 @@
 import { Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+function highlightObject(object) {
+    object.material.emissive.set(0x999999);
+}
+function unHighlightObject(object) {
+    object.material.emissive.set(0x000000);
+}
 function getHoveredShape(raycaster, mouse, camera, scene) {
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObjects(scene.children, true);
-    return intersects.length > 0 ? intersects[0].object : undefined;
+    return intersects.length > 0
+        ? intersects[0].object.parent
+            ? intersects[0].object.parent
+            : intersects[0].object
+        : undefined;
 }
 function isVectorZero(vector) {
     // meant for handling floating-point bullshit
@@ -16,11 +26,16 @@ function isVectorZero(vector) {
 }
 function loadGLTFShape(gltfPath) {
     return loadGLTF(gltfPath)
-        .then(gltf => Promise.all([getGeometry(gltf.scene), Promise.resolve(gltf.animations[0])]) )
-        .then(values => {
+        .then((gltf) =>
+            Promise.all([
+                getGeometry(gltf.scene),
+                Promise.resolve(gltf.animations[0]),
+            ])
+        )
+        .then((values) => {
             return {
                 geometry: values[0],
-                animation: values[1]
+                animation: values[1],
             };
         });
 }
@@ -54,4 +69,10 @@ async function loadGLTF(gltfPath) {
     }
 }
 
-export { isVectorZero, loadGLTFShape, getHoveredShape };
+export {
+    isVectorZero,
+    loadGLTFShape,
+    getHoveredShape,
+    highlightObject,
+    unHighlightObject,
+};

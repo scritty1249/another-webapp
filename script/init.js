@@ -4,7 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import { applyPhysicsForces } from "./physics.js";
 import * as MESH from "./mesh.js";
-import { loadGLTFShape, getHoveredShape } from "./three-utils.js";
+import { loadGLTFShape, getHoveredShape, highlightObject, unHighlightObject } from "./three-utils.js";
 
 const shapes = {
     parents: [],
@@ -40,6 +40,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
+window.addEventListener('mousemove', function (event) {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+}, false);
+
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
     mainloop();
@@ -68,20 +73,15 @@ function mainloop() {
     // release right click
     controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
     controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
-
-    window.addEventListener('mousemove', function (event) {
-        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    }, false);
     controls.drag.addEventListener("dragstart", function (event) {
         controls.camera.enabled = false;
         event.object.dragged = true;
-        event.object.subject.material.emissive.set(0x999999);
+        highlightObject(event.object.subject);
     });
     controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
         event.object.dragged = false;
-        event.object.subject.material.emissive.set(0x000000);
+        unHighlightObject(event.object.subject);
     });
     
 
@@ -129,23 +129,32 @@ function mainloop() {
 
         // for fun :)
         renderer.domElement.addEventListener("contextmenu", function(event) {
-            event.preventDefault();
             const shape = getHoveredShape(raycaster, mouse, camera, scene);
-            if (shapes.subjects.includes(shape)) {
-                addNode(
-                    [random(0, 15), 0, random(0, 15)],
-                    notCubeGeometry,
-                    notCubeIdleAnimation,
-                    [shape.parent]
-                );
-            } else if (shapes.parents.includes(shape)) {
-                addNode(
-                    [random(0, 15), 0, random(0, 15)],
-                    notCubeGeometry,
-                    notCubeIdleAnimation,
-                    [shape]
-                );
+            if (shapes.parents.includes(shape)) {
+                if (event.shiftKey) {
+                    highlightObject(shape.subject);
+                    renderer.domElement.addEventListener("click", function (event) {
+                        const other = getHoveredShape(raycaster, mouse, camera, scene);
+                        if (shapes.parents.includes(other)) {
+                            console.log("interlinked");
+                            linkCubes(shape, other);
+                            
+                        } else {
+                            console.log("didnt link :(", other);
+                        }
+                        unHighlightObject(shape.subject);
+                    }, { once: true });
+                    console.log("looking to link");
+                } else {
+                    addNode(
+                        [random(0, 15), 0, random(0, 15)],
+                        notCubeGeometry,
+                        notCubeIdleAnimation,
+                        [shape]
+                    );
+                }
             }
+            event.preventDefault();
         });
 
         // render the stuff
