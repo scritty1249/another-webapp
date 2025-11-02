@@ -7,7 +7,7 @@ function overlayElementOnScene(objectPositionData, parentElement, element, scale
     updateOverlayElementOnScene(objectPositionData, element, scaleRange);
     parentElement.appendChild(element);
 }
-function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [5, 20], clampScale = [0.25, 0.7]) {
+function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
     const scale = clamp(overlayZoomFormula(
         scaleRange[1] - clamp(objectPositionData.distance, scaleRange[0], scaleRange[1]),
         scaleRange[1]
