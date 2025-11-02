@@ -1,18 +1,29 @@
-html, body {
+html,
+body {
     padding: 0;
-    margin: 10;
+    margin: 0;
 }
 html {
-    overflow: scroll;
+    overflow: visible;
 }
 body {
     font-family: Arial, sans-serif;
     overflow: visible;
 }
+canvas {
+    display: block;
+}
+* {
+    box-sizing: border-box;
+}
+#watermark > * {
+    margin: 0;
+}
 #container {
     overflow: visible;
     width: 100vw;
     height: 100vh;
+    position: absolute;
     margin: 0;
     padding: 0;
     display: grid;
@@ -32,18 +43,53 @@ body {
     height: 100%;
     padding: 1em;
     margin: 0;
+    overflow: hidden;
 }
 #overlay > .pointer-events {
     pointer-events: auto;
 }
 #overlay > .button {
+    --x-side: -50%;
+    --y-side: -50%;
     position: absolute;
-    transform: translate(-50%,-50%) scale(var(--scale));
+    transform: translate(var(--x-side), var(--y-side)) scale(var(--scale));
     margin: 0;
     padding: 0;
     top: var(--y);
     left: var(--x);
 }
-#watermark > * {
-    margin: 0;
+#overlay > .button.right {
+    --x-side: 10%;
+}
+#overlay > .button.left {
+    --x-side: -125%;
+}
+@keyframes mask-left-right {
+    0% {
+        mask-position: -100% 0%;
+    }
+    100% {
+        mask-image: center;
+    }
+}
+.reveal {
+    --mask-source: linear-gradient(to right, #fff 0%, #fff 50%, #0000 51%, #0000 100%);
+    mask-image: var(--mask-source);
+    -webkit-mask-image: var(--mask-source);
+    mask-mode: alpha;
+    mask-size: 400% 100%;
+    mask-repeat: no-repeat;
+    -webkit-mask-size: 400% 100%;
+    animation: clip-fade 0.8s forwards ease-in; /* bricks animation sometimes at >1s duration */
+}
+
+@keyframes clip-fade {
+    0% {
+        mask-position: 75%;
+        -webkit-mask-position: 75%;
+    }
+    100% {
+        mask-position: 0%;
+        -webkit-mask-position: 0%;
+    }
 }
