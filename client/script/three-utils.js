@@ -1,15 +1,17 @@
 import { Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+const zeroVector = new Vector3();
+
 function highlightObject(object) {
     object.material.emissive.set(0x999999);
 }
 function unHighlightObject(object) {
     object.material.emissive.set(0x000000);
 }
-function getHoveredShape(raycaster, mouse, camera, scene) {
+function getHoveredShape(raycaster, mouse, camera, shapes) {
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
+    const intersects = raycaster.intersectObjects(shapes, true);
     return intersects.length > 0
         ? intersects[0].object.parent
             ? intersects[0].object.parent
@@ -82,6 +84,9 @@ async function loadGLTF(gltfPath) {
         throw error; // Re-throw the error for further handling
     }
 }
+function getZoom(camera) {
+    return camera.position.distanceTo(zeroVector);
+}
 
 export {
     isVectorZero,
@@ -89,5 +94,6 @@ export {
     getHoveredShape,
     highlightObject,
     unHighlightObject,
-    getObjectScreenPosition
+    getObjectScreenPosition,
+    getZoom
 };

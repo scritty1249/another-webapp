@@ -4,9 +4,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import { applyPhysicsForces } from "./physics.js";
 import * as MESH from "./mesh.js";
-import { loadGLTFShape, getHoveredShape, highlightObject, unHighlightObject, getObjectScreenPosition } from "./three-utils.js";
+import * as THREEUTILS from "./three-utils.js";
 import * as LAYOUT from "./layout.js";
-import { overlayElement } from "./dom-utils.js";
+import * as DOMUTILS from "./dom-utils.js";
 
 const shapes = {
     parents: [],
@@ -16,10 +16,37 @@ const shapes = {
         this.subjects.push(shape.userData.subject);
     }
 };
+const mouseData = {
+    left: {
+        down: {
+            ms: 0,
+            position: new THREE.Vector3()
+        },
+        up: {
+            ms: 0,
+            position: new THREE.Vector3()
+        }
+    },
+    right: {
+        down: {
+            ms: 0,
+            position: new THREE.Vector3()
+        },
+        up: {
+            ms: 0,
+            position: new THREE.Vector3()
+        }
+    },
+    scroll: {
+        zoom: 0
+    }
+}
+const overlayElements = [];
 const tethers = [];
 const tetherForce = 0.15;
 const shapeMinProximity = 6;
 const shapeMaxProximity = 4;
+const mouseClickDurationThreshold = 0.5 * 1000; // ms
 
 // Setup
 // mouse functionality
@@ -57,10 +84,12 @@ if (WebGL.isWebGL2Available()) {
 function mainloop() {
     document.getElementById("container").appendChild(renderer.domElement);
     const clock = new THREE.Clock();
+    mouseData.scroll.zoom = THREEUTILS.getZoom(camera);
+
     // start loading everything
     const gtlfData = Promise.all([
-        loadGLTFShape("source/moving-not-cube.glb"),
-        loadGLTFShape("source/empty-globe.glb")
+        THREEUTILS.loadGLTFShape("source/moving-not-cube.glb"),
+        THREEUTILS.loadGLTFShape("source/empty-globe.glb")
     ]);
 
     // Setup external (yawn) library controls
@@ -69,31 +98,89 @@ function mainloop() {
         camera: new OrbitControls(camera, renderer.domElement), // camera
     };
     controls.camera.enablePan = false;
+    controls.camera.maxDistance = 25;
+    controls.camera.enableDamping = true;
+    controls.camera.dampingFactor = 0.12;
     controls.drag.transformGroup = true;
     controls.drag.rotateSpeed = 0;
 
     // release right click
     controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
     controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
+
+    controls.camera.addEventListener("change", function (event) {
+        const zoom = THREEUTILS.getZoom(camera);
+        if (zoom != mouseData.scroll.zoom) {
+            const scrollEvent = new CustomEvent("zoom", {
+                bubbles: true,
+                cancelable: true,
+                detail: { distance: mouseData.scroll.zoom - zoom }
+            });
+            renderer.domElement.dispatchEvent(scrollEvent);
+        }
+        mouseData.scroll.zoom = zoom;
+    });
+    controls.drag.addEventListener("drag", function (event) {
+        const positionData = THREEUTILS.getObjectScreenPosition(event.object, camera, renderer);
+        const overlayEl = getObjectOverlay(event.object.uuid);
+    });
     controls.drag.addEventListener("dragstart", function (event) {
+        mouseData.left.down.position.copy(event.object.position);
         controls.camera.enabled = false;
         event.object.userData.dragged = true;
-        highlightObject(event.object.userData.subject);
-        const objPos = getObjectScreenPosition(event.object, camera, renderer);
-        const el = document.createElement("img");
-        el.src = "../source/circle.png";
-        el.classList.add("button");
-        el.dataset.focusedObjectUuid = event.object.uuid;
-        overlayElement(objPos, document.getElementById("overlay"), el);
-        setTimeout(() => {
-            el.remove();
-        }, 1500);
-        console.log(el);
+        THREEUTILS.highlightObject(event.object.userData.subject);
     });
     controls.drag.addEventListener("dragend", function (event) {
+        mouseData.left.up.position.copy(event.object.position);
         controls.camera.enabled = true;
         event.object.userData.dragged = false;
-        unHighlightObject(event.object.userData.subject);
+        THREEUTILS.unHighlightObject(event.object.userData.subject);
+    });
+    renderer.domElement.addEventListener("mousedown", function(event) {
+        if (event.button === 2)
+            mouseData.right.down.ms = Date.now();
+        else
+            mouseData.left.down.ms = Date.now();
+    });
+    renderer.domElement.addEventListener("mouseup", function(event) {
+        if (event.button === 2) { // right click = 2
+            mouseData.right.up.ms = Date.now();
+            if (mouseData.right.up.ms - mouseData.right.down.ms < mouseClickDurationThreshold) {
+                const clickedEvent = new CustomEvent("rclicked", {
+                    bubbles: true,
+                    cancelable: true,
+                    detail: {}
+                });
+                renderer.domElement.dispatchEvent(clickedEvent);
+            }
+        } else { // left click = 0
+            mouseData.left.up.ms = Date.now();
+            if (mouseData.left.up.ms - mouseData.left.down.ms < mouseClickDurationThreshold) {
+                const clickedEvent = new CustomEvent("clicked", {
+                    bubbles: true,
+                    cancelable: true,
+                    detail: {}
+                });
+                renderer.domElement.dispatchEvent(clickedEvent);
+            }
+        }
+    });
+    renderer.domElement.addEventListener("clicked", function(event) {
+        const obj = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
+        const noOverlay = (obj) ? getObjectOverlay(obj.uuid) == undefined : true;
+        overlayElements.forEach(el => el.remove());
+        overlayElements.splice(0, overlayElements.length);
+        if (obj && noOverlay) {
+            overlayOnObject(obj, camera, renderer);
+        }
+    });
+    renderer.domElement.addEventListener("zoom", function(event) {
+        // overlayElements.forEach(overlayElement => {
+        //     if (overlayElement) {
+        //         const focusedObject = getObject(overlayElement.dataset.focusedObjectUuid);
+        //         const positionData = THREEUTILS.getObjectScreenPosition(focusedObject, camera, renderer);
+        //     }
+        // });
     });
     
     scene.background = new THREE.Color(0xff3065);
@@ -143,12 +230,12 @@ function mainloop() {
 
         // for fun :)
         renderer.domElement.addEventListener("contextmenu", function(event) {
-            const shape = getHoveredShape(raycaster, mouse, camera, scene);
+            const shape = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
             if (shapes.parents.includes(shape)) {
                 if (event.shiftKey) {
-                    highlightObject(shape.userData.subject);
+                    THREEUTILS.highlightObject(shape.userData.subject);
                     renderer.domElement.addEventListener("click", function (event) {
-                        const other = getHoveredShape(raycaster, mouse, camera, scene);
+                        const other = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
                         if (shapes.parents.includes(other)) {
                             console.log("interlinked");
                             linkNodes(shape, other);
@@ -156,7 +243,7 @@ function mainloop() {
                         } else {
                             console.log("didnt link :(", other);
                         }
-                        unHighlightObject(shape.userData.subject);
+                        THREEUTILS.unHighlightObject(shape.userData.subject);
                     }, { once: true });
                     console.log("looking to link");
                 } else {
@@ -179,6 +266,9 @@ function mainloop() {
             // physics
             applyPhysicsForces(shapes.parents, shapeMinProximity, shapeMaxProximity, tetherForce);
 
+            // update any onscreen overlays after physics applied
+            updateObjectOverlays();
+
             // update all connecting lines
             applyTetherUpdates();
 
@@ -190,7 +280,45 @@ function mainloop() {
         renderer.setAnimationLoop(animate);
     });
 }
-
+function getObjectOverlay(uuid) {
+    return [undefined, ...overlayElements.filter(el => el.dataset.focusedObjectUuid == uuid)].at(-1);
+}
+function getObject(uuid) {
+    return [undefined, ...shapes.parents.filter(shape => shape.uuid == uuid)].at(-1);
+}
+function overlayOnObject(object, camera, renderer) {
+    const objPos = THREEUTILS.getObjectScreenPosition(object, camera, renderer);
+    // const el = document.createElement("img");
+    // el.src = "../source/circle.png";
+    // el.classList.add("button");
+    const el = DOMUTILS.OverlayElement.createNodeMenu();
+    el.dataset.focusedObjectUuid = object.uuid;
+    overlayElements.push(el);
+    DOMUTILS.overlayElementOnScene(objPos, document.getElementById("overlay"), el);
+    
+}
+function updateObjectOverlays() {
+    overlayElements.forEach(overlayEl => {
+        const focusObj = getObject(overlayEl.dataset.focusedObjectUuid);
+        const positionData = THREEUTILS.getObjectScreenPosition(focusObj, camera, renderer);
+        DOMUTILS.updateOverlayElementOnScene(positionData, overlayEl);
+    });
+}
+function removeOverlayFromObject(tag, focusedObjectUuid) {
+    tag = tag.toLowerCase();
+    const removeEls = overlayElements.filter(e => e.tagName.toLowerCase() == tag && e.dataset.focusedObjectUuid == focusedObjectUuid);
+    for (let i = overlayElements.length - 1; i >= 0; i--) { // iterate backwards to avoid issues caused by reindexing
+        if (removeEls.includes(overlayElements[i])) {
+            overlayElements[i].remove();
+            overlayElements.splice(i, 1);
+        }
+    }
+}
+function isObjectMoved(startPosition, endPosition, distanceThreshold) {
+    if (distanceThreshold == 0)
+        distanceThreshold = Number.EPSILON;
+    return startPosition.distanceTo(endPosition) > distanceThreshold;
+}
 function addNode(position, geometry, defaultAnimation = undefined, neighbors = []) {
     const node = createCube(position, geometry);
     if (defaultAnimation) {
