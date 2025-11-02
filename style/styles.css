@@ -70,6 +70,10 @@ canvas {
 }
 .nodeMenu > .button {
     transform: translate(var(--left), var(--top));
+    transition: all 0.3s ease-out; 
+}
+.nodeMenu >.button:active {
+    filter: brightness(180%);
 }
 @keyframes mask-left-right {
     0% {
