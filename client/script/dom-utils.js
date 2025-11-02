@@ -7,7 +7,7 @@ function overlayElementOnScene(objectPositionData, parentElement, element, scale
     updateOverlayElementOnScene(objectPositionData, element, scaleRange);
     parentElement.appendChild(element);
 }
-function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [5, 20], clampScale = [0.25, 0.5]) {
+function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [5, 20], clampScale = [0.25, 0.7]) {
     const scale = clamp(overlayZoomFormula(
         scaleRange[1] - clamp(objectPositionData.distance, scaleRange[0], scaleRange[1]),
         scaleRange[1]
@@ -35,7 +35,11 @@ const OverlayElement = {
 
         const linkButton = this.createLinkButton();
         el.appendChild(linkButton);
-        
+        const infoButton = this.createInfoButton();
+        el.appendChild(infoButton);
+        const addButton = this.createAddButton();
+        el.appendChild(addButton);
+
         return el;
     },
     createLinkButton: function() {
@@ -47,6 +51,30 @@ const OverlayElement = {
         el.style.height = "55px";
         el.style.setProperty("--left", "101px");
         el.style.setProperty("--top", "104px");
+        
+        return el;
+    },
+    createInfoButton: function() {
+        const el = document.createElement("div");
+        el.classList.add("button", "pointer-events");
+        el.dataset.buttonType = "info";
+        el.style.backgroundImage = `url("../source/info-button.png")`;
+        el.style.width = "172px";
+        el.style.height = "175px";
+        el.style.setProperty("--left", "215px");
+        el.style.setProperty("--top", "207px");
+        
+        return el;
+    },
+    createAddButton: function() {
+        const el = document.createElement("div");
+        el.classList.add("button", "pointer-events");
+        el.dataset.buttonType = "add";
+        el.style.backgroundImage = `url("../source/add-button.png")`;
+        el.style.width = "121px";
+        el.style.height = "125px";
+        el.style.setProperty("--left", "343px");
+        el.style.setProperty("--top", "155px");
         
         return el;
     }
