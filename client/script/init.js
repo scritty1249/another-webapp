@@ -2,11 +2,11 @@ import WebGL from "three/addons/capabilities/WebGL.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
-import { applyPhysicsForces } from "/script/physics.js";
-import * as MESH from "/script/mesh.js";
-import * as THREEUTILS from "/script/three-utils.js";
-import * as LAYOUT from "/script/layout.js";
-import * as DOMUTILS from "/script/dom-utils.js";
+import { applyPhysicsForces } from "./physics.js";
+import * as MESH from "./mesh.js";
+import * as THREEUTILS from "./three-utils.js";
+import * as LAYOUT from "./layout.js";
+import * as DOMUTILS from "./dom-utils.js";
 
 const shapes = {
     parents: [],
