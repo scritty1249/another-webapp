@@ -60,8 +60,8 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000
 );
-camera.position.z = 5;
-camera.position.y = 2;
+camera.position.z = 10;
+camera.position.y = 5;
 // rendererererer
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -219,9 +219,9 @@ function mainloop() {
         
         const cube2 = createCube( [3, 0, 3], notCubeGeometry);
         const cube3 = createCube( [-3, 0, 3], notCubeGeometry);
-        linkNodes(cube, cube2);
-        linkNodes(cube, cube3);
-        linkNodes(cube2, cube3);
+        tetherNodes(cube, cube2);
+        tetherNodes(cube, cube3);
+        tetherNodes(cube2, cube3);
         cube.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation).play();
         cube2.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
         cube3.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
@@ -232,28 +232,12 @@ function mainloop() {
         renderer.domElement.addEventListener("contextmenu", function(event) {
             const shape = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
             if (shapes.parents.includes(shape)) {
-                if (event.shiftKey) {
-                    THREEUTILS.highlightObject(shape.userData.subject);
-                    renderer.domElement.addEventListener("click", function (event) {
-                        const other = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
-                        if (shapes.parents.includes(other)) {
-                            console.log("interlinked");
-                            linkNodes(shape, other);
-                            
-                        } else {
-                            console.log("didnt link :(", other);
-                        }
-                        THREEUTILS.unHighlightObject(shape.userData.subject);
-                    }, { once: true });
-                    console.log("looking to link");
-                } else {
-                    addNode(
-                        [random(0, 15), 0, random(0, 15)],
-                        notCubeGeometry,
-                        notCubeIdleAnimation,
-                        [shape]
-                    );
-                }
+                addNode(
+                    [random(0, 15), 0, random(0, 15)],
+                    notCubeGeometry,
+                    notCubeIdleAnimation,
+                    [shape]
+                );
             }
             event.preventDefault();
         });
@@ -288,12 +272,13 @@ function getObject(uuid) {
 }
 function overlayOnObject(object, camera, renderer) {
     const objPos = THREEUTILS.getObjectScreenPosition(object, camera, renderer);
-    // const el = document.createElement("img");
-    // el.src = "../source/circle.png";
-    // el.classList.add("button");
     const el = DOMUTILS.OverlayElement.createNodeMenu();
     el.dataset.focusedObjectUuid = object.uuid;
     overlayElements.push(el);
+    el.querySelector(`:scope > .button[data-button-type="link"]`)
+        .addEventListener("click", function (event) {
+            linkNode(el.dataset.focusedObjectUuid);
+        });
     DOMUTILS.overlayElementOnScene(objPos, document.getElementById("overlay"), el);
     
 }
@@ -325,7 +310,7 @@ function addNode(position, geometry, defaultAnimation = undefined, neighbors = [
         node.userData.subject.userData.addAnimation("idle", defaultAnimation, random(0.4, 1.6)).play();
     }
     neighbors.forEach(neighbor => {
-        linkNodes(node, neighbor);
+        tetherNodes(node, neighbor);
     });
     return node;
 }
@@ -333,7 +318,7 @@ function random(min, max) {
   return Math.random() * (max - min) + min;
 }
 function createCube(position, geometry) {
-    const notCube = MESH.DragShape(geometry);
+    const notCube = MESH.DragShape(geometry, 0x000000);
     notCube.userData.type = "cube";
     notCube.position.set(...position);
     shapes.add(notCube); // make interactable
@@ -342,7 +327,7 @@ function createCube(position, geometry) {
     return notCube;
 }
 function createGlobe(position, geometry) {
-    const globe = MESH.DragShape(geometry);
+    const globe = MESH.DragShape(geometry, 0x880101);
     globe.userData.type = "globe";
     globe.position.set(...position);
     shapes.add(globe);
@@ -350,7 +335,7 @@ function createGlobe(position, geometry) {
     console.debug("Added Globe to scene:", globe);
     return globe;
 }
-function linkNodes(origin, target) {
+function tetherNodes(origin, target) {
     const tether = MESH.Tether(origin, target);
     tethers.push(tether); // tracking
     scene.add(tether);
@@ -371,4 +356,21 @@ function applyTetherUpdates() {
             tether.userData.update();
         }
     });
+}
+function linkNode(uuid) { // function called by clicking the link button in the node menu
+    const origin = getObject(uuid);
+    THREEUTILS.highlightObject(origin.userData.subject);
+    renderer.domElement.addEventListener("clicked", function (event) {
+        const other = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
+        if (shapes.parents.includes(other)) {
+            console.log("interlinked");
+            tetherNodes(origin, other);
+            
+        } else {
+            console.log("didnt link :(", other);
+        }
+        THREEUTILS.unHighlightObject(other.userData.subject);
+        THREEUTILS.unHighlightObject(origin.userData.subject);
+    }, { once: true });
+    console.log("looking to link");
 }

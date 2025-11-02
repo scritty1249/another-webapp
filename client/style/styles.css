@@ -45,10 +45,10 @@ canvas {
     margin: 0;
     overflow: hidden;
 }
-#overlay > .pointer-events {
+.pointer-events {
     pointer-events: auto;
 }
-#overlay > .button {
+#overlay > .nodeMenu {
     --x-side: -50%;
     --y-side: -50%;
     position: absolute;
@@ -57,12 +57,19 @@ canvas {
     padding: 0;
     top: var(--y);
     left: var(--x);
+    overflow: visible;
+    background-size: auto;
+    background-repeat: no-repeat;
+    background-origin: center;
 }
-#overlay > .button.right {
-    --x-side: 10%;
+#overlay > .nodeMenu.right {
+    --x-side: 5%;
 }
-#overlay > .button.left {
+#overlay > .nodeMenu.left {
     --x-side: -125%;
+}
+.nodeMenu > .button {
+    transform: translate(var(--left), var(--top));
 }
 @keyframes mask-left-right {
     0% {

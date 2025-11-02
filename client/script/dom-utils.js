@@ -1,14 +1,13 @@
 const overlayZoomFormula = (zoom, maxZoom) => {
     return 1/(
-        1 + (Math.E**(-0.5*( zoom-(maxZoom/1.75) )))
+        1 + (Math.E**(-0.5*( zoom-(maxZoom/2.5) )))
     );
 };
-
 function overlayElementOnScene(objectPositionData, parentElement, element, scaleRange = [5, 20]) {
     updateOverlayElementOnScene(objectPositionData, element, scaleRange);
     parentElement.appendChild(element);
 }
-function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [5, 20], clampScale = [0.25, 0.7]) {
+function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [5, 20], clampScale = [0.25, 0.5]) {
     const scale = clamp(overlayZoomFormula(
         scaleRange[1] - clamp(objectPositionData.distance, scaleRange[0], scaleRange[1]),
         scaleRange[1]
@@ -25,15 +24,36 @@ function clamp(num, min, max) {
 };
 const OverlayElement = {
     createNodeMenu: function() {
-        const elWrapper = document.createElement("div");
-        elWrapper.classList.add("button", "right", "reveal", "pointer-events");
-        const el = document.createElement("img");
-        el.src = "../source/node-overlay-menu.png";
-        elWrapper.appendChild(el);
-        return elWrapper;
+        const el = document.createElement("div");
+        el.classList.add("nodeMenu", "right", "reveal");
+        // hard coded- needs to be updated if file changes.
+        el.style.backgroundImage = `url("../source/node-overlay-menu.png")`;
+        el.style.minWidth = "516px";
+        el.style.minHeight = "545px";
+        el.style.width = "516px";
+        el.style.height = "545px";
+
+        const linkButton = this.createLinkButton();
+        el.appendChild(linkButton);
+        
+        return el;
+    },
+    createLinkButton: function() {
+        const el = document.createElement("div");
+        el.classList.add("button", "pointer-events");
+        el.dataset.buttonType = "link";
+        el.style.backgroundImage = `url("../source/link-button.png")`;
+        el.style.width = "182px";
+        el.style.height = "55px";
+        el.style.setProperty("--left", "101px");
+        el.style.setProperty("--top", "104px");
+        
+        return el;
     }
 }
-
+function isDifferenceZero(num, num2) {
+    return Math.abs(num) - Math.abs(num2) < Number.EPSILON;
+}
 export {
     overlayElementOnScene,
     updateOverlayElementOnScene,
