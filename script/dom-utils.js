@@ -46,7 +46,7 @@ const OverlayElement = {
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "link";
-        el.style.backgroundImage = `url("../source/link-button.png")`;
+        el.style.backgroundImage = `url("./source/link-button.png")`;
         el.style.width = "182px";
         el.style.height = "55px";
         el.style.setProperty("--left", "101px");
@@ -58,7 +58,7 @@ const OverlayElement = {
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "info";
-        el.style.backgroundImage = `url("../source/info-button.png")`;
+        el.style.backgroundImage = `url("./source/info-button.png")`;
         el.style.width = "172px";
         el.style.height = "175px";
         el.style.setProperty("--left", "215px");
