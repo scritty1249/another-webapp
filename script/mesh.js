@@ -9,9 +9,9 @@ import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 
-function DragShape(geometry) {
+function DragShape(geometry, color = 0x00ff00) {
     const parent = new Group();
-    parent.add(Shape(geometry, false));
+    parent.add(new Shape(geometry, color));
     parent.children[0].parent = parent; // may be bad to have a recursive reference here
     parent.userData.subject = parent.children[0] // easier access
     parent.userData.dragged = false;
@@ -21,8 +21,8 @@ function DragShape(geometry) {
     };
     return parent;
 }
-function Shape(geometry) {
-    const material = new MeshPhongMaterial({ color: 0x00ff00 });
+function Shape(geometry, color) {
+    const material = new MeshPhongMaterial({ color: color });
     const mesh = new Mesh(geometry, material);
     console.info("Loaded mesh:", mesh);
     mesh.castShadow = true;
