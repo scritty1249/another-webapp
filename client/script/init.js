@@ -168,6 +168,9 @@ function mainloop() {
     renderer.domElement.addEventListener("zoom", function(event) {
 
     });
+    renderer.domElement.addEventListener("contextmenu", function(event) {
+        event.preventDefault();
+    });
     
     scene.background = new THREE.Color(0xff3065);
     // render a plane
