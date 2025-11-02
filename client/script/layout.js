@@ -1,4 +1,4 @@
-import * as UTIL from "/script/three-utils.js";
+import * as UTIL from "./script/three-utils.js";
 
 export function layoutToJson(shapes) {
     const data = {
