@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { isVectorZero } from "./script/three-utils.js";
+import { isVectorZero } from "./three-utils.js";
 
 function applyPhysicsRelation(
     origin,
