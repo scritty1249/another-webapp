@@ -239,11 +239,6 @@ function mainloop() {
             
         }
 
-
-
-
-
-
         const cube = createCube( [0, 0, 0], notCubeGeometry);
         
         const cube2 = createCube( [3, 0, 3], notCubeGeometry);
@@ -387,7 +382,6 @@ const nodeMenuActions = {
             } else {
                 console.log("didnt link :(", other);
             }
-            THREEUTILS.unHighlightObject(other.userData.subject);
             THREEUTILS.unHighlightObject(origin.userData.subject);
         }, { once: true });
         console.log("looking to link");
