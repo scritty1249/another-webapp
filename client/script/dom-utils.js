@@ -27,7 +27,7 @@ const OverlayElement = {
         const el = document.createElement("div");
         el.classList.add("nodeMenu", "right", "reveal");
         // hard coded- needs to be updated if file changes.
-        el.style.backgroundImage = `url("../source/node-overlay-menu.png")`;
+        el.style.backgroundImage = `url("./source/node-overlay-menu.png")`;
         el.style.minWidth = "516px";
         el.style.minHeight = "545px";
         el.style.width = "516px";
@@ -70,7 +70,7 @@ const OverlayElement = {
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "add";
-        el.style.backgroundImage = `url("../source/add-button.png")`;
+        el.style.backgroundImage = `url("./source/add-button.png")`;
         el.style.width = "121px";
         el.style.height = "125px";
         el.style.setProperty("--left", "343px");
