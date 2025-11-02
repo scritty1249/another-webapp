@@ -177,7 +177,11 @@ function mainloop() {
     scene.background = new THREE.Color(0xff3065);
     // render a plane
     const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
-    const planeMaterial = new THREE.MeshPhongMaterial({ color: 0x090909 }); // dark gray, single-sided
+    const planeMaterial = new THREE.MeshPhongMaterial({
+        color: 0x000000,
+        transparent: true, // Ensure this is enabled for opacity
+        opacity: 0.8
+    }); // single-sided plane
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
     scene.add(plane);
     plane.receiveShadow = true;
