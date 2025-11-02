@@ -74,6 +74,7 @@ canvas {
 }
 .nodeMenu >.button:active {
     filter: brightness(180%);
+    transition: all 2s ease-out; 
 }
 @keyframes mask-left-right {
     0% {

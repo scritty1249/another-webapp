@@ -2,11 +2,11 @@ import WebGL from "three/addons/capabilities/WebGL.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
-import { applyPhysicsForces } from "./physics.js";
-import * as MESH from "./mesh.js";
-import * as THREEUTILS from "./three-utils.js";
-import * as LAYOUT from "./layout.js";
-import * as DOMUTILS from "./dom-utils.js";
+import { applyPhysicsForces } from "/script/physics.js";
+import * as MESH from "/script/mesh.js";
+import * as THREEUTILS from "/script/three-utils.js";
+import * as LAYOUT from "/script/layout.js";
+import * as DOMUTILS from "/script/dom-utils.js";
 
 const shapes = {
     parents: [],
@@ -254,21 +254,7 @@ function mainloop() {
         cube2.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
         cube3.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
 
-        const globe = createGlobe([3, 0, 5], globeData.geometry);
-
-        // for fun :)
-        renderer.domElement.addEventListener("contextmenu", function(event) {
-            const shape = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
-            if (shapes.parents.includes(shape)) {
-                addNode(
-                    [random(0, 15), 0, random(0, 15)],
-                    notCubeGeometry,
-                    notCubeIdleAnimation,
-                    [shape]
-                );
-            }
-            event.preventDefault();
-        });
+        const globe = createGlobe([6, 3, 5], globeData.geometry);
 
         // render the stuff
         function animate() {
@@ -393,7 +379,11 @@ const nodeMenuActions = {
     addNode: function (uuid, newNodeData) { // may depreciate this in 1-2 commits in favor of creating new nodes without any connecitons, now that the overlay menu works.
         const origin = getObject(uuid);
         addNode(
-            [random(0, 15), 0, random(0, 15)],
+            [
+                origin.position.x + random(-shapeMaxProximity/1.5, shapeMaxProximity/1.5),
+                origin.position.y + random(-shapeMaxProximity/1.5, shapeMaxProximity/1.5),
+                origin.position.z + random(-shapeMaxProximity/1.5, shapeMaxProximity/1.5)
+            ],
             newNodeData.geometry,
             newNodeData.animation,
             [origin]
