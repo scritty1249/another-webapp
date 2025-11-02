@@ -165,15 +165,6 @@ function mainloop() {
             }
         }
     });
-    renderer.domElement.addEventListener("clicked", function(event) {
-        const obj = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
-        const noOverlay = (obj) ? getObjectOverlay(obj.uuid) == undefined : true;
-        overlayElements.forEach(el => el.remove());
-        overlayElements.splice(0, overlayElements.length);
-        if (obj && noOverlay) {
-            overlayOnObject(obj, camera, renderer);
-        }
-    });
     renderer.domElement.addEventListener("zoom", function(event) {
         // overlayElements.forEach(overlayElement => {
         //     if (overlayElement) {
@@ -215,6 +206,44 @@ function mainloop() {
         const [ notCubeData, globeData, ..._] = values;
         const notCubeGeometry = notCubeData.geometry;
         const notCubeIdleAnimation = notCubeData.animation;
+
+        // functions using geometry
+        renderer.domElement.addEventListener("clicked", function(event) {
+            const obj = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
+            const noOverlay = (obj) ? getObjectOverlay(obj.uuid) == undefined : true;
+            overlayElements.forEach(el => el.remove());
+            overlayElements.splice(0, overlayElements.length);
+            if (obj && noOverlay) {
+                overlayOnObject(obj, camera, renderer);
+            }
+        });
+        function overlayOnObject(object, camera, renderer) {
+            const objPos = THREEUTILS.getObjectScreenPosition(object, camera, renderer);
+            const el = DOMUTILS.OverlayElement.createNodeMenu();
+            el.dataset.focusedObjectUuid = object.uuid;
+            overlayElements.push(el);
+            // make buttons work
+            el.querySelector(`:scope > .button[data-button-type="link"]`)
+                .addEventListener("click", function (event) {
+                    nodeMenuActions.linkNode(el.dataset.focusedObjectUuid);
+                });
+            el.querySelector(`:scope > .button[data-button-type="add"]`)
+                .addEventListener("click", function (event) {
+                    nodeMenuActions.addNode(el.dataset.focusedObjectUuid, {geometry: notCubeGeometry, animation: notCubeIdleAnimation});
+                });
+            el.querySelector(`:scope > .button[data-button-type="info"]`)
+                .addEventListener("click", function (event) {
+                    // does nothing for now
+                });
+            DOMUTILS.overlayElementOnScene(objPos, document.getElementById("overlay"), el);
+            
+        }
+
+
+
+
+
+
         const cube = createCube( [0, 0, 0], notCubeGeometry);
         
         const cube2 = createCube( [3, 0, 3], notCubeGeometry);
@@ -269,18 +298,6 @@ function getObjectOverlay(uuid) {
 }
 function getObject(uuid) {
     return [undefined, ...shapes.parents.filter(shape => shape.uuid == uuid)].at(-1);
-}
-function overlayOnObject(object, camera, renderer) {
-    const objPos = THREEUTILS.getObjectScreenPosition(object, camera, renderer);
-    const el = DOMUTILS.OverlayElement.createNodeMenu();
-    el.dataset.focusedObjectUuid = object.uuid;
-    overlayElements.push(el);
-    el.querySelector(`:scope > .button[data-button-type="link"]`)
-        .addEventListener("click", function (event) {
-            linkNode(el.dataset.focusedObjectUuid);
-        });
-    DOMUTILS.overlayElementOnScene(objPos, document.getElementById("overlay"), el);
-    
 }
 function updateObjectOverlays() {
     overlayElements.forEach(overlayEl => {
@@ -357,20 +374,31 @@ function applyTetherUpdates() {
         }
     });
 }
-function linkNode(uuid) { // function called by clicking the link button in the node menu
-    const origin = getObject(uuid);
-    THREEUTILS.highlightObject(origin.userData.subject);
-    renderer.domElement.addEventListener("clicked", function (event) {
-        const other = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
-        if (shapes.parents.includes(other)) {
-            console.log("interlinked");
-            tetherNodes(origin, other);
-            
-        } else {
-            console.log("didnt link :(", other);
-        }
-        THREEUTILS.unHighlightObject(other.userData.subject);
-        THREEUTILS.unHighlightObject(origin.userData.subject);
-    }, { once: true });
-    console.log("looking to link");
-}
+const nodeMenuActions = {
+    linkNode: function (uuid) { // function called by clicking the link button in the node menu
+        const origin = getObject(uuid);
+        THREEUTILS.highlightObject(origin.userData.subject);
+        renderer.domElement.addEventListener("clicked", function (event) {
+            const other = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
+            if (shapes.parents.includes(other)) {
+                console.log("interlinked");
+                tetherNodes(origin, other);
+                
+            } else {
+                console.log("didnt link :(", other);
+            }
+            THREEUTILS.unHighlightObject(other.userData.subject);
+            THREEUTILS.unHighlightObject(origin.userData.subject);
+        }, { once: true });
+        console.log("looking to link");
+    },
+    addNode: function (uuid, newNodeData) { // may depreciate this in 1-2 commits in favor of creating new nodes without any connecitons, now that the overlay menu works.
+        const origin = getObject(uuid);
+        addNode(
+            [random(0, 15), 0, random(0, 15)],
+            newNodeData.geometry,
+            newNodeData.animation,
+            [origin]
+        );
+    }
+};
