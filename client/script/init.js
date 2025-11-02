@@ -166,12 +166,7 @@ function mainloop() {
         }
     });
     renderer.domElement.addEventListener("zoom", function(event) {
-        // overlayElements.forEach(overlayElement => {
-        //     if (overlayElement) {
-        //         const focusedObject = getObject(overlayElement.dataset.focusedObjectUuid);
-        //         const positionData = THREEUTILS.getObjectScreenPosition(focusedObject, camera, renderer);
-        //     }
-        // });
+
     });
     
     scene.background = new THREE.Color(0xff3065);
