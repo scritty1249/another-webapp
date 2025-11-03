@@ -1,3 +1,5 @@
+import { clamp } from "./utils.js";
+
 const overlayZoomFormula = (zoom, maxZoom) => {
     return 1/(
         1 + (Math.E**(-0.5*( zoom-(maxZoom/2.5) )))
@@ -19,9 +21,7 @@ function updateOverlayElementOnScene(objectPositionData, element, scaleRange = [
     element.style.setProperty("--y", `${y}px`);
     element.style.setProperty("--scale", scale);
 }
-function clamp(num, min, max) {
-  return Math.min(Math.max(num, min), max);
-};
+
 const OverlayElement = {
     createNodeMenu: function() {
         const el = document.createElement("div");
