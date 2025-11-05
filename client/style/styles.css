@@ -83,7 +83,8 @@ canvas {
     display: flex;
     flex-direction: row;
     margin: 0;
-    overflow: hidden;
+    overflow-y: hidden;
+    overflow-x: scroll;
 }
 .button-menu * {
     overflow-y: hidden;
