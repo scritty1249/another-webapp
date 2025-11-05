@@ -10,8 +10,8 @@ import { OverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
 import * as UTILS from "./utils.js";
 
-const tetherForce = 0.15;
-const shapeMinProximity = 6;
+const tetherForce = 0.2;
+const shapeMinProximity = 5.5;
 const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
 
