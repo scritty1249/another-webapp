@@ -4,10 +4,14 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 const zeroVector = new Vector3();
 
 function highlightObject(object) {
-    object.material.emissive.set(0x999999);
+    object.children.forEach(child => {
+        child.material.emissive.set(0x999999);
+    });
 }
 function unHighlightObject(object) {
-    object.material.emissive.set(0x000000);
+    object.children.forEach(child => {
+        child.material.emissive.set(0x000000);
+    });
 }
 function getHoveredShape(raycaster, mouse, camera, shapes) {
     raycaster.setFromCamera(mouse, camera);
@@ -43,34 +47,34 @@ function isVectorZero(vector) {
 function loadGLTFShape(gltfPath) {
     return loadGLTF(gltfPath)
         .then((gltf) =>
-            Promise.all([
-                getGeometry(gltf.scene),
-                Promise.resolve(gltf.animations[0]),
+            Promise.resolve([
+                getMesh(gltf.scene),
+                Object.fromEntries(Array.from(gltf.animations, ani => [ani.name, ani])),
             ])
         )
         .then((values) => {
             return {
-                geometry: values[0],
-                animation: values[1],
+                mesh: values[0],
+                animations: values[1],
             };
         });
 }
-async function getGeometry(scene) {
-    let promise = Promise.resolve(false);
+function getMesh(scene) {
+    let mesh = undefined;
     scene.traverse(function (child) {
         if (child.isMesh) {
-            console.info(`Found Geometry:`, child.geometry);
             // "child" is a THREE.Mesh object
-            // "child.geometry" is the THREE.BufferGeometry associated with this mesh
-            promise = Promise.resolve(child.geometry);
+            if (!mesh) {
+                console.info(`Found Mesh object "${child.name}":`, child);
+                mesh = child;
+            }
         }
     });
-    let result = await promise;
-    if (result == false) {
-        console.error("Error getting geometry");
+    if (!mesh) {
+        console.error("Error getting mesh");
         return;
     }
-    return result;
+    return mesh;
 }
 async function loadGLTF(gltfPath) {
     const loader = new GLTFLoader();
@@ -88,6 +92,7 @@ function getZoom(camera) {
     return camera.position.distanceTo(zeroVector);
 }
 
+
 export {
     isVectorZero,
     loadGLTFShape,
@@ -95,5 +100,5 @@ export {
     highlightObject,
     unHighlightObject,
     getObjectScreenPosition,
-    getZoom
+    getZoom,
 };

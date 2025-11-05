@@ -1,4 +1,14 @@
-import * as UTIL from "./three-utils.js";
+export function clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+}
+
+export function random(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+export function deepCopy(obj) { // ONYL FOR NORMAL JS OBJECTS. threejs objects have a dedicated stringify method!
+    return JSON.parse(JSON.stringify(obj));
+}
 
 export function layoutToJson(shapes) {
     const data = {
@@ -9,11 +19,11 @@ export function layoutToJson(shapes) {
     const neighbors = new Set();
     shapes.forEach((shape, i) => {
         data.nodes.push(
-            new NodeObject(shape.userData.type, shape.uuid, shape.position)
+            new NodeObject(shape.userData.type, shape.uuid, shape.position.round())
         );
         [
-            ...shape.userData.lines.target.map(other => other.userData.origin),
-            ...shape.userData.lines.origin.map(other => other.userData.target)
+            ...Object.values(shape.userData.tethers.target).map(other => other.userData.origin),
+            ...Object.values(shape.userData.tethers.origin).map(other => other.userData.target)
         ].forEach(other => {
             neighbors.add(new Set([shape.uuid, other.uuid]));
         });

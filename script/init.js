@@ -2,55 +2,21 @@ import WebGL from "three/addons/capabilities/WebGL.js";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
-import { applyPhysicsForces } from "./physics.js";
 import * as MESH from "./mesh.js";
 import * as THREEUTILS from "./three-utils.js";
-import * as LAYOUT from "./layout.js";
-import * as DOMUTILS from "./dom-utils.js";
+import { NodeManager } from "./nodes.js";
+import { Mouse } from "./cursor.js";
+import { OverlayManager } from "./overlay.js";
+import { PhysicsManager } from "./physics.js";
+import * as UTILS from "./utils.js";
 
-const shapes = {
-    parents: [],
-    subjects: [],
-    add: function(shape) {
-        this.parents.push(shape);
-        this.subjects.push(shape.userData.subject);
-    }
-};
-const mouseData = {
-    left: {
-        down: {
-            ms: 0,
-            position: new THREE.Vector3()
-        },
-        up: {
-            ms: 0,
-            position: new THREE.Vector3()
-        }
-    },
-    right: {
-        down: {
-            ms: 0,
-            position: new THREE.Vector3()
-        },
-        up: {
-            ms: 0,
-            position: new THREE.Vector3()
-        }
-    },
-    scroll: {
-        zoom: 0
-    }
-}
-const overlayElements = [];
-const tethers = [];
 const tetherForce = 0.15;
 const shapeMinProximity = 6;
 const shapeMaxProximity = 4;
-const mouseClickDurationThreshold = 0.5 * 1000; // ms
+const mouseClickDurationThreshold = 0.4 * 1000; // ms
 
 // Setup
-// mouse functionality
-const mouse = new THREE.Vector2();
+// MouseController functionality
 const raycaster = new THREE.Raycaster();
 // scene
 const scene = new THREE.Scene();
@@ -58,20 +24,16 @@ const camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    80
 );
 camera.position.z = 10;
 camera.position.y = 5;
 // rendererererer
-const renderer = new THREE.WebGLRenderer();
+const renderer = new THREE.WebGLRenderer({ antialias: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-window.addEventListener('mousemove', function (event) {
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-}, false);
+renderer.toneMapping = THREE.LinearToneMapping;
 
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
@@ -82,19 +44,24 @@ if (WebGL.isWebGL2Available()) {
 }
 
 function mainloop() {
-    document.getElementById("container").appendChild(renderer.domElement);
+    const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
+    const NodeController = new NodeManager(scene, renderer, camera, raycaster);
+    const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
+        MouseController, NodeController, document.getElementById("overlay"));
+    const PhysicsController = new PhysicsManager(NodeController, shapeMinProximity, shapeMaxProximity, tetherForce);
     const clock = new THREE.Clock();
-    mouseData.scroll.zoom = THREEUTILS.getZoom(camera);
+    document.getElementById("container").appendChild(renderer.domElement);
 
     // start loading everything
     const gtlfData = Promise.all([
-        THREEUTILS.loadGLTFShape("source/moving-not-cube.glb"),
-        THREEUTILS.loadGLTFShape("source/empty-globe.glb")
+        THREEUTILS.loadGLTFShape("../source/not-cube.glb"),
+        THREEUTILS.loadGLTFShape("../source/globe.glb"),
+        THREEUTILS.loadGLTFShape("../source/scanner.glb")
     ]);
 
     // Setup external (yawn) library controls
     const controls = {
-        drag: new DragControls(shapes.parents, camera, renderer.domElement), // drag n" drop
+        drag: new DragControls(NodeController.nodelist, camera, renderer.domElement), // drag n" drop
         camera: new OrbitControls(camera, renderer.domElement), // camera
     };
     controls.camera.enablePan = false;
@@ -110,66 +77,19 @@ function mainloop() {
 
     controls.camera.addEventListener("change", function (event) {
         const zoom = THREEUTILS.getZoom(camera);
-        if (zoom != mouseData.scroll.zoom) {
-            const scrollEvent = new CustomEvent("zoom", {
-                bubbles: true,
-                cancelable: true,
-                detail: { distance: mouseData.scroll.zoom - zoom }
-            });
-            renderer.domElement.dispatchEvent(scrollEvent);
-        }
-        mouseData.scroll.zoom = zoom;
     });
     controls.drag.addEventListener("drag", function (event) {
-        const positionData = THREEUTILS.getObjectScreenPosition(event.object, camera, renderer);
-        const overlayEl = getObjectOverlay(event.object.uuid);
+        
     });
     controls.drag.addEventListener("dragstart", function (event) {
-        mouseData.left.down.position.copy(event.object.position);
         controls.camera.enabled = false;
         event.object.userData.dragged = true;
-        THREEUTILS.highlightObject(event.object.userData.subject);
+        NodeController.highlightNode(event.object.uuid);
     });
     controls.drag.addEventListener("dragend", function (event) {
-        mouseData.left.up.position.copy(event.object.position);
         controls.camera.enabled = true;
         event.object.userData.dragged = false;
-        THREEUTILS.unHighlightObject(event.object.userData.subject);
-    });
-    renderer.domElement.addEventListener("mousedown", function(event) {
-        if (event.button === 2)
-            mouseData.right.down.ms = Date.now();
-        else
-            mouseData.left.down.ms = Date.now();
-    });
-    renderer.domElement.addEventListener("mouseup", function(event) {
-        if (event.button === 2) { // right click = 2
-            mouseData.right.up.ms = Date.now();
-            if (mouseData.right.up.ms - mouseData.right.down.ms < mouseClickDurationThreshold) {
-                const clickedEvent = new CustomEvent("rclicked", {
-                    bubbles: true,
-                    cancelable: true,
-                    detail: {}
-                });
-                renderer.domElement.dispatchEvent(clickedEvent);
-            }
-        } else { // left click = 0
-            mouseData.left.up.ms = Date.now();
-            if (mouseData.left.up.ms - mouseData.left.down.ms < mouseClickDurationThreshold) {
-                const clickedEvent = new CustomEvent("clicked", {
-                    bubbles: true,
-                    cancelable: true,
-                    detail: {}
-                });
-                renderer.domElement.dispatchEvent(clickedEvent);
-            }
-        }
-    });
-    renderer.domElement.addEventListener("zoom", function(event) {
-
-    });
-    renderer.domElement.addEventListener("contextmenu", function(event) {
-        event.preventDefault();
+        NodeController.unhighlightNode(event.object.uuid);
     });
     
     scene.background = new THREE.Color(0xff3065);
@@ -202,189 +122,41 @@ function mainloop() {
     light.shadow.camera.near = 1;
     light.shadow.camera.far = 10;
 
-    
-
     gtlfData.then(values => {
-        const [ notCubeData, globeData, ..._] = values;
-        const notCubeGeometry = notCubeData.geometry;
-        const notCubeIdleAnimation = notCubeData.animation;
+        const [ cubeData, globeData, eyeData, ..._] = values;
+        console.log("Finished loading shape data:", values);
 
         // functions using geometry
         renderer.domElement.addEventListener("clicked", function(event) {
-            const obj = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
-            const noOverlay = (obj) ? getObjectOverlay(obj.uuid) == undefined : true;
-            overlayElements.forEach(el => el.remove());
-            overlayElements.splice(0, overlayElements.length);
-            if (obj && noOverlay) {
-                overlayOnObject(obj, camera, renderer);
-            }
+            const clickedNodeId = NodeController.getNodeFromFlatCoordinate(MouseController.position);
+            if (clickedNodeId && OverlayController.focusedNodeId != clickedNodeId)
+                OverlayController.focusNode(clickedNodeId);
+            else
+                OverlayController.unfocusNode();
         });
-        function overlayOnObject(object, camera, renderer) {
-            const objPos = THREEUTILS.getObjectScreenPosition(object, camera, renderer);
-            const el = DOMUTILS.OverlayElement.createNodeMenu();
-            el.dataset.focusedObjectUuid = object.uuid;
-            overlayElements.push(el);
-            // make buttons work
-            el.querySelector(`:scope > .button[data-button-type="link"]`)
-                .addEventListener("click", function (event) {
-                    nodeMenuActions.linkNode(el.dataset.focusedObjectUuid);
-                });
-            el.querySelector(`:scope > .button[data-button-type="add"]`)
-                .addEventListener("click", function (event) {
-                    nodeMenuActions.addNode(el.dataset.focusedObjectUuid, {geometry: notCubeGeometry, animation: notCubeIdleAnimation});
-                });
-            el.querySelector(`:scope > .button[data-button-type="info"]`)
-                .addEventListener("click", function (event) {
-                    // does nothing for now
-                });
-            DOMUTILS.overlayElementOnScene(objPos, document.getElementById("overlay"), el);
-            
-        }
 
-        const cube = createCube( [0, 0, 0], notCubeGeometry);
-        
-        const cube2 = createCube( [3, 0, 3], notCubeGeometry);
-        const cube3 = createCube( [-3, 0, 3], notCubeGeometry);
-        tetherNodes(cube, cube2);
-        tetherNodes(cube, cube3);
-        tetherNodes(cube2, cube3);
-        cube.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation).play();
-        cube2.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.4).play();
-        cube3.userData.subject.userData.addAnimation("idle", notCubeIdleAnimation, 0.71).play();
-
-        const globe = createGlobe([6, 3, 5], globeData.geometry);
+        NodeController.addMeshData({
+            cube: () => MESH.Nodes.Cube(cubeData),
+            globe: () => MESH.Nodes.Globe(globeData),
+            scanner: () => MESH.Nodes.Scanner(eyeData),
+            tether: (o, t) => MESH.Tether(o, t)
+        });
+        NodeController.createNode("cube");
 
         // render the stuff
         function animate() {
-            // ambient animation
-            applyShapeIdleAnimation(clock.getDelta());
-            
             // physics
-            applyPhysicsForces(shapes.parents, shapeMinProximity, shapeMaxProximity, tetherForce);
+            PhysicsController.update();
 
-            // update any onscreen overlays after physics applied
-            updateObjectOverlays();
+            NodeController.update(clock.getDelta());
 
-            // update all connecting lines
-            applyTetherUpdates();
+            OverlayController.update();
 
             // required if controls.enableDamping or controls.autoRotate are set to true
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
             renderer.render(scene, camera);
         }
-        console.log("Exported layout:", LAYOUT.layoutToJson(shapes.parents));
+        console.log("Exported layout:", UTILS.layoutToJson(NodeController.nodelist));
         renderer.setAnimationLoop(animate);
     });
 }
-function getObjectOverlay(uuid) {
-    return [undefined, ...overlayElements.filter(el => el.dataset.focusedObjectUuid == uuid)].at(-1);
-}
-function getObject(uuid) {
-    return [undefined, ...shapes.parents.filter(shape => shape.uuid == uuid)].at(-1);
-}
-function updateObjectOverlays() {
-    overlayElements.forEach(overlayEl => {
-        const focusObj = getObject(overlayEl.dataset.focusedObjectUuid);
-        const positionData = THREEUTILS.getObjectScreenPosition(focusObj, camera, renderer);
-        DOMUTILS.updateOverlayElementOnScene(positionData, overlayEl);
-    });
-}
-function removeOverlayFromObject(tag, focusedObjectUuid) {
-    tag = tag.toLowerCase();
-    const removeEls = overlayElements.filter(e => e.tagName.toLowerCase() == tag && e.dataset.focusedObjectUuid == focusedObjectUuid);
-    for (let i = overlayElements.length - 1; i >= 0; i--) { // iterate backwards to avoid issues caused by reindexing
-        if (removeEls.includes(overlayElements[i])) {
-            overlayElements[i].remove();
-            overlayElements.splice(i, 1);
-        }
-    }
-}
-function isObjectMoved(startPosition, endPosition, distanceThreshold) {
-    if (distanceThreshold == 0)
-        distanceThreshold = Number.EPSILON;
-    return startPosition.distanceTo(endPosition) > distanceThreshold;
-}
-function addNode(position, geometry, defaultAnimation = undefined, neighbors = []) {
-    const node = createCube(position, geometry);
-    if (defaultAnimation) {
-        node.userData.subject.userData.addAnimation("idle", defaultAnimation, random(0.4, 1.6)).play();
-    }
-    neighbors.forEach(neighbor => {
-        tetherNodes(node, neighbor);
-    });
-    return node;
-}
-function random(min, max) {
-  return Math.random() * (max - min) + min;
-}
-function createCube(position, geometry) {
-    const notCube = MESH.DragShape(geometry, 0x000000);
-    notCube.userData.type = "cube";
-    notCube.position.set(...position);
-    shapes.add(notCube); // make interactable
-    scene.add(notCube);
-    console.debug("Added Cube to scene:", notCube);
-    return notCube;
-}
-function createGlobe(position, geometry) {
-    const globe = MESH.DragShape(geometry, 0x880101);
-    globe.userData.type = "globe";
-    globe.position.set(...position);
-    shapes.add(globe);
-    scene.add(globe);
-    console.debug("Added Globe to scene:", globe);
-    return globe;
-}
-function tetherNodes(origin, target) {
-    const tether = MESH.Tether(origin, target);
-    tethers.push(tether); // tracking
-    scene.add(tether);
-    return tether;
-}
-function applyShapeIdleAnimation(delta) {
-    // requestAnimationFrame(animate); // [!] google says I need this, but it runs fine without it and lags horribly...
-    shapes.subjects.forEach(shape => {
-        shape.userData.updateAnimation(delta);
-    });
-}
-function applyTetherUpdates() {
-    tethers.forEach(tether => {
-        if (
-            tether.userData.origin.userData.subject.position != tether.userData.vectors.origin ||
-            tether.userData.target.userData.subject.position != tether.userData.vectors.target
-        ) {
-            tether.userData.update();
-        }
-    });
-}
-const nodeMenuActions = {
-    linkNode: function (uuid) { // function called by clicking the link button in the node menu
-        const origin = getObject(uuid);
-        THREEUTILS.highlightObject(origin.userData.subject);
-        renderer.domElement.addEventListener("clicked", function (event) {
-            const other = THREEUTILS.getHoveredShape(raycaster, mouse, camera, shapes.parents);
-            if (shapes.parents.includes(other)) {
-                console.log("interlinked");
-                tetherNodes(origin, other);
-                
-            } else {
-                console.log("didnt link :(", other);
-            }
-            THREEUTILS.unHighlightObject(origin.userData.subject);
-        }, { once: true });
-        console.log("looking to link");
-    },
-    addNode: function (uuid, newNodeData) { // may depreciate this in 1-2 commits in favor of creating new nodes without any connecitons, now that the overlay menu works.
-        const origin = getObject(uuid);
-        addNode(
-            [
-                origin.position.x + random(-shapeMaxProximity/1.5, shapeMaxProximity/1.5),
-                origin.position.y + random(-shapeMaxProximity/1.5, shapeMaxProximity/1.5),
-                origin.position.z + random(-shapeMaxProximity/1.5, shapeMaxProximity/1.5)
-            ],
-            newNodeData.geometry,
-            newNodeData.animation,
-            [origin]
-        );
-    }
-};
