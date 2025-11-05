@@ -41,18 +41,18 @@ export function NodeManager(
         this.tetherlist.push(this.tethers[tether.uuid]);
     }
     this.isNeighbor = function (originid, targetid) { // order does not matter
-        // [!] this is ugly as hell fix this later
-        try {
-            this._getTetherFromNodes(originid, targetid);
-            return true;
-        } catch {
-            try {
-                this._getTetherFromNodes(targetid, originid);
-                return true;
-            } catch {
-                return false;
-            }
-        }
+
+        // there should only be one tether between each node
+        const tether = this.tetherlist.filter(t => 
+            (
+                t.userData.origin.uuid === originid &&
+                t.userData.target.uuid === targetid
+            ) || (
+                t.userData.origin.uuid === targetid &&
+                t.userData.target.uuid === originid
+            )
+        );
+        return tether.length != 0;
     }
     this.getNodes = function (...nodeids) {
         return nodeids.map(nodeid => this.getNode(nodeid));
@@ -65,8 +65,8 @@ export function NodeManager(
         this._popTether(tether);
     }
     this.tetherNodes = function (originid, targetid) {
-        const [origin, target] = this.getNodes(originid, targetid);
-        if (this.isNeighbor(originid, targetid))
+        const [origin, target] = self.getNodes(originid, targetid);
+        if (self.isNeighbor(originid, targetid))
             throw new Error(
                 `[NodeManager] | Tether already exists between Nodes ${originid} and ${targetid}`
             );
@@ -74,9 +74,9 @@ export function NodeManager(
             throw new Error(
                 `[NodeManager] | Cannot tether a Node to itself`
             );
-        const tether = this._getMesh("tether", origin, target);
-        this._pushTether(tether);
-        this._scene.add(tether);
+        const tether = self._getMesh("tether", origin, target);
+        self._pushTether(tether);
+        self._scene.add(tether);
         return tether.uuid;
     }
     this._updateAnimations = function (timedelta) {

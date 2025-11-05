@@ -15,7 +15,7 @@ export function PhysicsManager (
         force: force
     };
     this._applyRelation = function (origin, target) {
-        const isNeighbor = this._nodeManager.isNeighbor(origin.uuid, target.uuid)
+        const isNeighbor = this._nodeManager.isNeighbor(origin.uuid, target.uuid);
         const forceVector = new THREE.Vector3();
         const distance = origin.position.distanceTo(target.position);
         const distanceSquared = origin.position.distanceToSquared(target.position); // supposedly more efficient to use this for comparison, according to threejs docs
