@@ -1,41 +1,6 @@
 import { Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-const zeroVector = new Vector3();
-
-function highlightObject(object) {
-    object.children.forEach(child => {
-        child.material.emissive.set(0x999999);
-    });
-}
-function unHighlightObject(object) {
-    object.children.forEach(child => {
-        child.material.emissive.set(0x000000);
-    });
-}
-function getHoveredShape(raycaster, mouse, camera, shapes) {
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(shapes, true);
-    return intersects.length > 0
-        ? intersects[0].object.parent
-            ? intersects[0].object.parent
-            : intersects[0].object
-        : undefined;
-}
-function getObjectScreenPosition(obj, camera, renderer) {
-    const worldPosition = new Vector3();
-    obj.getWorldPosition(worldPosition); // Get world position
-
-    worldPosition.project(camera); // Project to NDC
-
-    const canvas = renderer.domElement;
-    const rect = canvas.getBoundingClientRect();
-
-    const screenX = (worldPosition.x * 0.5 + 0.5) * rect.width + rect.left;
-    const screenY = (-worldPosition.y * 0.5 + 0.5) * rect.height + rect.top;
-
-    return { x: screenX, y: screenY, distance: camera.position.distanceTo(worldPosition)};
-}
 function isVectorZero(vector) {
     // meant for handling floating-point bullshit
     return (
@@ -96,9 +61,5 @@ function getZoom(camera) {
 export {
     isVectorZero,
     loadGLTFShape,
-    getHoveredShape,
-    highlightObject,
-    unHighlightObject,
-    getObjectScreenPosition,
     getZoom,
 };
