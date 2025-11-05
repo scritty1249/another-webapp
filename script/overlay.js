@@ -225,7 +225,7 @@ export function OverlayManager(
             },
             function addButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);
-                self._nodeManager.createNode("cube", [self.focusedNodeId], [
+                self._nodeManager.createNode(node.userData.type, [self.focusedNodeId], [
                     node.position.x + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5),
                     node.position.y + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5),
                     node.position.z + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5)
