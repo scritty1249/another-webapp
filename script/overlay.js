@@ -193,7 +193,7 @@ export function OverlayManager(
             },
             function e() {
                 const data = encodeURIComponent(UTIL.layoutToJson(self._scene, self._nodeManager));
-                navigator.clipboard.writeText(`${window.location.origin}?layout=${data}`);
+                navigator.clipboard.writeText(`${window.location.origin + window.location.pathname}?layout=${data}`);
                 alert("Link to current layout copied to clipboard");
             },
             function () {

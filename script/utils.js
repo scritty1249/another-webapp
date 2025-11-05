@@ -16,8 +16,15 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
         neighbors: [],
         background: scene.background.toJSON() // returns as a hex value
     };
-    nodeManager.nodelist.forEach(node => data.nodes.push(new NodeObject(node.userData.type, node.uuid, node.position.clone().round())));
-    nodeManager.tetherlist.forEach(tether => data.neighbors.push([tether.userData.target.uuid, tether.userData.origin.uuid]));
+    const newIds = {};
+    nodeManager.nodelist.forEach((node, i) => {
+        const posData = node.position.clone().round();
+        data.nodes.push(
+            new NodeObject(node.userData.type, `${i}`, [posData.x, posData.y, posData.z])
+        );
+        newIds[node.uuid] = i
+    });
+    nodeManager.tetherlist.forEach(tether => data.neighbors.push([newIds[tether.userData.target.uuid], newIds[tether.userData.origin.uuid]]));
     let dataStr = JSON.stringify(data);
     console.debug("Exported layout: ", data);
     return (obfuscate) ? btoa(dataStr) : dataStr;
