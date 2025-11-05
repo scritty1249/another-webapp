@@ -74,17 +74,19 @@ const FocusMenu = {
 }
 
 const OverlayWidgets = {
-    createButtonMenu: function (loadLayoutAction, saveLayoutAction, shareLayoutAction) {
+    createButtonMenu: function (loadLayoutAction, saveLayoutAction, shareLayoutAction, clearLayoutAction) {
         const wrapper = document.createElement("div");
         wrapper.classList.add("button-menu");
         const textBox = this.textBox();
         const layoutButton = this.loadLayoutButton(loadLayoutAction);
         const saveButton = this.saveLayoutButton(saveLayoutAction);
         const shareButton = this.shareLayoutButton(shareLayoutAction);
+        const clearButton = this.clearLayoutButton(clearLayoutAction);
         wrapper.appendChild(textBox);
         wrapper.appendChild(layoutButton);
         wrapper.appendChild(saveButton);
         wrapper.appendChild(shareButton);
+        wrapper.appendChild(clearButton);
         return wrapper;
     },
     textBox: function () {
@@ -99,8 +101,8 @@ const OverlayWidgets = {
     loadLayoutButton: function (loadLayoutAction) {
         const el = document.createElement("button");
         el.classList.add("button", "pointer-events");
-        el.style.height = "80px";
-        el.style.width = "210px";
+        el.style.height = "4rem";
+        el.style.width = "10rem";
         el.innerText = "load";
         el.addEventListener("click", function (event) {
             loadLayoutAction();
@@ -110,8 +112,8 @@ const OverlayWidgets = {
     saveLayoutButton: function (saveLayoutAction) {
         const el = document.createElement("button");
         el.classList.add("button", "pointer-events");
-        el.style.height = "80px";
-        el.style.width = "210px";
+        el.style.height = "4rem";
+        el.style.width = "10rem";
         el.innerText = "save";
         el.addEventListener("click", function (event) {
             saveLayoutAction();
@@ -121,11 +123,22 @@ const OverlayWidgets = {
     shareLayoutButton: function (shareLayoutAction) {
         const el = document.createElement("button");
         el.classList.add("button", "pointer-events");
-        el.style.height = "80px";
-        el.style.width = "210px";
+        el.style.height = "4rem";
+        el.style.width = "10rem";
         el.innerText = "share";
         el.addEventListener("click", function (event) {
             shareLayoutAction();
+        });
+        return el;
+    },
+    clearLayoutButton: function (clearLayoutAction) {
+        const el = document.createElement("button");
+        el.classList.add("button", "pointer-events");
+        el.style.height = "4rem";
+        el.style.width = "10rem";
+        el.innerText = "clear";
+        el.addEventListener("click", function (event) {
+            clearLayoutAction();
         });
         return el;
     }
@@ -182,6 +195,9 @@ export function OverlayManager(
                 const data = encodeURIComponent(UTIL.layoutToJson(self._scene, self._nodeManager));
                 navigator.clipboard.writeText(`${window.location.origin}?layout=${data}`);
                 alert("Link to current layout copied to clipboard");
+            },
+            function () {
+                window.location.assign(window.location.origin);
             }
         );
         this.element._overlay.appendChild(el);
