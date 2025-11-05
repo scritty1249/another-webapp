@@ -19,7 +19,7 @@ export function layoutToJson(shapes) {
     const neighbors = new Set();
     shapes.forEach((shape, i) => {
         data.nodes.push(
-            new NodeObject(shape.userData.type, shape.uuid, shape.position.round())
+            new NodeObject(shape.userData.type, shape.uuid, shape.position.clone().round())
         );
         [
             ...Object.values(shape.userData.tethers.target).map(other => other.userData.origin),
