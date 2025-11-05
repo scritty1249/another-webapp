@@ -76,6 +76,18 @@ canvas {
     filter: brightness(180%);
     transition: all 2s ease-out; 
 }
+#overlay > .button-menu {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: row;
+    margin: 0;
+    overflow: hidden;
+}
+.button-menu * {
+    overflow-y: hidden;
+}
 @keyframes mask-left-right {
     0% {
         mask-position: -100% 0%;

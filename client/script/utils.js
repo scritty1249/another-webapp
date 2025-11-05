@@ -19,17 +19,25 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
     nodeManager.nodelist.forEach(node => data.nodes.push(new NodeObject(node.userData.type, node.uuid, node.position.clone().round())));
     nodeManager.tetherlist.forEach(tether => data.neighbors.push([tether.userData.target.uuid, tether.userData.origin.uuid]));
     let dataStr = JSON.stringify(data);
+    console.debug("Exported layout: ", data);
     return (obfuscate) ? btoa(dataStr) : dataStr;
 }
 export function layoutFromJson(jsonStr, scene, nodeManager) {
-    const data = JSON.parse(b64RegPattern.test(jsonStr) ? atob(jsonStr) : jsonStr);
-    const newIds = {};
-    scene.background.set(data.background);
-    data.nodes.forEach(node => {
-        const newId = nodeManager.createNode(node.type, [], node.position);
-        newIds[node.uuid] = newId;
-    });
-    data.neighbors.forEach(tether => nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]]));
+    try {
+        const data = JSON.parse(b64RegPattern.test(jsonStr) ? atob(jsonStr) : jsonStr);
+        const newIds = {};
+        scene.background.set(data.background);
+        data.nodes.forEach(node => {
+            const newId = nodeManager.createNode(node.type, [], node.position);
+            newIds[node.uuid] = newId;
+        });
+        data.neighbors.forEach(tether => nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]]));
+        console.debug("Loaded layout: ", data);
+        return true;
+    } catch {
+        console.error("Error loading layout: ", jsonStr);
+        return false;
+    }
 }
 
 const b64RegPattern = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
