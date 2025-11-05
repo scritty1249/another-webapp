@@ -163,6 +163,8 @@ function mainloop() {
             r = UTILS.layoutFromJson(decodeURIComponent(urlParams.get("layout")), scene, NodeController);
         if (!r)
             NodeController.createNode("cube", [], [0, 0, 1]);
+        NodeController.createNode("scanner", [], [1, 0, 1]);
+        NodeController.createNode("globe", [], [0, 1, 1]);
         renderer.setAnimationLoop(animate);
     });
 }
