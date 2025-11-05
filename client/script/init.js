@@ -54,9 +54,9 @@ function mainloop() {
 
     // start loading everything
     const gtlfData = Promise.all([
-        THREEUTILS.loadGLTFShape("../source/not-cube.glb"),
-        THREEUTILS.loadGLTFShape("../source/globe.glb"),
-        THREEUTILS.loadGLTFShape("../source/scanner.glb")
+        THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
+        THREEUTILS.loadGLTFShape("./source/globe.glb"),
+        THREEUTILS.loadGLTFShape("./source/scanner.glb")
     ]);
 
     // Setup external (yawn) library controls
