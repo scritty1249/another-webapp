@@ -141,7 +141,7 @@ function mainloop() {
             scanner: () => MESH.Nodes.Scanner(eyeData),
             tether: (o, t) => MESH.Tether(o, t)
         });
-        NodeController.createNode("cube");
+        
 
         // render the stuff
         function animate() {
@@ -156,7 +156,14 @@ function mainloop() {
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
             renderer.render(scene, camera);
         }
-        console.log("Exported layout:", UTILS.layoutToJson(NodeController.nodelist));
+        //NodeController.createNode("cube");
+        //console.log("Exported layout:", UTILS.layoutToJson(scene, NodeController));
+
+        UTILS.layoutFromJson(
+            `{"nodes":[{"uuid":"4ce326f1-12e7-4766-a8e3-112399c9c489","type":"cube","position":{"x":1,"y":7,"z":0},"_data":{}},{"uuid":"7345e2f0-0498-4aaf-b603-e2c49fa2683b","type":"cube","position":{"x":4,"y":2,"z":0},"_data":{}},{"uuid":"b2460459-4fb2-429d-a6d5-de57539063e3","type":"cube","position":{"x":-2,"y":6,"z":3},"_data":{}},{"uuid":"93897380-c62e-42ac-aa35-13b987d74ad1","type":"cube","position":{"x":-3,"y":5,"z":-4},"_data":{}},{"uuid":"8d3aa3c5-0fdb-4012-981d-461bb21a5350","type":"cube","position":{"x":-3,"y":8,"z":-1},"_data":{}},{"uuid":"862bd996-c371-4bd4-a9f7-12d761741b33","type":"cube","position":{"x":6,"y":7,"z":2},"_data":{}},{"uuid":"2b7b1750-8b32-4989-ba52-04c426636ade","type":"cube","position":{"x":5,"y":4,"z":3},"_data":{}},{"uuid":"0ebd2b3f-2ee0-4c81-90ef-83166fb4e2a0","type":"cube","position":{"x":0,"y":2,"z":2},"_data":{}},{"uuid":"07a114fc-8286-4d25-9b9d-8414bb40cb6f","type":"cube","position":{"x":5,"y":5,"z":-2},"_data":{}},{"uuid":"4f788be6-4325-4a6a-91cf-fe44f6aa1355","type":"cube","position":{"x":1,"y":6,"z":-4},"_data":{}},{"uuid":"cb7e6ce1-4110-4272-99a5-b61ef8543810","type":"cube","position":{"x":-3,"y":4,"z":0},"_data":{}},{"uuid":"23b8d739-e1b3-46f5-a55f-215e9fd9f864","type":"cube","position":{"x":0,"y":2,"z":-2},"_data":{}},{"uuid":"02900a01-c5ab-4553-8e68-75751262172f","type":"cube","position":{"x":1,"y":5,"z":5},"_data":{}}],"neighbors":[["7345e2f0-0498-4aaf-b603-e2c49fa2683b","4ce326f1-12e7-4766-a8e3-112399c9c489"],["b2460459-4fb2-429d-a6d5-de57539063e3","4ce326f1-12e7-4766-a8e3-112399c9c489"],["93897380-c62e-42ac-aa35-13b987d74ad1","4ce326f1-12e7-4766-a8e3-112399c9c489"],["8d3aa3c5-0fdb-4012-981d-461bb21a5350","4ce326f1-12e7-4766-a8e3-112399c9c489"],["862bd996-c371-4bd4-a9f7-12d761741b33","4ce326f1-12e7-4766-a8e3-112399c9c489"],["2b7b1750-8b32-4989-ba52-04c426636ade","4ce326f1-12e7-4766-a8e3-112399c9c489"],["0ebd2b3f-2ee0-4c81-90ef-83166fb4e2a0","4ce326f1-12e7-4766-a8e3-112399c9c489"],["07a114fc-8286-4d25-9b9d-8414bb40cb6f","4ce326f1-12e7-4766-a8e3-112399c9c489"],["4f788be6-4325-4a6a-91cf-fe44f6aa1355","4ce326f1-12e7-4766-a8e3-112399c9c489"],["cb7e6ce1-4110-4272-99a5-b61ef8543810","4ce326f1-12e7-4766-a8e3-112399c9c489"],["23b8d739-e1b3-46f5-a55f-215e9fd9f864","4ce326f1-12e7-4766-a8e3-112399c9c489"],["02900a01-c5ab-4553-8e68-75751262172f","4ce326f1-12e7-4766-a8e3-112399c9c489"]],"background":16724069}`,
+            scene,
+            NodeController
+        );
         renderer.setAnimationLoop(animate);
     });
 }

@@ -10,46 +10,29 @@ export function deepCopy(obj) { // ONYL FOR NORMAL JS OBJECTS. threejs objects h
     return JSON.parse(JSON.stringify(obj));
 }
 
-export function layoutToJson(shapes) {
+export function layoutToJson(scene, nodeManager) {
     const data = {
         nodes: [],
         neighbors: [],
-        background: 0xff3065
+        background: scene.background.toJSON() // returns as a hex value
     };
-    const neighbors = new Set();
-    shapes.forEach((shape, i) => {
-        data.nodes.push(
-            new NodeObject(shape.userData.type, shape.uuid, shape.position.clone().round())
-        );
-        [
-            ...Object.values(shape.userData.tethers.target).map(other => other.userData.origin),
-            ...Object.values(shape.userData.tethers.origin).map(other => other.userData.target)
-        ].forEach(other => {
-            neighbors.add(new Set([shape.uuid, other.uuid]));
-        });
-    });
-    data.neighbors = [...neighbors].map(s => [...s]);
+    nodeManager.nodelist.forEach(node => data.nodes.push(new NodeObject(node.userData.type, node.uuid, node.position.clone().round())));
+    nodeManager.tetherlist.forEach(tether => data.neighbors.push([tether.userData.target.uuid, tether.userData.origin.uuid]));
     return JSON.stringify(data);
 }
-export function layoutFromJson(json, scene, shapeData = {}) {
-    const data = JSON.parse(json);
+export function layoutFromJson(jsonStr, scene, nodeManager) {
+    const data = JSON.parse(jsonStr);
+    const newIds = {};
     scene.background.set(data.background);
+    data.nodes.forEach(node => {
+        const newId = nodeManager.createNode(node.type, [], node.position);
+        newIds[node.uuid] = newId;
+    });
+    data.neighbors.forEach(tether => nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]]));
 }
 function NodeObject(type, uuid, position, data = {}) {
     this.uuid = uuid;
     this.type = type;
     this.position = position;
     this._data = data;
-}
-
-function ShapeData(type, geometry, animations = {}) {
-    this.type = type;
-    this.geometry = geometry;
-    this.animations = animations
-}
-
-function AnimationData(name, animationData, id = "shape") {
-    this.name = name;
-    this.animationData = animationData;
-    this.id = id; // should always be exported from blender as "shape", but just in case we can configure it here...
 }
