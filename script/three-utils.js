@@ -1,6 +1,8 @@
 import { Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+const zeroVector = new Vector3();
+
 function isVectorZero(vector) {
     // meant for handling floating-point bullshit
     return (
