@@ -124,7 +124,10 @@ export function NodeManager(
     }
     this.createNode = function (nodeType, originids = [], position = [0, 0, 0]) {
         const newNode = this._getMesh(nodeType);
-        newNode.position.set(...position);
+        if (position.hasOwnProperty("x"))
+            newNode.position.set(position.x, position.y, position.z);
+        else
+            newNode.position.set(...position);
         this._pushNode(newNode);
         this._scene.add(newNode);
         originids.forEach(originid => this.tetherNodes(originid, newNode.uuid));
