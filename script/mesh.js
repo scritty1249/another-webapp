@@ -3,7 +3,8 @@ import {
     AnimationMixer,
     Group,
     MeshPhongMaterial,
-    MeshBasicMaterial
+    MeshBasicMaterial,
+    MeshPhysicalMaterial
 } from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -112,10 +113,9 @@ const Nodes = {
             specular: 0xff0000,
             shininess: 100,
         });
-        globe.userData.children("globe").userData.children("ball").material = new MeshPhongMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.45
+        globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
+            transmission: 1,
+            roughness: 0.15,
         });
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
         globe.userData.children("globe").userData.children("frame").renderOrder = 1;
