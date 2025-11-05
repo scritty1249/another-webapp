@@ -92,7 +92,7 @@ function mainloop() {
         NodeController.unhighlightNode(event.object.uuid);
     });
     
-    const _bgCubePath = "./source/bg-4/";
+    const _bgCubePath = "./source/bg/";
     const _bgCubeFormat = ".png";
     const backgroundTextureCube = new THREE.CubeTextureLoader().load([
         _bgCubePath + 'px' + _bgCubeFormat, _bgCubePath + 'nx' + _bgCubeFormat,
