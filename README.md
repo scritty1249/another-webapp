@@ -10,12 +10,9 @@ Three.js for rendering
 
 # Preview pre-alpha build
 https://scritty1249.github.io/another-webapp
-- LClick any to drag it
-- LClick canvas area without a node to rotate camera
-- RClick any node - spawns cube node attached to it
-- Shift + RClick any node, then LClick any other node to connect them
-> *raycasting from camera a little finicky here, may need to click in odd places to select things*
-> none of the RClick binds work for touchscreens yet
+- LClick/Touch Drag any node to move it
+- LClick/Touch Tap any node to show extra node actions
+- LClick/Touch canvas area without a node to rotate camera
 
 # Reviews from real people
 "that is not a cube" - some hater
