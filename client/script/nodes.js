@@ -159,16 +159,25 @@ export function NodeManager(
     }
     this._setNodeEmissive = function (node, emissive) {
         node.userData.traverseMesh(function (mesh) {
-            mesh.material.emissive.set(emissive);
+            if (mesh.material.emissive)
+                mesh.material.emissive.set(emissive);
         });
     }
     this.highlightNode = function (nodeid) {
         const node = self.getNode(nodeid);
-        self._setNodeEmissive(node, 0x999999); // [!] known bug! this will override preexisting emissive values (for now, the Scanner node is the only one with emissive values above 0)
+        node.userData.traverseMesh(function (mesh) {
+            if (mesh.material.emissive) {
+                mesh.userData.oldEmissive = mesh.material.emissive.clone();
+                mesh.material.emissive.set(0xdedede);
+            }
+        });
     }
     this.unhighlightNode = function (nodeid) {
         const node = self.getNode(nodeid);
-        self._setNodeEmissive(node, 0x000000);
+        node.userData.traverseMesh(function (mesh) {
+            if (mesh.material.emissive && mesh.userData.oldEmissive)
+                mesh.material.emissive.set(mesh.userData.oldEmissive);
+        });
     }
     this.getNodeFromFlatCoordinate = function (coordinate) { // [!] this modifies the raycaster
         self._raycaster.setFromCamera(coordinate, self._camera);
