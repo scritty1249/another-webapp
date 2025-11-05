@@ -10,7 +10,7 @@ export function deepCopy(obj) { // ONYL FOR NORMAL JS OBJECTS. threejs objects h
     return JSON.parse(JSON.stringify(obj));
 }
 
-export function layoutToJson(scene, nodeManager) {
+export function layoutToJson(scene, nodeManager, obfuscate = true) {
     const data = {
         nodes: [],
         neighbors: [],
@@ -18,10 +18,11 @@ export function layoutToJson(scene, nodeManager) {
     };
     nodeManager.nodelist.forEach(node => data.nodes.push(new NodeObject(node.userData.type, node.uuid, node.position.clone().round())));
     nodeManager.tetherlist.forEach(tether => data.neighbors.push([tether.userData.target.uuid, tether.userData.origin.uuid]));
-    return JSON.stringify(data);
+    let dataStr = JSON.stringify(data);
+    return (obfuscate) ? btoa(dataStr) : dataStr;
 }
 export function layoutFromJson(jsonStr, scene, nodeManager) {
-    const data = JSON.parse(jsonStr);
+    const data = JSON.parse(b64RegPattern.test(jsonStr) ? atob(jsonStr) : jsonStr);
     const newIds = {};
     scene.background.set(data.background);
     data.nodes.forEach(node => {
@@ -30,6 +31,9 @@ export function layoutFromJson(jsonStr, scene, nodeManager) {
     });
     data.neighbors.forEach(tether => nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]]));
 }
+
+const b64RegPattern = /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
+
 function NodeObject(type, uuid, position, data = {}) {
     this.uuid = uuid;
     this.type = type;
