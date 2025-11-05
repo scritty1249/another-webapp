@@ -74,15 +74,17 @@ const FocusMenu = {
 }
 
 const OverlayWidgets = {
-    createButtonMenu: function (loadLayoutAction, saveLayoutAction) {
+    createButtonMenu: function (loadLayoutAction, saveLayoutAction, shareLayoutAction) {
         const wrapper = document.createElement("div");
         wrapper.classList.add("button-menu");
         const textBox = this.textBox();
         const layoutButton = this.loadLayoutButton(loadLayoutAction);
         const saveButton = this.saveLayoutButton(saveLayoutAction);
+        const shareButton = this.shareLayoutButton(shareLayoutAction);
         wrapper.appendChild(textBox);
         wrapper.appendChild(layoutButton);
         wrapper.appendChild(saveButton);
+        wrapper.appendChild(shareButton);
         return wrapper;
     },
     textBox: function () {
@@ -113,6 +115,17 @@ const OverlayWidgets = {
         el.innerText = "save";
         el.addEventListener("click", function (event) {
             saveLayoutAction();
+        });
+        return el;
+    },
+    shareLayoutButton: function (shareLayoutAction) {
+        const el = document.createElement("button");
+        el.classList.add("button", "pointer-events");
+        el.style.height = "80px";
+        el.style.width = "210px";
+        el.innerText = "share";
+        el.addEventListener("click", function (event) {
+            shareLayoutAction();
         });
         return el;
     }
@@ -164,6 +177,11 @@ export function OverlayManager(
                 const data = UTIL.layoutToJson(self._scene, self._nodeManager);
                 navigator.clipboard.writeText(data);
                 alert("Layout copied to clipboard");
+            },
+            function e() {
+                const data = encodeURIComponent(UTIL.layoutToJson(self._scene, self._nodeManager));
+                navigator.clipboard.writeText(`${window.location.origin}?layout=${data}`);
+                alert("Link to current layout copied to clipboard");
             }
         );
         this.element._overlay.appendChild(el);
