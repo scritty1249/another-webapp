@@ -17,27 +17,16 @@ const FocusMenu = {
         el.style.width = "516px";
         el.style.height = "545px";
 
-        const linkButton = this.createLinkButton();
+        const linkButton = this.createLinkButton(linkButtonAction);
         el.appendChild(linkButton);
-        const infoButton = this.createInfoButton();
+        const infoButton = this.createInfoButton(infoButtonAction);
         el.appendChild(infoButton);
-        const addButton = this.createAddButton();
+        const addButton = this.createAddButton(addButtonAction);
         el.appendChild(addButton);
-
-        // make buttons work
-        linkButton.addEventListener("click", function (event) {
-            linkButtonAction();
-        });
-        addButton.addEventListener("click", function (event) {
-            addButtonAction();
-        });
-        infoButton.addEventListener("click", function (event) {
-            infoButtonAction();
-        });
 
         return el;
     },
-    createLinkButton: function() {
+    createLinkButton: function(linkButtonAction) {
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "link";
@@ -46,10 +35,13 @@ const FocusMenu = {
         el.style.height = "55px";
         el.style.setProperty("--left", "101px");
         el.style.setProperty("--top", "104px");
+        el.addEventListener("click", function (event) {
+            linkButtonAction();
+        });
         
         return el;
     },
-    createInfoButton: function() {
+    createInfoButton: function(infoButtonAction) {
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "info";
@@ -58,10 +50,13 @@ const FocusMenu = {
         el.style.height = "175px";
         el.style.setProperty("--left", "215px");
         el.style.setProperty("--top", "207px");
+        el.addEventListener("click", function (event) {
+            infoButtonAction();
+        });
         
         return el;
     },
-    createAddButton: function() {
+    createAddButton: function(addButtonAction) {
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "add";
@@ -70,7 +65,55 @@ const FocusMenu = {
         el.style.height = "125px";
         el.style.setProperty("--left", "343px");
         el.style.setProperty("--top", "155px");
+        el.addEventListener("click", function (event) {
+            addButtonAction();
+        });
         
+        return el;
+    }
+}
+
+const OverlayWidgets = {
+    createButtonMenu: function (loadLayoutAction, saveLayoutAction) {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("button-menu");
+        const textBox = this.textBox();
+        const layoutButton = this.loadLayoutButton(loadLayoutAction);
+        const saveButton = this.saveLayoutButton(saveLayoutAction);
+        wrapper.appendChild(textBox);
+        wrapper.appendChild(layoutButton);
+        wrapper.appendChild(saveButton);
+        return wrapper;
+    },
+    textBox: function () {
+        const el = document.createElement("textarea");
+        el.classList.add("pointer-events");
+        el.id = "textBox";
+        el.rows = 5;
+        el.cols = 40;
+        el.placeholder = "Paste layouts here";
+        return el;
+    },
+    loadLayoutButton: function (loadLayoutAction) {
+        const el = document.createElement("button");
+        el.classList.add("button", "pointer-events");
+        el.style.height = "80px";
+        el.style.width = "210px";
+        el.innerText = "load";
+        el.addEventListener("click", function (event) {
+            loadLayoutAction();
+        });
+        return el;
+    },
+    saveLayoutButton: function (saveLayoutAction) {
+        const el = document.createElement("button");
+        el.classList.add("button", "pointer-events");
+        el.style.height = "80px";
+        el.style.width = "210px";
+        el.innerText = "save";
+        el.addEventListener("click", function (event) {
+            saveLayoutAction();
+        });
         return el;
     }
 }
@@ -108,6 +151,23 @@ export function OverlayManager(
         _overlay: overlayContainerElement,
         focusMenu: undefined // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
     };
+    this._initOverlay = function () {
+        const el = OverlayWidgets.createButtonMenu(
+            function e() {
+                const textBox = document.getElementById("textBox");
+                const result = UTIL.layoutFromJson(textBox.value, self._scene, self._nodeManager);
+                textBox.value = "";
+                if (!result)
+                    alert("Failed to load layout. Was the wrong format entered?");
+            },
+            function e() {
+                const data = UTIL.layoutToJson(self._scene, self._nodeManager);
+                navigator.clipboard.writeText(data);
+                alert("Layout copied to clipboard");
+            }
+        );
+        this.element._overlay.appendChild(el);
+    }
     this._createFocusMenuElement = function () {
         const maxNodeDistance = 3; // arbitrary
         return FocusMenu.createMenuElement(
@@ -179,5 +239,7 @@ export function OverlayManager(
     this.update = function () {
         this._updateFocusMenu();
     }
+
+    this._initOverlay();
     return this;
 }
