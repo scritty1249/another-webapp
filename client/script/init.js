@@ -156,7 +156,13 @@ function mainloop() {
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
             renderer.render(scene, camera);
         }
-        NodeController.createNode("cube", [], [0, 0, 1]);
+        // [!] testing
+        const urlParams = new URLSearchParams(window.location.search);
+        let r = urlParams.has("layout");
+        if (r)
+            r = UTILS.layoutFromJson(decodeURIComponent(urlParams.get("layout")), scene, NodeController);
+        if (!r)
+            NodeController.createNode("cube", [], [0, 0, 1]);
         renderer.setAnimationLoop(animate);
     });
 }
