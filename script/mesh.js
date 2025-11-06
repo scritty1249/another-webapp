@@ -111,11 +111,11 @@ const Nodes = {
         globe.userData.children("globe").userData.children("frame").material = new MeshPhongMaterial({
             color: 0x880101,
             specular: 0xff0000,
-            shininess: 100,
+            shininess: 100
         });
         globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
             transmission: 1,
-            roughness: 0.15,
+            roughness: 0.18
         });
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
         globe.userData.children("globe").userData.children("frame").renderOrder = 1;
