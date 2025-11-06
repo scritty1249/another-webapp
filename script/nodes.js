@@ -14,6 +14,16 @@ export function NodeManager(
     this.nodelist = []; // read-only, updated by this.nodes
     this.tethers = {};
     this.tetherlist = []; // read-only, updated by this.tethers
+    this._lowPerformance = false;
+    Object.defineProperty(self, "lowPerformanceMode", {
+        get: function() {
+            return self._lowPerformance;
+        },
+        set: function(value) {
+            self._lowPerformance = value;
+            self._setLowPerformanceMode(value);
+        }
+    });
     this._scene = scene;
     this._camera = camera;
     this._renderer = renderer;
@@ -203,7 +213,7 @@ export function NodeManager(
         const [origin, target] = self.getNodes(originid, targetid);
         return origin.position.angleTo(target.position);
     }
-    this.lowPerformanceMode = function (low) {
+    this._setLowPerformanceMode = function (low) {
         if (low)
             self.nodelist.forEach(node => node.userData.state.setLowPerformance());
         else
