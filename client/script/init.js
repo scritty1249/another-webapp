@@ -11,6 +11,7 @@ import { PhysicsManager } from "./physics.js";
 import * as UTILS from "./utils.js";
 
 const tetherForce = 0.2;
+const passiveForce = 0.001; // used for elements gravitating towards y=0
 const shapeMinProximity = 5.5;
 const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
@@ -48,7 +49,9 @@ function mainloop() {
     const NodeController = new NodeManager(scene, renderer, camera, raycaster);
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
         MouseController, NodeController, document.getElementById("overlay"));
-    const PhysicsController = new PhysicsManager(NodeController, shapeMinProximity, shapeMaxProximity, tetherForce);
+    const PhysicsController = new PhysicsManager(NodeController,
+        shapeMinProximity, shapeMaxProximity, tetherForce, passiveForce
+    );
     const clock = new THREE.Clock();
     document.getElementById("container").appendChild(renderer.domElement);
 
@@ -112,7 +115,7 @@ function mainloop() {
     scene.add(plane);
     plane.receiveShadow = true;
     plane.rotation.set(-Math.PI / 2, 0, 0); // Rotate to lie flat on the XZ plane
-    plane.position.set(0, -1, 0);
+    plane.position.set(0, 0, 0);
 
     // Control shadows
     const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
