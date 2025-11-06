@@ -5,7 +5,8 @@ export function PhysicsManager (
     nodeManager,
     maxDistance,
     maxProximity,
-    force,
+    attractForce,
+    repelForce,
     passiveForce,
 ) {
     const self = this;
@@ -13,7 +14,8 @@ export function PhysicsManager (
     this.config = {
         maxDistance: maxDistance,
         maxProximity: maxProximity,
-        force: force,
+        pushForce: repelForce,
+        pullForce: attractForce,
         passiveForce: passiveForce
     };
     this._applyAmbientForce = function (node) {
@@ -47,11 +49,12 @@ export function PhysicsManager (
             target.position
         );
         direction.normalize();
-        const magnitude = ((self.config.maxDistance - distance) / self.config.maxDistance) * self.config.force;
+        const pullMagnitude = ((self.config.maxDistance - distance) / self.config.maxDistance) * self.config.pullForce;
+        const pushMagnitude = -((self.config.maxDistance - distance) / self.config.maxDistance) * self.config.pushForce;
         if (isNeighbor && distanceSquared > self.config.maxDistance ** 2) {
-            forceVector.sub(direction.clone().multiplyScalar(magnitude));
+            forceVector.sub(direction.clone().multiplyScalar(pullMagnitude));
         } else if (distanceSquared < self.config.maxProximity ** 2) {
-            forceVector.add(direction.clone().multiplyScalar(-magnitude));
+            forceVector.add(direction.clone().multiplyScalar(pushMagnitude));
         }
         if (!origin.userData.dragged) origin.position.sub(forceVector);
         if (!target.userData.dragged) target.position.add(forceVector);
