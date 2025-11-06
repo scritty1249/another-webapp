@@ -9,7 +9,7 @@ import {
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import { random } from "./utils.js";
+import * as UTIL from "./utils.js";
 
 function recurseMeshChildren(mesh, maxDepth, callback, ...args) {
     if (maxDepth >= 0) {
@@ -98,9 +98,14 @@ const Nodes = {
             setLowPerformance: function () {},
             setHighPerformance: function () {}
         };
-        if (animationOptions && animationOptions.idle) {
-            cube.userData.mixer.setTime(animationOptions.randomize ? random(0.05, 2) : 0);
-            cube.userData.animations["cube-idle"].play();
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                cube.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
+                cube.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                cube.userData.animations["cube-idle"].play();
+            }
         }
         return cube;
     },
@@ -140,10 +145,15 @@ const Nodes = {
         globe.userData.children("globe").renderOrder = 1;
     
         globe.userData.type = "globe";
-        if (animationOptions && animationOptions.idle) {
-            globe.userData.mixer.setTime(animationOptions.randomize ? random(0.05, 2) : 0);
-            globe.userData.animations["frame-idle"].play();
-            globe.userData.animations["ball-idle"].play();
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                globe.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
+                globe.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                globe.userData.animations["frame-idle"].play();
+                globe.userData.animations["ball-idle"].play();
+            }
         }
         return globe;
     },
@@ -163,10 +173,15 @@ const Nodes = {
         scanner.userData.children("ball").material = ballMat;
         scanner.userData.children("ball").userData.children("pupil").material = pupilMat;
         scanner.userData.type = "scanner";
-        if (animationOptions && animationOptions.idle) {
-            scanner.userData.mixer.setTime(animationOptions.randomize ? random(0.05, 2) : 0);
-            scanner.userData.animations["ball-idle"].play();
-            scanner.userData.animations["pupil-idle"].play();
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                scanner.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
+                scanner.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                scanner.userData.animations["ball-idle"].play();
+                scanner.userData.animations["pupil-idle"].play();
+            }
         }
         return scanner;
     }
