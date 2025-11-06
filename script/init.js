@@ -104,18 +104,18 @@ function mainloop() {
     ]);
     backgroundTextureCube.generateMipmaps = false
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
-    // render a plane
-    const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
-    const planeMaterial = new THREE.MeshPhongMaterial({
-        color: 0x000000,
-        transparent: true, // Ensure this is enabled for opacity
-        opacity: 0.8
-    }); // single-sided plane
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    scene.add(plane);
-    plane.receiveShadow = true;
-    plane.rotation.set(-Math.PI / 2, 0, 0); // Rotate to lie flat on the XZ plane
-    plane.position.set(0, 0, 0);
+    // // render a plane
+    // const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
+    // const planeMaterial = new THREE.MeshPhongMaterial({
+    //     color: 0x000000,
+    //     transparent: true, // Ensure this is enabled for opacity
+    //     opacity: 0.8
+    // }); // single-sided plane
+    // const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    // scene.add(plane);
+    // plane.receiveShadow = true;
+    // plane.rotation.set(-Math.PI / 2, 0, 0); // Rotate to lie flat on the XZ plane
+    // plane.position.set(0, 0, 0);
 
     // Control shadows
     const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
