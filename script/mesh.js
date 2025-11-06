@@ -88,20 +88,23 @@ function Tether(origin, target, color = 0xc0c0c0) {
     return tether;
 }
 const Nodes = {
-    Cube: function (sceneData, position = [0, 0, 0], animationOptions = {idle: true, randomize: true}) {
+    Cube: function (sceneData, animationOptions = {idle: true, randomize: true}) {
         const cube = Node(sceneData.mesh, sceneData.animations);
         cube.userData.children("cube").material = new MeshPhongMaterial({
             color: 0x000000
         });
         cube.userData.type = "cube";
-        cube.position.set(...position);
+        cube.userData.state = {
+            setLowPerformance: function () {},
+            setHighPerformance: function () {}
+        };
         if (animationOptions && animationOptions.idle) {
             cube.userData.mixer.setTime(animationOptions.randomize ? random(0.05, 2) : 0);
             cube.userData.animations["cube-idle"].play();
         }
         return cube;
     },
-    Globe: function (sceneData, transparency = true, position = [0, 0, 0], animationOptions = {idle: true, randomize: true}) {
+    Globe: function (sceneData, animationOptions = {idle: true, randomize: true}) {
         const globe = Node(sceneData.mesh, sceneData.animations);
         globe.userData.children("globe").material = new MeshBasicMaterial({
             color: 0x000000,
@@ -113,24 +116,30 @@ const Nodes = {
             specular: 0xff0000,
             shininess: 100
         });
-        globe.userData.children("globe").userData.children("ball").material = (transparency)
-            // this lags on Chromium browsers, but runs fine Safari- regardless of hardware for some reason
-            ? new MeshPhysicalMaterial({
-                transmission: 0.9,
-                roughness: 0.2
-            })
-            : new MeshPhongMaterial({
-                color: 0xffffff,
-                specular: 0xff0000,
-                shininess: 0
-            });
-
+        globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
+            transmission: 0.9,
+            roughness: 0.2
+        });
+        globe.userData.state = {
+            setLowPerformance: function () {
+                globe.userData.children("globe").userData.children("ball").material = new MeshPhongMaterial({
+                    color: 0xffffff,
+                    specular: 0xff0000,
+                    shininess: 0
+                });
+            },
+            setHighPerformance: function () {
+                globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
+                    transmission: 0.9,
+                    roughness: 0.2
+                });
+            }
+        };
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
         globe.userData.children("globe").userData.children("frame").renderOrder = 1;
         globe.userData.children("globe").renderOrder = 1;
     
         globe.userData.type = "globe";
-        globe.position.set(...position);
         if (animationOptions && animationOptions.idle) {
             globe.userData.mixer.setTime(animationOptions.randomize ? random(0.05, 2) : 0);
             globe.userData.animations["frame-idle"].play();
@@ -138,7 +147,7 @@ const Nodes = {
         }
         return globe;
     },
-    Scanner: function (sceneData, position = [0, 0, 0], animationOptions = {idle: true, randomize: true}) {
+    Scanner: function (sceneData, animationOptions = {idle: true, randomize: true}) {
         const scanner = Node(sceneData.mesh, sceneData.animations);
         const ballMat = new MeshPhongMaterial({ color: 0x000000 });
         const pupilMat = new MeshPhongMaterial({
@@ -147,10 +156,13 @@ const Nodes = {
             emissive: 0xff0000,
             emissiveIntensity: 7
         })
+        scanner.userData.state = {
+            setLowPerformance: function () {},
+            setHighPerformance: function () {}
+        };
         scanner.userData.children("ball").material = ballMat;
         scanner.userData.children("ball").userData.children("pupil").material = pupilMat;
         scanner.userData.type = "scanner";
-        scanner.position.set(...position);
         if (animationOptions && animationOptions.idle) {
             scanner.userData.mixer.setTime(animationOptions.randomize ? random(0.05, 2) : 0);
             scanner.userData.animations["ball-idle"].play();

@@ -203,6 +203,12 @@ export function NodeManager(
         const [origin, target] = self.getNodes(originid, targetid);
         return origin.position.angleTo(target.position);
     }
+    this.lowPerformanceMode = function (low) {
+        if (low)
+            self.nodelist.forEach(node => node.userData.state.setLowPerformance());
+        else
+            self.nodelist.forEach(node => node.userData.state.setHighPerformance());
+    }
 
     return this;
 }

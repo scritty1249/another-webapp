@@ -30,7 +30,7 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.z = 10;
 camera.position.y = 5;
 // rendererererer
-const renderer = new THREE.WebGLRenderer({ antialias: false });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -151,7 +151,7 @@ function mainloop() {
 
         NodeController.addMeshData({
             cube: () => MESH.Nodes.Cube(cubeData),
-            globe: () => MESH.Nodes.Globe(globeData, false),
+            globe: () => MESH.Nodes.Globe(globeData),
             scanner: () => MESH.Nodes.Scanner(eyeData),
             tether: (o, t) => MESH.Tether(o, t)
         });
@@ -180,6 +180,7 @@ function mainloop() {
             NodeController.createNode("cube", [], [0, 0, 1]);
         NodeController.createNode("scanner", [], [1, 0, 1]);
         NodeController.createNode("globe", [], [0, 1, 1]);
+        NodeController.lowPerformanceMode(true);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
     });
