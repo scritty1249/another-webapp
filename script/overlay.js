@@ -234,8 +234,6 @@ export function OverlayManager(
             function infoButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);
                 console.log(node);
-                console.log(self._nodeManager);
-                console.log(UTIL.layoutToJson(self._scene, self._nodeManager));
             }
         );
     }
