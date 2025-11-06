@@ -156,9 +156,18 @@ function mainloop() {
             tether: (o, t) => MESH.Tether(o, t)
         });
         
-
+        let trackLowPerformace = false;
         // render the stuff
         function animate() {
+            if (
+                trackLowPerformace &&
+                !NodeController.lowPerformanceMode &&
+                FPSCounter.started &&
+                FPSCounter.avgFramerate < 30
+            ) {
+                NodeController.lowPerformanceMode = true;
+                console.warn(`FPS dropped below threshold to ${FPSCounter.framerate}, low performance mode is ON.`);
+            }
             // physics
             PhysicsController.update();
 
@@ -180,42 +189,65 @@ function mainloop() {
             NodeController.createNode("cube", [], [0, 0, 1]);
         NodeController.createNode("scanner", [], [1, 0, 1]);
         NodeController.createNode("globe", [], [0, 1, 1]);
-        NodeController.lowPerformanceMode(true);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
+        setTimeout(() => {
+            trackLowPerformace = true;
+        }, 2500); // time before we start checking if we need to turn on low performance mode
     });
 }
 
 function Framerate (
     framerateUpdateCallback,
+    framerateHistory = 10,
     framerateInterval = 1000 // ms
 ) {
     const self = this;
     this._callback = framerateUpdateCallback;
     this._framesPerMs = framerateInterval;
     this._frame = 0;
+    this._framerate = 0;
     this.prev = undefined;
-    this.live = {
-        value: 0,
-        get frames() {
-            return this.value;
+    this._maxFrameHistory = framerateHistory;
+    this.frameHistory = [];
+    Object.defineProperty(self, "framerate", {
+        get: function() {
+            return self._framerate;
         },
-        set frames(val) {
-            this.value = val;
-            self._callback(val);
+        set: function(value) {
+            self._framerate = value;
+            this._pushFrameHistory();
+            self._callback(value);
         }
+    });
+    Object.defineProperty(self, "avgFramerate", {
+        get: function() {
+            return (self.frameHistory.length > 0)
+                ? self.frameHistory.reduce((acc, curr) => acc + curr, 0) / self.frameHistory.length
+                : 0;
+        }
+    });
+    Object.defineProperty(self, "started", {
+        get: function() {
+            return self.prev != undefined && self._framerate > 0;
+        }
+    });
+    this._pushFrameHistory = function () {
+        while (self.frameHistory.length >= this._maxFrameHistory)
+            self.frameHistory.unshift(1);
+        self.frameHistory.push(self.framerate);
     }
     this.reset = function () {
         self.prev = Date.now();
         self._frame = 0;
-        self.live.value = 0;
+        self._framerate = 0;
     }
     this.update = function() {
         if (self.prev) {
             self._frame++;
             const curr = Date.now();
             if (curr > self.prev + self._framesPerMs) {
-                self.live.frames = Math.round( (self._frame * self._framesPerMs) / (curr - self.prev));
+                self.framerate = Math.round( (self._frame * self._framesPerMs) / (curr - self.prev));
                 self.prev = curr;
                 self._frame = 0;
             }
