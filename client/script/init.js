@@ -50,7 +50,7 @@ function mainloop() {
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
         MouseController, NodeController, document.getElementById("overlay"));
     const PhysicsController = new PhysicsManager(NodeController,
-        shapeMinProximity, shapeMaxProximity, tetherForce, passiveForce
+        shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
     );
     const clock = new THREE.Clock();
     document.getElementById("container").appendChild(renderer.domElement);
