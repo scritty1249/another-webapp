@@ -52,6 +52,9 @@ function mainloop() {
     const PhysicsController = new PhysicsManager(NodeController,
         shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
     );
+    const FPSCounter = new Framerate(
+        (fps) => document.getElementById("framerate").textContent = `FPS: ${fps}`
+    );
     const clock = new THREE.Clock();
     document.getElementById("container").appendChild(renderer.domElement);
 
@@ -148,7 +151,7 @@ function mainloop() {
 
         NodeController.addMeshData({
             cube: () => MESH.Nodes.Cube(cubeData),
-            globe: () => MESH.Nodes.Globe(globeData),
+            globe: () => MESH.Nodes.Globe(globeData, false),
             scanner: () => MESH.Nodes.Scanner(eyeData),
             tether: (o, t) => MESH.Tether(o, t)
         });
@@ -165,6 +168,7 @@ function mainloop() {
 
             // required if controls.enableDamping or controls.autoRotate are set to true
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
+            FPSCounter.update();
             renderer.render(scene, camera);
         }
         // [!] testing
@@ -176,6 +180,47 @@ function mainloop() {
             NodeController.createNode("cube", [], [0, 0, 1]);
         NodeController.createNode("scanner", [], [1, 0, 1]);
         NodeController.createNode("globe", [], [0, 1, 1]);
+        FPSCounter.reset();
         renderer.setAnimationLoop(animate);
     });
+}
+
+function Framerate (
+    framerateUpdateCallback,
+    framerateInterval = 1000 // ms
+) {
+    const self = this;
+    this._callback = framerateUpdateCallback;
+    this._framesPerMs = framerateInterval;
+    this._frame = 0;
+    this.prev = undefined;
+    this.live = {
+        value: 0,
+        get frames() {
+            return this.value;
+        },
+        set frames(val) {
+            this.value = val;
+            self._callback(val);
+        }
+    }
+    this.reset = function () {
+        self.prev = Date.now();
+        self._frame = 0;
+        self.live.value = 0;
+    }
+    this.update = function() {
+        if (self.prev) {
+            self._frame++;
+            const curr = Date.now();
+            if (curr > self.prev + self._framesPerMs) {
+                self.live.frames = Math.round( (self._frame * self._framesPerMs) / (curr - self.prev));
+                self.prev = curr;
+                self._frame = 0;
+            }
+        } else {
+            self.reset();
+        }
+    }
+    return this;
 }
