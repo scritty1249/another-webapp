@@ -211,7 +211,7 @@ export function OverlayManager(
                     self.state.linking = true;
                     self._mouseManager.getNextEvent("clicked").then(event => {
                         const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
-                        if (nodeid) {
+                        if (nodeid && nodeid != self.focusedNodeId) {
                             self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
                             console.log("interlinked");
                         } else {
@@ -233,11 +233,6 @@ export function OverlayManager(
             },
             function infoButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);
-                // [!] testing
-                if (node.userData.type == "globe") {
-                    const mat = node.userData.children("globe").userData.children("ball").material;
-                    mat._transmission = (mat._transmission > Number.EPSILON) ? 0 : 0.9;
-                }
                 console.log(node);
             }
         );

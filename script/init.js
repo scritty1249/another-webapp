@@ -52,9 +52,6 @@ function mainloop() {
     const PhysicsController = new PhysicsManager(NodeController,
         shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
     );
-    const FPSCounter = new Framerate(
-        (fps) => document.getElementById("framerate").textContent = `FPS: ${fps}`
-    );
     const clock = new THREE.Clock();
     document.getElementById("container").appendChild(renderer.domElement);
 
@@ -105,7 +102,7 @@ function mainloop() {
         _bgCubePath + 'py' + _bgCubeFormat, _bgCubePath + 'ny' + _bgCubeFormat,
         _bgCubePath + 'pz' + _bgCubeFormat, _bgCubePath + 'nz' + _bgCubeFormat
     ]);
-    backgroundTextureCube.generateMipmaps = false
+    // backgroundTextureCube.generateMipmaps = false
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
     // // render a plane
     // const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
@@ -157,21 +154,28 @@ function mainloop() {
         });
         
         let trackLowPerformace = false;
+        const FPSCounter = new Framerate(
+            (fps) => {
+                document.getElementById("framerate").textContent = `FPS: ${fps}`;
+                if (
+                    trackLowPerformace &&
+                    !NodeController.lowPerformanceMode &&
+                    FPSCounter.started &&
+                    FPSCounter.fps < 30
+                ) {
+                    NodeController.lowPerformanceMode = true;
+                    console.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
+                }
+            }
+        );
         // render the stuff
         function animate() {
-            if (
-                trackLowPerformace &&
-                !NodeController.lowPerformanceMode &&
-                FPSCounter.started &&
-                FPSCounter.avgFramerate < 30
-            ) {
-                NodeController.lowPerformanceMode = true;
-                console.warn(`FPS dropped below threshold to ${FPSCounter.framerate}, low performance mode is ON.`);
-            }
+            
+            //requestIdleCallback(animate)
             // physics
             PhysicsController.update();
 
-            NodeController.update(clock.getDelta());
+            NodeController.update(UTILS.clamp(clock.getDelta(), 0, 1000));
 
             OverlayController.update();
 
@@ -199,7 +203,6 @@ function mainloop() {
 
 function Framerate (
     framerateUpdateCallback,
-    framerateHistory = 10,
     framerateInterval = 1000 // ms
 ) {
     const self = this;
@@ -208,23 +211,13 @@ function Framerate (
     this._frame = 0;
     this._framerate = 0;
     this.prev = undefined;
-    this._maxFrameHistory = framerateHistory;
-    this.frameHistory = [];
     Object.defineProperty(self, "framerate", {
         get: function() {
             return self._framerate;
         },
         set: function(value) {
             self._framerate = value;
-            this._pushFrameHistory();
             self._callback(value);
-        }
-    });
-    Object.defineProperty(self, "avgFramerate", {
-        get: function() {
-            return (self.frameHistory.length > 0)
-                ? self.frameHistory.reduce((acc, curr) => acc + curr, 0) / self.frameHistory.length
-                : 0;
         }
     });
     Object.defineProperty(self, "started", {
@@ -232,11 +225,6 @@ function Framerate (
             return self.prev != undefined && self._framerate > 0;
         }
     });
-    this._pushFrameHistory = function () {
-        while (self.frameHistory.length >= this._maxFrameHistory)
-            self.frameHistory.unshift(1);
-        self.frameHistory.push(self.framerate);
-    }
     this.reset = function () {
         self.prev = Date.now();
         self._frame = 0;
