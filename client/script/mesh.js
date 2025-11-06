@@ -101,7 +101,7 @@ const Nodes = {
         }
         return cube;
     },
-    Globe: function (sceneData, position = [0, 0, 0], animationOptions = {idle: true, randomize: true}) {
+    Globe: function (sceneData, transparency = true, position = [0, 0, 0], animationOptions = {idle: true, randomize: true}) {
         const globe = Node(sceneData.mesh, sceneData.animations);
         globe.userData.children("globe").material = new MeshBasicMaterial({
             color: 0x000000,
@@ -113,10 +113,18 @@ const Nodes = {
             specular: 0xff0000,
             shininess: 100
         });
-        globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
-            transmission: 1,
-            roughness: 0.18
-        });
+        globe.userData.children("globe").userData.children("ball").material = (transparency)
+            // this lags on Chromium browsers, but runs fine Safari- regardless of hardware for some reason
+            ? new MeshPhysicalMaterial({
+                transmission: 0.9,
+                roughness: 0.2
+            })
+            : new MeshPhongMaterial({
+                color: 0xffffff,
+                specular: 0xff0000,
+                shininess: 0
+            });
+
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
         globe.userData.children("globe").userData.children("frame").renderOrder = 1;
         globe.userData.children("globe").renderOrder = 1;
