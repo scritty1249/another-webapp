@@ -150,7 +150,6 @@ function mainloop() {
         const FPSCounter = new Framerate(
             (fps) => {
                 document.getElementById("framerate").textContent = `FPS: ${fps}`;
-                document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
                 if (
                     trackLowPerformace &&
                     !NodeController.lowPerformanceMode &&
@@ -158,6 +157,7 @@ function mainloop() {
                     FPSCounter.fps < 30
                 ) {
                     NodeController.lowPerformanceMode = true;
+                    document.getElementById("performance").textContent = "Low Performance mode: ON";
                     Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
                 }
             }
@@ -189,6 +189,7 @@ function mainloop() {
         NodeController.createNode("globe", [], [0, 2, 5]);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
+        document.getElementById("performance").textContent = "Low Performance mode: OFF";
         setTimeout(() => {
             trackLowPerformace = true;
         }, 2500); // time before we start checking if we need to turn on low performance mode

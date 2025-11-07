@@ -150,7 +150,7 @@ const Nodes = {
         globe.userData.children("globe").userData.children("frame").renderOrder = 1;
         globe.userData.children("globe").renderOrder = 1;
         globe.userData.type = "globe";
-        globe.scale.set(0.5, 0.5, 0.5);
+        globe.scale.set(0.65, 0.65, 0.65);
         if (animationOptions) {
             if (animationOptions.randomize) {
                 globe.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
