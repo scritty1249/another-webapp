@@ -53,7 +53,7 @@ export function NodeManager(
         this.tethers[tether.uuid] = tether;
         this.tetherlist.push(this.tethers[tether.uuid]);
     }
-    this.isNeighbor = function (originid, targetid) { // order does not matter
+    this.isNeighbor = function (originid, targetid) { // order does not matter, returns the tether uuid if true
 
         // there should only be one tether between each node
         const tether = this.tetherlist.filter(t => 
@@ -65,16 +65,23 @@ export function NodeManager(
                 t.userData.target.uuid === originid
             )
         );
-        return tether.length != 0;
+        if (tether.length)
+            return tether[0].uuid;
+        return false;
     }
     this.getNodes = function (...nodeids) {
         return nodeids.map(nodeid => this.getNode(nodeid));
     }
     this.untetherNodes = function (originid, targetid) {
-        const tether = this.getTetherFromNodes(originid, targetid);
+        const tether = this._getTetherFromNodes(originid, targetid);
+        this.removeTether(tether.uuid); // a bit inefficient
+    }
+    this.removeTether = function (tetherid) {
+        const tether = this.getTether(tetherid);
+        const [origin, target] = this._getNodesFromTether(tether);
         // [!] hoping this just removes the reference and not the actual object
-        delete origin.userData.tethers[tether.uuid];
-        delete target.userData.tethers[tether.uuid];
+        delete origin.userData.tethers[tetherid];
+        delete target.userData.tethers[tetherid];
         this._popTether(tether);
     }
     this.tetherNodes = function (originid, targetid) {
@@ -120,15 +127,18 @@ export function NodeManager(
             throw new Error(`[NodeManager] | Node with UUID "${nodeid}" does not exist.`);
         return node;
     }
-    this.getTetherFromNodes = function (originid, targetid) {
+    this._getTetherFromNodes = function (originid, targetid) {
         // there should only be one tether between each node
         const tether = this.tetherlist.filter(t => 
             t.userData.origin.uuid === originid &&
             t.userData.target.uuid === targetid
         );
-        if (!tether)
+        if (!tether.length)
             throw new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`);
         return tether[0]; // there should only be one
+    }
+    this._getNodesFromTether = function (tether) {
+        return [tether.userData.origin, tether.userData.target];
     }
     this.removeNode = function (nodeid) {
         const node = this.getNode(nodeid);
@@ -196,9 +206,9 @@ export function NodeManager(
         self._raycaster.setFromCamera(coordinate, self._camera);
         const intersects = self._raycaster.intersectObjects(self.nodelist, true);
         return intersects.length > 0
-            ? intersects[0].object.parent
-                ? intersects[0].object.parent.uuid
-                : intersects[0].object.uuid
+            ? intersects[0].object.userData.nodeid ?
+                intersects[0].object.userData.nodeid
+                : intersects[0].object.userData.uuid
             : undefined;
     }
     this.getDistance = function (originid, targetid) {
