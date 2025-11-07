@@ -279,7 +279,7 @@ export function OverlayManager(
             self.element.focusMenu = undefined;
             this.focusedNodeId = undefined;
             oldElement.classList.add("hide");
-            oldElement.addEventListener("animationend", function (event) {
+            oldElement.addEventListener("transitionend", function (event) {
                 event.target.remove();
             }, { once: true });
         }

@@ -15,7 +15,6 @@ canvas {
 }
 * {
     box-sizing: border-box;
-    user-drag: none;
     -webkit-user-drag: none;
     user-select: none;
     -moz-user-select: none;

@@ -102,7 +102,6 @@ function mainloop() {
         _bgCubePath + 'py' + _bgCubeFormat, _bgCubePath + 'ny' + _bgCubeFormat,
         _bgCubePath + 'pz' + _bgCubeFormat, _bgCubePath + 'nz' + _bgCubeFormat
     ]);
-    // backgroundTextureCube.generateMipmaps = false
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
     // // render a plane
     // const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
@@ -157,6 +156,7 @@ function mainloop() {
         const FPSCounter = new Framerate(
             (fps) => {
                 document.getElementById("framerate").textContent = `FPS: ${fps}`;
+                document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
                 if (
                     trackLowPerformace &&
                     !NodeController.lowPerformanceMode &&
