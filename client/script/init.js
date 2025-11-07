@@ -4,7 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import * as MESH from "./mesh.js";
 import * as THREEUTILS from "./three-utils.js";
-import { NodeManager } from "./nodes.js";
+import { NodeManager, BuildNodeManager } from "./nodes.js";
 import { Mouse } from "./cursor.js";
 import { OverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
@@ -46,7 +46,7 @@ if (WebGL.isWebGL2Available()) {
 
 function mainloop() {
     const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
-    const NodeController = new NodeManager(scene, renderer, camera, raycaster);
+    const NodeController = new BuildNodeManager(new NodeManager(scene, renderer, camera, raycaster));
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
         MouseController, NodeController, document.getElementById("overlay"));
     const PhysicsController = new PhysicsManager(NodeController,
@@ -54,6 +54,8 @@ function mainloop() {
     );
     const clock = new THREE.Clock();
     document.getElementById("container").appendChild(renderer.domElement);
+
+    Logger.log(NodeController);
 
     // start loading everything
     const gtlfData = Promise.all([
@@ -193,10 +195,51 @@ function mainloop() {
         OverlayController.init(controls);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
+        Logger.log(NodeController.nodelist, controls.drag.objects);
+        enableAttackPhase(
+            "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbMiwwLDRdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoic2Nhbm5lciIsInBvc2l0aW9uIjpbOSwwLDVdLCJfZGF0YSI6e319LHsidXVpZCI6IjIiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzIsMCwtM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbLTMsMCwtMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNCIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMTIsMCwyXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI1IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOls4LDAsOV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNiIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMiwwLDExXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstMywwLDNdLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDddLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6WzAsMCwxXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOls2LDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjEyIiwidHlwZSI6InNjYW5uZXIiLCJwb3NpdGlvbiI6WzgsMCwwXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMyIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsxMiwwLDddLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzAsN10sWzgsMF0sWzExLDhdLFsxMSwyXSxbMTAsM10sWzgsMTBdLFs4LDEyXSxbOCw5XSxbMTIsMV0sWzEsMTNdLFs1LDEzXSxbOSw2XSxbMSw0XV0sImJhY2tncm91bmQiOiIifQ==",
+            scene,
+            controls,
+            NodeController,
+            OverlayController,
+            PhysicsController
+        );
+
         setTimeout(() => {
             trackLowPerformace = true;
         }, 2500); // time before we start checking if we need to turn on low performance mode
     });
+}
+function enableAttackPhase(
+    layoutData,
+    scene,
+    controls,
+    nodeManager,
+    overlayManager,
+    physicsManager
+) {
+    Logger.info("Loading attack phase");
+    controls.drag.enabled = false;
+    physicsManager.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
+    nodeManager.clear();
+    UTILS.layoutFromJson(layoutData, scene, controls.drag, nodeManager);
+
+    Logger.info("Switched to attack phase");
+}
+function enableBuildPhase(
+    layoutData,
+    scene,
+    controls,
+    nodeManager,
+    overlayManager,
+    physicsManager,
+) {
+    Logger.info("Loading build phase");
+    controls.drag.enabled = true;
+    physicsManager.activate();
+    nodeManager.clear();
+    UTILS.layoutFromJson(layoutData, scene, controls.drag, nodeManager);
+    Logger.info("Switched to build phase");
 }
 
 function Framerate (

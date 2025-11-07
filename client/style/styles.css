@@ -87,6 +87,7 @@ canvas {
     left: 10px;
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     margin: 0;
     overflow-y: hidden;
     overflow-x: scroll;

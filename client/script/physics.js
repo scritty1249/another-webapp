@@ -18,6 +18,7 @@ export function PhysicsManager (
         pullForce: attractForce,
         passiveForce: passiveForce
     };
+    this._enabled = true;
     this._applyAmbientForce = function (node) {
         const axisZero = new THREE.Vector3(node.position.x, 0, node.position.z);
         const distance = node.position.distanceTo(axisZero);
@@ -68,7 +69,15 @@ export function PhysicsManager (
         });
     }
     this.update = function () {
-        this._applyTetherForces();
-        this._applyAmbientForces();
+        if (this._enabled) {
+            this._applyTetherForces();
+            this._applyAmbientForces();
+        }
+    }
+    this.activate = function () {
+        this._enabled = true;
+    }
+    this.deactivate = function () {
+        this._enabled = false;
     }
 }

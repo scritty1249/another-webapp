@@ -72,18 +72,6 @@ export function NodeManager(
     this.getNodes = function (...nodeids) {
         return nodeids.map(nodeid => this.getNode(nodeid));
     }
-    this.untetherNodes = function (originid, targetid) {
-        const tether = this._getTetherFromNodes(originid, targetid);
-        this.removeTether(tether.uuid); // a bit inefficient
-    }
-    this.untetherNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        node.userData.tetherlist.forEach(tether => self._removeTether(tether));
-    }
-    this.removeTether = function (tetherid) {
-        const tether = this.getTether(tetherid);
-        this._removeTether(tether);
-    }
     this._removeTether = function (tether) {
         const [origin, target] = this._getNodesFromTether(tether);
         // [!] hoping this just removes the reference and not the actual object
@@ -91,66 +79,17 @@ export function NodeManager(
         delete target.userData.tethers.target[tether.uuid];
         this._popTether(tether);
     }
-    this.tetherNodes = function (originid, targetid) {
-        const [origin, target] = self.getNodes(originid, targetid);
-        if (self.isNeighbor(originid, targetid))
-            throw new Error(
-                `[NodeManager] | Tether already exists between Nodes ${originid} and ${targetid}`
-            );
-        else if (originid == targetid)
-            throw new Error(
-                `[NodeManager] | Cannot tether a Node to itself`
-            );
-        const tether = self._getMesh("tether", origin, target);
-        self._pushTether(tether);
-        self._scene.add(tether);
-        return tether.uuid;
-    }
     this._updateAnimations = function (timedelta) {
         this.nodelist.forEach(node => {
             if (node.userData.updateAnimations)
                 node.userData.updateAnimations(timedelta);
         });
     }
-    this._updateTethers = function () {
-        this.tetherlist.forEach(tether => {
-            if (
-                tether.userData.origin.position != tether.userData.vectors.origin ||
-                tether.userData.target.position != tether.userData.vectors.target
-            ) {
-                tether.userData.update();
-            }
-        });
-    }
-    this.getTether = function (tetherid) {
-        const tether = this.tethers[tetherid];
-        if (!tether)
-            Logger.throw(new Error(`[NodeManager] | Tether with UUID "${tetherid}" does not exist.`));
-        return tether;
-    }
     this.getNode = function (nodeid) {
         const node = this.nodes[nodeid];
         if (!node)
             Logger.throw(new Error(`[NodeManager] | Node with UUID "${nodeid}" does not exist.`));
         return node;
-    }
-    this._getTetherFromNodes = function (originid, targetid) {
-        // there should only be one tether between each node
-        const tether = this.tetherlist.filter(t => 
-            t.userData.origin.uuid === originid &&
-            t.userData.target.uuid === targetid
-        );
-        if (!tether.length)
-            Logger.throw(new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`));
-        return tether[0]; // there should only be one
-    }
-    this._getNodesFromTether = function (tether) {
-        return [tether.userData.origin, tether.userData.target];
-    }
-    this.removeNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        this._popNode(node);
-        this._scene.remove(node);
     }
     this.createNode = function (nodeType, originids = [], position = [0, 0, 0]) {
         const newNode = this._getMesh(nodeType);
@@ -188,28 +127,6 @@ export function NodeManager(
     
         return { x: screenX, y: screenY, distance: camera.position.distanceTo(worldPosition) };
     }
-    this._setNodeEmissive = function (node, emissive) {
-        node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive)
-                mesh.material.emissive.set(emissive);
-        });
-    }
-    this.highlightNode = function (nodeid) {
-        const node = self.getNode(nodeid);
-        node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive && !mesh.material.emissive.equals(emissiveValue)) {
-                mesh.userData.oldEmissive = mesh.material.emissive.clone();
-                mesh.material.emissive.set(emissiveValue);
-            }
-        });
-    }
-    this.unhighlightNode = function (nodeid) {
-        const node = self.getNode(nodeid);
-        node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive && mesh.userData.oldEmissive)
-                mesh.material.emissive.set(mesh.userData.oldEmissive);
-        });
-    }
     this.getNodeFromFlatCoordinate = function (coordinate) { // [!] this modifies the raycaster
         self._raycaster.setFromCamera(coordinate, self._camera);
         const intersects = self._raycaster.intersectObjects(self.nodelist, true);
@@ -218,21 +135,6 @@ export function NodeManager(
                 intersects[0].object.userData.nodeid
                 : intersects[0].object.userData.uuid
             : undefined;
-    }
-    this.getDistance = function (originid, targetid) {
-        const [origin, target] = self.getNodes(originid, targetid);
-        return origin.position.distanceTo(target.position);
-    }
-    this.getDirection = function (originid, targetid) {
-        const [origin, target] = self.getNodes(originid, targetid);
-        return new THREE.Vector3().subVectors(
-            origin.position,
-            target.position
-        );
-    }
-    this.getAngle = function (originid, targetid) { // returns in RADIANS
-        const [origin, target] = self.getNodes(originid, targetid);
-        return origin.position.angleTo(target.position);
     }
     this._setLowPerformanceMode = function (low) {
         if (low)
@@ -243,9 +145,124 @@ export function NodeManager(
     this.clear = function () {
         const nodeCount = self.nodelist.length;
         const tetherCount = self.tetherlist.length;
-        self.nodelist.forEach(n => self.removeNode(n.uuid));
+        self.nodelist.forEach(n => self._popNode(n));
         Logger.log(`[NodeManager] | Cleared ${nodeCount} nodes and ${tetherCount} tethers`);
     }
 
     return this;
+}
+
+export function AttackNodeManager (
+    nodeManager,
+    healthData
+) {
+    const self = this;
+    this._healthData = healthData;
+    this.nodedata = {};
+    this.nodelist = {
+        value: {},
+        get function(key) {
+            return this.value[key];
+        },
+        set function(key, value) {
+            if (!this._healthData[value.userData.type])
+                Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No health data found for "${value.userData.type}" type Nodes`);
+            self.nodedata[key] = {
+                health: this._healthData[value.userData.type]
+            };
+            this.value[key] = value;
+        }
+    }
+
+    return {...nodeManager, ...this};
+}
+
+export function BuildNodeManager (
+    nodeManager
+) {
+    this.tetherNodes = function (originid, targetid) {
+        const [origin, target] = this.getNodes(originid, targetid);
+        if (this.isNeighbor(originid, targetid))
+            throw new Error(
+                `[BuildNodeManager] | Tether already exists between Nodes ${originid} and ${targetid}`
+            );
+        else if (originid == targetid)
+            throw new Error(
+                `[BuildNodeManager] | Cannot tether a Node to itself`
+            );
+        const tether = this._getMesh("tether", origin, target);
+        this._pushTether(tether);
+        this._scene.add(tether);
+        return tether.uuid;
+    }
+    this._updateTethers = function () {
+        this.tetherlist.forEach(tether => {
+            if (
+                tether.userData.origin.position != tether.userData.vectors.origin ||
+                tether.userData.target.position != tether.userData.vectors.target
+            ) {
+                tether.userData.update();
+            }
+        });
+    }
+    this.untetherNodes = function (originid, targetid) {
+        const tether = this._getTetherFromNodes(originid, targetid);
+        this.removeTether(tether.uuid); // a bit inefficient
+    }
+    this.untetherNode = function (nodeid) {
+        const node = this.getNode(nodeid);
+        node.userData.tetherlist.forEach(tether => this._removeTether(tether));
+    }
+    this.removeTether = function (tetherid) {
+        const tether = this.getTether(tetherid);
+        this._removeTether(tether);
+    }
+    this.getTether = function (tetherid) {
+        const tether = this.tethers[tetherid];
+        if (!tether)
+            Logger.throw(new Error(`[BuildNodeManager] | Tether with UUID "${tetherid}" does not exist.`));
+        return tether;
+    }
+    this.removeNode = function (nodeid) {
+        const node = this.getNode(nodeid);
+        this._popNode(node);
+    }
+    this.getDistance = function (originid, targetid) {
+        const [origin, target] = this.getNodes(originid, targetid);
+        return origin.position.distanceTo(target.position);
+    }
+    this.getDirection = function (originid, targetid) {
+        const [origin, target] = this.getNodes(originid, targetid);
+        return new THREE.Vector3().subVectors(
+            origin.position,
+            target.position
+        );
+    }
+    this.getAngle = function (originid, targetid) { // returns in RADIANS
+        const [origin, target] = this.getNodes(originid, targetid);
+        return origin.position.angleTo(target.position);
+    }
+    this._setNodeEmissive = function (node, emissive) {
+        node.userData.traverseMesh(function (mesh) {
+            if (mesh.material.emissive)
+                mesh.material.emissive.set(emissive);
+        });
+    }
+    this.highlightNode = function (nodeid) {
+        const node = this.getNode(nodeid);
+        node.userData.traverseMesh(function (mesh) {
+            if (mesh.material.emissive && !mesh.material.emissive.equals(emissiveValue)) {
+                mesh.userData.oldEmissive = mesh.material.emissive.clone();
+                mesh.material.emissive.set(emissiveValue);
+            }
+        });
+    }
+    this.unhighlightNode = function (nodeid) {
+        const node = this.getNode(nodeid);
+        node.userData.traverseMesh(function (mesh) {
+            if (mesh.material.emissive && mesh.userData.oldEmissive)
+                mesh.material.emissive.set(mesh.userData.oldEmissive);
+        });
+    }
+    return {...nodeManager, ...this};
 }
