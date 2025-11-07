@@ -1,6 +1,9 @@
 import {
-    Vector3
+    Vector3,
+    Color
 } from "three";
+
+const emissiveValue = new Color(0xdedede);
 
 export function NodeManager(
     scene,
@@ -176,9 +179,9 @@ export function NodeManager(
     this.highlightNode = function (nodeid) {
         const node = self.getNode(nodeid);
         node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive) {
+            if (mesh.material.emissive && !mesh.material.emissive.equals(emissiveValue)) {
                 mesh.userData.oldEmissive = mesh.material.emissive.clone();
-                mesh.material.emissive.set(0xdedede);
+                mesh.material.emissive.set(emissiveValue);
             }
         });
     }

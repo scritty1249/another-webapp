@@ -166,6 +166,9 @@ export function OverlayManager(
     this.state = {
         inMenu: false,
         linking: false,
+        get keepFocus() {
+            return self.state.linking;
+        },
         get stopFocusing() {
             return self.state.linking || self.state.inMenu;
         },
@@ -219,6 +222,7 @@ export function OverlayManager(
                         }
                         self._nodeManager.unhighlightNode(self.focusedNodeId);
                         self.state.linking = false;
+                        self.unfocusNode();
                     });
                     console.log("looking to link");
                 }
@@ -252,6 +256,12 @@ export function OverlayManager(
             this.element.focusMenu.style.setProperty("--scale", scale);
         }
     }
+    this._addOverlayElement = function () {
+
+    }
+    this._removeOverlayElement = function () {
+        
+    }
     this.focusNode = function (nodeid) {
         if (!self.state.stopFocusing) {
             this.unfocusNode();
@@ -259,13 +269,19 @@ export function OverlayManager(
             this.focusedNodeId = nodeid;
             this._updateFocusMenu();
             this.element._overlay.appendChild(this.element.focusMenu);
+            void(this.element.focusMenu.offsetHeight); // force redraw of element i.e. triggers the transition effect we want
+            self.element.focusMenu.classList.add("show");
         }
     }
     this.unfocusNode = function () {
-        if (self.state.focusedNode) {
-            this.element.focusMenu.remove();
-            this.element.focusMenu = undefined; // release- idk how js garbage collection works? or if it even exists for this bum language?
+        if (self.state.focusedNode && !self.state.keepFocus) {
+            const oldElement = self.element.focusMenu;
+            self.element.focusMenu = undefined;
             this.focusedNodeId = undefined;
+            oldElement.classList.add("hide");
+            oldElement.addEventListener("animationend", function (event) {
+                event.target.remove();
+            }, { once: true });
         }
     }
     this.update = function () {
