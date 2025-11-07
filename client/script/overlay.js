@@ -195,7 +195,7 @@ export function OverlayManager(
                 alert("Layout copied to clipboard");
             },
             function e() {
-                const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager);
+                const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager, false);
                 const domData = document.documentElement.outerHTML;
                 UTIL.download((new Date()).toISOString() + ".txt", `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n`);
                 console.log("Generated debug file for download");
