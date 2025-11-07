@@ -44,7 +44,7 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
     Logger.debug("Exported layout: ", data);
     return (obfuscate) ? btoa(dataStr) : dataStr;
 }
-export function layoutFromJson(jsonStr, scene, nodeManager) {
+export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
     const isEncoded = b64RegPattern.test(jsonStr);
     try {
         const data = JSON.parse(isEncoded ? atob(jsonStr) : jsonStr);
@@ -61,6 +61,7 @@ export function layoutFromJson(jsonStr, scene, nodeManager) {
             newIds[node.uuid] = newId;
         });
         data.neighbors.forEach(tether => nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]]));
+        dragControls.objects = nodeManager.nodelist;
         Logger.debug("Loaded layout: ", data);
         return true;
     } catch (error) {

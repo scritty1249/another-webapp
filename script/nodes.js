@@ -18,6 +18,11 @@ export function NodeManager(
     this.tethers = {};
     this.tetherlist = []; // read-only, updated by this.tethers
     this._lowPerformance = false;
+    this._scene = scene;
+    this._camera = camera;
+    this._renderer = renderer;
+    this._raycaster = raycaster;
+    this._meshData = nodeMeshData;
     Object.defineProperty(self, "lowPerformanceMode", {
         get: function() {
             return self._lowPerformance;
@@ -27,17 +32,13 @@ export function NodeManager(
             self._setLowPerformanceMode(value);
         }
     });
-    this._scene = scene;
-    this._camera = camera;
-    this._renderer = renderer;
-    this._raycaster = raycaster;
-    this._meshData = nodeMeshData;
     this._popNode = function (node) {
         // remove tethers
-        node.userData.tetherslist.forEach(tether => this._popTether(tether));
+        if (node.userData.tetherlist.length)
+            node.userData.tetherslist.forEach(tether => this._popTether(tether));
         this._scene.remove(node);
         delete this.nodes[node.uuid];
-        this.nodelist = Object.values(this.nodes); // [!] may be optimizied, see if performance is impacted by this
+        this.nodelist = [...Object.values(this.nodes)]; 
     }
     this._pushNode = function (node) {
         this.nodes[node.uuid] = node;
@@ -160,6 +161,7 @@ export function NodeManager(
         this._pushNode(newNode);
         this._scene.add(newNode);
         originids.forEach(originid => this.tetherNodes(originid, newNode.uuid));
+        Logger.debug(`Created new Node (${nodeType}): ${newNode.uuid}`);
         return newNode.uuid;
     }
     this._getMesh = function (meshName, ...args) {
@@ -211,6 +213,7 @@ export function NodeManager(
     this.getNodeFromFlatCoordinate = function (coordinate) { // [!] this modifies the raycaster
         self._raycaster.setFromCamera(coordinate, self._camera);
         const intersects = self._raycaster.intersectObjects(self.nodelist, true);
+        Logger.log(intersects);
         return intersects.length > 0
             ? intersects[0].object.userData.nodeid ?
                 intersects[0].object.userData.nodeid
@@ -237,6 +240,12 @@ export function NodeManager(
             self.nodelist.forEach(node => node.userData.state.setLowPerformance());
         else
             self.nodelist.forEach(node => node.userData.state.setHighPerformance());
+    }
+    this.clear = function () {
+        const nodeCount = self.nodelist.length;
+        const tetherCount = self.tetherlist.length;
+        self.nodelist.forEach(n => self.removeNode(n.uuid));
+        Logger.log(`[NodeManager] | Cleared ${nodeCount} nodes and ${tetherCount} tethers`);
     }
 
     return this;

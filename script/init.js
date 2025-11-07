@@ -87,12 +87,20 @@ function mainloop() {
     controls.drag.addEventListener("dragstart", function (event) {
         controls.camera.enabled = false;
         event.object.userData.dragged = true;
-        NodeController.highlightNode(event.object.uuid);
+        try {
+            NodeController.highlightNode(event.object.uuid);
+        } catch {
+            Logger.error("DragControls selected a bad node: ", event.object, controls.drag.objects, NodeController.nodelist);
+        }
     });
     controls.drag.addEventListener("dragend", function (event) {
         controls.camera.enabled = true;
         event.object.userData.dragged = false;
-        NodeController.unhighlightNode(event.object.uuid);
+        try {
+            NodeController.unhighlightNode(event.object.uuid);
+        } catch {
+            Logger.error("DragControls selected a bad node: ", event.object, controls.drag.objects, NodeController.nodelist);
+        }
     });
     
     const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
@@ -166,7 +174,7 @@ function mainloop() {
         function animate() {
             
             //requestIdleCallback(animate)
-            // physics
+
             PhysicsController.update();
 
             NodeController.update(UTILS.clamp(clock.getDelta(), 0, 1000));
@@ -178,18 +186,13 @@ function mainloop() {
             FPSCounter.update();
             renderer.render(scene, camera);
         }
-        // [!] testing
-        const urlParams = new URLSearchParams(window.location.search);
-        let r = urlParams.has("layout");
-        if (r)
-            r = UTILS.layoutFromJson(decodeURIComponent(urlParams.get("layout")), scene, NodeController);
-        if (!r)
-            NodeController.createNode("cube", [], [4, 0, 5]);
+        NodeController.createNode("cube", [], [4, 0, 5]);
         NodeController.createNode("scanner", [], [5, 0, 4]);
         NodeController.createNode("globe", [], [0, 2, 5]);
+        document.getElementById("performance").textContent = "Low Performance mode: OFF";
+        OverlayController.init(controls);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
-        document.getElementById("performance").textContent = "Low Performance mode: OFF";
         setTimeout(() => {
             trackLowPerformace = true;
         }, 2500); // time before we start checking if we need to turn on low performance mode
