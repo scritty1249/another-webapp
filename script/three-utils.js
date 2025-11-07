@@ -1,4 +1,4 @@
-import { Vector3 } from "three";
+import { Vector3, CubeTextureLoader } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const zeroVector = new Vector3();
@@ -10,6 +10,13 @@ function isVectorZero(vector) {
         Math.abs(vector.y) < Number.EPSILON &&
         Math.abs(vector.z) < Number.EPSILON
     );
+}
+function loadTextureCube(cubeAssetsPath, cubeAssetsFormat = ".png") {
+    return new CubeTextureLoader().load([
+        cubeAssetsPath + 'px' + cubeAssetsFormat, cubeAssetsPath + 'nx' + cubeAssetsFormat,
+        cubeAssetsPath + 'py' + cubeAssetsFormat, cubeAssetsPath + 'ny' + cubeAssetsFormat,
+        cubeAssetsPath + 'pz' + cubeAssetsFormat, cubeAssetsPath + 'nz' + cubeAssetsFormat
+    ]);
 }
 function loadGLTFShape(gltfPath) {
     return loadGLTF(gltfPath)
@@ -64,4 +71,5 @@ export {
     isVectorZero,
     loadGLTFShape,
     getZoom,
+    loadTextureCube
 };

@@ -95,13 +95,7 @@ function mainloop() {
         NodeController.unhighlightNode(event.object.uuid);
     });
     
-    const _bgCubePath = "./source/bg/";
-    const _bgCubeFormat = ".png";
-    const backgroundTextureCube = new THREE.CubeTextureLoader().load([
-        _bgCubePath + 'px' + _bgCubeFormat, _bgCubePath + 'nx' + _bgCubeFormat,
-        _bgCubePath + 'py' + _bgCubeFormat, _bgCubePath + 'ny' + _bgCubeFormat,
-        _bgCubePath + 'pz' + _bgCubeFormat, _bgCubePath + 'nz' + _bgCubeFormat
-    ]);
+    const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
     // // render a plane
     // const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
