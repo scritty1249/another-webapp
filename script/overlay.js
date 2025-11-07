@@ -125,7 +125,7 @@ const OverlayWidgets = {
         el.classList.add("button", "pointer-events");
         el.style.height = "4rem";
         el.style.width = "10rem";
-        el.innerText = "share";
+        el.innerText = "COPY INFO FOR DEV";
         el.addEventListener("click", function (event) {
             shareLayoutAction();
         });
@@ -195,9 +195,10 @@ export function OverlayManager(
                 alert("Layout copied to clipboard");
             },
             function e() {
-                const data = encodeURIComponent(UTIL.layoutToJson(self._scene, self._nodeManager));
-                navigator.clipboard.writeText(`${window.location.origin + window.location.pathname}?layout=${data}`);
-                alert("Link to current layout copied to clipboard");
+                const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager);
+                const domData = document.documentElement.outerHTML;
+                UTIL.download((new Date()).toISOString() + ".txt", `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n`);
+                console.log("Generated debug file for download");
             },
             function () {
                 window.location.assign(window.location.origin);
@@ -214,17 +215,23 @@ export function OverlayManager(
                     self.state.linking = true;
                     self._mouseManager.getNextEvent("clicked").then(event => {
                         const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
-                        const tetherid = self._nodeManager.isNeighbor(nodeid, self.focusedNodeId);
-                        if (tetherid) { // unlink nodes
-                            self._nodeManager.removeTether(tetherid);
-                            console.log("unlinked nodes");
-                        } else { // link nodes
-                            try {
-                                self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
-                                console.log("interlinked");
-                            } catch {
-                                console.log("didnt link :(");
+                        // [!] ugly as hell
+                        if (nodeid) {
+                            if (nodeid == self.focusedNodeId) { // selected self, remove all tethers
+                                self._nodeManager.untetherNode(nodeid);
+                                console.log("detached node");
+                            } else {
+                                const tetherid = self._nodeManager.isNeighbor(nodeid, self.focusedNodeId);
+                                if (tetherid) { // selected neighbor, remove tether
+                                    self._nodeManager.removeTether(tetherid);
+                                    console.log("unlinked nodes");
+                                } else { // selected untethered node, create new tether
+                                    self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
+                                    console.log("interlinked");
+                                }
                             }
+                        } else { // nothing selected
+                            console.log("didnt link :(");
                         }
                         self._nodeManager.unhighlightNode(self.focusedNodeId);
                         self.state.linking = false;
@@ -284,7 +291,9 @@ export function OverlayManager(
             const oldElement = self.element.focusMenu;
             self.element.focusMenu = undefined;
             this.focusedNodeId = undefined;
+            void(oldElement.offsetHeight);
             oldElement.classList.add("hide");
+            void(oldElement.offsetHeight);
             oldElement.addEventListener("transitionend", function (event) {
                 event.target.remove();
             }, { once: true });

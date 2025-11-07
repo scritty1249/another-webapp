@@ -11,7 +11,7 @@ import { PhysicsManager } from "./physics.js";
 import * as UTILS from "./utils.js";
 
 const tetherForce = 0.2;
-const passiveForce = 0.001; // used for elements gravitating towards y=0
+const passiveForce = 0.003; // used for elements gravitating towards y=0
 const shapeMinProximity = 5.5;
 const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
@@ -184,9 +184,9 @@ function mainloop() {
         if (r)
             r = UTILS.layoutFromJson(decodeURIComponent(urlParams.get("layout")), scene, NodeController);
         if (!r)
-            NodeController.createNode("cube", [], [0, 0, 1]);
-        NodeController.createNode("scanner", [], [1, 0, 1]);
-        NodeController.createNode("globe", [], [0, 1, 1]);
+            NodeController.createNode("cube", [], [4, 0, 5]);
+        NodeController.createNode("scanner", [], [5, 0, 4]);
+        NodeController.createNode("globe", [], [0, 2, 5]);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
         setTimeout(() => {
