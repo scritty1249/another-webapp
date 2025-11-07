@@ -27,6 +27,11 @@ function Node(mesh, animations = []) {
         origin: {},
         target: {},
     };
+    Object.defineProperty(wrapper.userData, "tetherlist", {
+        get: function() {
+            return Object.values(wrapper.userData.tethers.origin).concat(Object.values(wrapper.userData.tethers.target));
+        }
+    });
     wrapper.userData.traverseMesh = function(callback, ...args) {
         wrapper.children.forEach(parentMesh => recurseMeshChildren(parentMesh, 3, callback, ...args));
     }

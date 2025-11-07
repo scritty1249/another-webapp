@@ -1,5 +1,18 @@
 import { loadTextureCube } from "./three-utils.js";
 
+export function download(filename, text) {
+    const el = document.createElement('a');
+    el.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+    el.setAttribute('download', filename);
+
+    el.style.display = 'none';
+    document.body.appendChild(el);
+
+    el.click();
+
+    document.body.removeChild(el);
+}
+
 export function clamp(num, min, max) {
     return Math.min(Math.max(num, min), max);
 }

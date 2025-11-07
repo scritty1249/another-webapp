@@ -34,8 +34,7 @@ export function NodeManager(
     this._meshData = nodeMeshData;
     this._popNode = function (node) {
         // remove tethers
-        const tethers = Object.values(node.userData.tethers.origin).concat(Object.values(node.userData.tethers.target));
-        tethers.forEach(tether => this._popTether(tether));
+        node.userData.tetherslist.forEach(tether => this._popTether(tether));
         this._scene.remove(node);
         delete this.nodes[node.uuid];
         this.nodelist = Object.values(this.nodes); // [!] may be optimizied, see if performance is impacted by this
@@ -76,12 +75,19 @@ export function NodeManager(
         const tether = this._getTetherFromNodes(originid, targetid);
         this.removeTether(tether.uuid); // a bit inefficient
     }
+    this.untetherNode = function (nodeid) {
+        const node = this.getNode(nodeid);
+        node.userData.tetherlist.forEach(tether => self._removeTether(tether));
+    }
     this.removeTether = function (tetherid) {
         const tether = this.getTether(tetherid);
+        this._removeTether(tether);
+    }
+    this._removeTether = function (tether) {
         const [origin, target] = this._getNodesFromTether(tether);
         // [!] hoping this just removes the reference and not the actual object
-        delete origin.userData.tethers[tetherid];
-        delete target.userData.tethers[tetherid];
+        delete origin.userData.tethers.origin[tether.uuid];
+        delete target.userData.tethers.target[tether.uuid];
         this._popTether(tether);
     }
     this.tetherNodes = function (originid, targetid) {
