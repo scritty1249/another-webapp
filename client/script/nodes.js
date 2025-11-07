@@ -213,7 +213,6 @@ export function NodeManager(
     this.getNodeFromFlatCoordinate = function (coordinate) { // [!] this modifies the raycaster
         self._raycaster.setFromCamera(coordinate, self._camera);
         const intersects = self._raycaster.intersectObjects(self.nodelist, true);
-        Logger.log(intersects);
         return intersects.length > 0
             ? intersects[0].object.userData.nodeid ?
                 intersects[0].object.userData.nodeid

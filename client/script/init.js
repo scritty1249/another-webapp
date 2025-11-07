@@ -136,7 +136,7 @@ function mainloop() {
 
     gtlfData.then(values => {
         const [ cubeData, globeData, eyeData, ..._] = values;
-        Logger.log("Finished loading shape data:", values);
+        Logger.info("Finished loading shape data:", values);
 
         // functions using geometry
         renderer.domElement.addEventListener("clicked", function(event) {
