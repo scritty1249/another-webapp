@@ -125,7 +125,7 @@ const OverlayWidgets = {
         el.classList.add("button", "pointer-events");
         el.style.height = "4rem";
         el.style.width = "10rem";
-        el.innerText = "COPY INFO FOR DEV";
+        el.innerText = "SAVE INFO FOR DEV";
         el.addEventListener("click", function (event) {
             shareLayoutAction();
         });
@@ -197,8 +197,11 @@ export function OverlayManager(
             function e() {
                 const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager, false);
                 const domData = document.documentElement.outerHTML;
-                UTIL.download((new Date()).toISOString() + ".txt", `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n`);
-                console.log("Generated debug file for download");
+                Logger.log("Generating debug file for download");
+                UTIL.download(
+                    (new Date()).toISOString() + ".txt",
+                    `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${Logger.history}\n`
+                );
             },
             function () {
                 window.location.assign(window.location.origin);
@@ -219,25 +222,25 @@ export function OverlayManager(
                         if (nodeid) {
                             if (nodeid == self.focusedNodeId) { // selected self, remove all tethers
                                 self._nodeManager.untetherNode(nodeid);
-                                console.log("detached node");
+                                Logger.log("detached node");
                             } else {
                                 const tetherid = self._nodeManager.isNeighbor(nodeid, self.focusedNodeId);
                                 if (tetherid) { // selected neighbor, remove tether
                                     self._nodeManager.removeTether(tetherid);
-                                    console.log("unlinked nodes");
+                                    Logger.log("unlinked nodes");
                                 } else { // selected untethered node, create new tether
                                     self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
-                                    console.log("interlinked");
+                                    Logger.log("interlinked");
                                 }
                             }
                         } else { // nothing selected
-                            console.log("didnt link :(");
+                            Logger.log("didnt link :(");
                         }
                         self._nodeManager.unhighlightNode(self.focusedNodeId);
                         self.state.linking = false;
                         self.unfocusNode();
                     });
-                    console.log("looking to link");
+                    Logger.log("looking to link");
                 }
             },
             function addButtonAction() {
@@ -250,7 +253,7 @@ export function OverlayManager(
             },
             function infoButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);
-                console.log(node);
+                Logger.log(node);
             }
         );
     }

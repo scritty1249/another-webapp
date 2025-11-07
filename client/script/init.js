@@ -128,7 +128,7 @@ function mainloop() {
 
     gtlfData.then(values => {
         const [ cubeData, globeData, eyeData, ..._] = values;
-        console.log("Finished loading shape data:", values);
+        Logger.log("Finished loading shape data:", values);
 
         // functions using geometry
         renderer.domElement.addEventListener("clicked", function(event) {
@@ -158,7 +158,7 @@ function mainloop() {
                     FPSCounter.fps < 30
                 ) {
                     NodeController.lowPerformanceMode = true;
-                    console.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
+                    Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
                 }
             }
         );

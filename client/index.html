@@ -13,6 +13,10 @@
             }
         }
         </script>
+        <script type="module"> 
+            import { LogManager } from "./script/logger.js";
+            window.Logger = new LogManager();
+        </script>
         <script type="module" src="./script/init.js"></script>
         <script src="./script/main.js"></script>
     </head>

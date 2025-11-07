@@ -124,13 +124,13 @@ export function NodeManager(
     this.getTether = function (tetherid) {
         const tether = this.tethers[tetherid];
         if (!tether)
-            throw new Error(`[NodeManager] | Tether with UUID "${tetherid}" does not exist.`);
+            Logger.throw(new Error(`[NodeManager] | Tether with UUID "${tetherid}" does not exist.`));
         return tether;
     }
     this.getNode = function (nodeid) {
         const node = this.nodes[nodeid];
         if (!node)
-            throw new Error(`[NodeManager] | Node with UUID "${nodeid}" does not exist.`);
+            Logger.throw(new Error(`[NodeManager] | Node with UUID "${nodeid}" does not exist.`));
         return node;
     }
     this._getTetherFromNodes = function (originid, targetid) {
@@ -140,7 +140,7 @@ export function NodeManager(
             t.userData.target.uuid === targetid
         );
         if (!tether.length)
-            throw new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`);
+            Logger.throw(new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`));
         return tether[0]; // there should only be one
     }
     this._getNodesFromTether = function (tether) {
@@ -164,7 +164,7 @@ export function NodeManager(
     }
     this._getMesh = function (meshName, ...args) {
         if (!Object.keys(self._meshData).includes(meshName))
-            throw new Error(`[NodeManager] | Could load mesh of type "${nodeType}": No mesh data found.`);
+            Logger.throw(new Error(`[NodeManager] | Could load mesh of type "${nodeType}": No mesh data found.`));
         return self._meshData[meshName](...args);
     }
     this.addMeshData = function (meshData) {

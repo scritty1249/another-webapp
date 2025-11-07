@@ -39,13 +39,13 @@ function getMesh(scene) {
         if (child.isMesh) {
             // "child" is a THREE.Mesh object
             if (!mesh) {
-                console.info(`Found Mesh object "${child.name}":`, child);
+                Logger.info(`Found Mesh object "${child.name}":`, child);
                 mesh = child;
             }
         }
     });
     if (!mesh) {
-        console.error("Error getting mesh");
+        Logger.error("Error getting mesh");
         return;
     }
     return mesh;
@@ -55,11 +55,11 @@ async function loadGLTF(gltfPath) {
     try {
         const gltf = await loader.loadAsync(gltfPath);
         // Access the loaded scene, animations, etc.
-        console.info("Scene loaded successfully:", gltf.scene);
+        Logger.info("Scene loaded successfully:", gltf.scene);
         return gltf;
     } catch (error) {
-        console.error("Error loading model:", error);
-        throw error; // Re-throw the error for further handling
+        Logger.error("Error loading model:", error);
+        Logger.throw(error); // Re-throw the error for further handling
     }
 }
 function getZoom(camera) {
