@@ -204,7 +204,7 @@ export function OverlayManager(
                 );
             },
             function () {
-                window.location.assign(window.location.origin);
+                window.location.assign(window.location.origin + window.location.pathname);
             }
         );
         this.element._overlay.appendChild(el);
