@@ -143,8 +143,8 @@ const Nodes = {
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
         globe.userData.children("globe").userData.children("frame").renderOrder = 1;
         globe.userData.children("globe").renderOrder = 1;
-    
         globe.userData.type = "globe";
+        globe.scale.set(0.5, 0.5, 0.5);
         if (animationOptions) {
             if (animationOptions.randomize) {
                 globe.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
