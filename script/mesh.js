@@ -46,6 +46,7 @@ function Node(mesh, animations = []) {
         return child ? child.at(0) : undefined;
     }
     wrapper.userData.traverseMesh(function(mesh) {
+        mesh.userData.nodeid = wrapper.uuid;
         mesh.userData.children = function(name) {
             const child = mesh.children.filter(c => c.name == name);
             return child ? child.at(0) : undefined;
