@@ -214,15 +214,16 @@ export function OverlayManager(
                     self.state.linking = true;
                     self._mouseManager.getNextEvent("clicked").then(event => {
                         const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
-                        if (nodeid && nodeid != self.focusedNodeId) {
+                        try {
                             self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
                             console.log("interlinked");
-                        } else {
+                        } catch {
                             console.log("didnt link :(");
+                        } finally {
+                            self._nodeManager.unhighlightNode(self.focusedNodeId);
+                            self.state.linking = false;
+                            self.unfocusNode();
                         }
-                        self._nodeManager.unhighlightNode(self.focusedNodeId);
-                        self.state.linking = false;
-                        self.unfocusNode();
                     });
                     console.log("looking to link");
                 }
