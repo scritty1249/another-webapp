@@ -162,6 +162,7 @@ export function OverlayManager(
     this._nodeManager = nodeManager;
     this._mouseManager = mouseManager;
     this._scaler = scaleFormula;
+    this._controls = undefined;
     this.focusedNodeId = undefined;
     this.state = {
         inMenu: false,
@@ -182,19 +183,24 @@ export function OverlayManager(
     };
     this._initOverlay = function () {
         const el = OverlayWidgets.createButtonMenu(
-            function e() {
+            function load() {
+                const layoutBackup = UTIL.layoutToJson(self._scene, self._nodeManager, false);
+                self._nodeManager.clear();
                 const textBox = document.getElementById("textBox");
-                const result = UTIL.layoutFromJson(textBox.value.trim(), self._scene, self._nodeManager);
+                const result = UTIL.layoutFromJson(textBox.value.trim(), self._scene, self._controls.drag, self._nodeManager);
                 textBox.value = "";
-                if (!result)
+                if (!result) {
+                    self._nodeManager.clear();
+                    UTIL.layoutFromJson(layoutBackup, self._scene, self._controls.drag, self._nodeManager);
                     alert("Failed to load layout. Was the wrong format entered?");
+                }
             },
-            function e() {
+            function save() {
                 const data = UTIL.layoutToJson(self._scene, self._nodeManager);
                 navigator.clipboard.writeText(data);
                 alert("Layout copied to clipboard");
             },
-            function e() {
+            function share() {
                 const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager, false);
                 const domData = document.documentElement.outerHTML;
                 Logger.log("Generating debug file for download");
@@ -203,8 +209,8 @@ export function OverlayManager(
                     `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${Logger.history}\n`
                 );
             },
-            function () {
-                window.location.assign(window.location.origin + window.location.pathname);
+            function clear() {
+                self._nodeManager.clear();
             }
         );
         this.element._overlay.appendChild(el);
@@ -305,7 +311,9 @@ export function OverlayManager(
     this.update = function () {
         this._updateFocusMenu();
     }
-
-    this._initOverlay();
+    this.init = function (controls) {
+        this._controls = controls;
+        this._initOverlay();
+    }
     return this;
 }

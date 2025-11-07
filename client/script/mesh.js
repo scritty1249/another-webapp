@@ -29,7 +29,7 @@ function Node(mesh, animations = []) {
     };
     Object.defineProperty(wrapper.userData, "tetherlist", {
         get: function() {
-            return Object.values(wrapper.userData.tethers.origin).concat(Object.values(wrapper.userData.tethers.target));
+            return [...Object.values(wrapper.userData.tethers.origin), ...Object.values(wrapper.userData.tethers.target)];
         }
     });
     wrapper.userData.traverseMesh = function(callback, ...args) {
