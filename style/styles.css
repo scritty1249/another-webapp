@@ -96,11 +96,16 @@ canvas {
     overflow-y: hidden;
 }
 @keyframes mask-left-right {
-    0% {
-        mask-position: -100% 0%;
-    }
     100% {
-        mask-image: center;
+        mask-position: 35%;
+        -webkit-mask-position: 35%;
+    }
+}
+
+@keyframes unmask-right-left {
+    100% {
+        mask-position: 75%;
+        -webkit-mask-position: 75%;
     }
 }
 .reveal {
@@ -111,16 +116,21 @@ canvas {
     mask-size: 400% 100%;
     mask-repeat: no-repeat;
     -webkit-mask-size: 400% 100%;
-    animation: clip-fade 0.8s forwards ease-in; /* bricks animation sometimes at >1s duration */
+    transition: mask-position 0.35s ease-in-out; 
 }
-
-@keyframes clip-fade {
-    0% {
+@starting-style {
+    .reveal {
         mask-position: 75%;
         -webkit-mask-position: 75%;
     }
-    100% {
-        mask-position: 0%;
-        -webkit-mask-position: 0%;
-    }
+}
+
+.reveal.show {
+    mask-position: 30%;
+    -webkit-mask-position: 30%;
+}
+
+.reveal.hide {
+    mask-position: 75%;
+    -webkit-mask-position: 75%;
 }
