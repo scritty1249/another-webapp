@@ -184,7 +184,7 @@ export function OverlayManager(
         const el = OverlayWidgets.createButtonMenu(
             function e() {
                 const textBox = document.getElementById("textBox");
-                const result = UTIL.layoutFromJson(textBox.value, self._scene, self._nodeManager);
+                const result = UTIL.layoutFromJson(textBox.value.trim(), self._scene, self._nodeManager);
                 textBox.value = "";
                 if (!result)
                     alert("Failed to load layout. Was the wrong format entered?");
