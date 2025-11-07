@@ -41,7 +41,7 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
     });
     nodeManager.tetherlist.forEach(tether => data.neighbors.push([newIds[tether.userData.target.uuid], newIds[tether.userData.origin.uuid]]));
     let dataStr = JSON.stringify(data);
-    console.debug("Exported layout: ", data);
+    Logger.debug("Exported layout: ", data);
     return (obfuscate) ? btoa(dataStr) : dataStr;
 }
 export function layoutFromJson(jsonStr, scene, nodeManager) {
@@ -53,19 +53,19 @@ export function layoutFromJson(jsonStr, scene, nodeManager) {
             try {
                 scene.background = loadTextureCube(data.background);
             } catch (error) {
-                console.error(`Failed to load background from source: ${data.background}`);
-                console.error(error);
+                Logger.error(`Failed to load background from source: ${data.background}`);
+                Logger.error(error);
             }
         data.nodes.forEach(node => {
             const newId = nodeManager.createNode(node.type, [], node.position);
             newIds[node.uuid] = newId;
         });
         data.neighbors.forEach(tether => nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]]));
-        console.debug("Loaded layout: ", data);
+        Logger.debug("Loaded layout: ", data);
         return true;
     } catch (error) {
-        console.error(`Error loading ${isEncoded ? "encoded " : ""}layout: `, jsonStr);
-        console.error(error);
+        Logger.error(`Error loading ${isEncoded ? "encoded " : ""}layout: `, jsonStr);
+        Logger.error(error);
         return false;
     }
 }
