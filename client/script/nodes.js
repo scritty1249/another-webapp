@@ -159,20 +159,20 @@ export function AttackNodeManager (
     const self = this;
     this._healthData = healthData;
     this.nodedata = {};
-    this.nodelist = {
-        value: {},
-        get function(key) {
-            return this.value[key];
-        },
-        set function(key, value) {
-            if (!this._healthData[value.userData.type])
-                Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No health data found for "${value.userData.type}" type Nodes`);
-            self.nodedata[key] = {
-                health: this._healthData[value.userData.type]
-            };
-            this.value[key] = value;
-        }
-    }
+    // this.nodelist = {
+    //     value: {},
+    //     get function(key) {
+    //         return this.value[key];
+    //     },
+    //     set function(key, value) {
+    //         if (!this._healthData[value.userData.type])
+    //             Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No health data found for "${value.userData.type}" type Nodes`);
+    //         self.nodedata[key] = {
+    //             health: this._healthData[value.userData.type]
+    //         };
+    //         this.value[key] = value;
+    //     }
+    // }
 
     return {...nodeManager, ...this};
 }
