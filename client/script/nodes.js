@@ -158,7 +158,22 @@ export function AttackNodeManager (
 ) {
     const self = this;
     this._healthData = healthData;
-    this.nodedata = {};
+    this._nodes = {};
+    this.nodedata = {}; // read-only, modified by object this.nodes
+    this.nodes = new Proxy(self._nodes, {
+        set(target, key, value, receiever) {
+            self._nodes[key] = value;
+            if (!self._healthData[value.userData.type])
+                Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No health data found for Node type "${value.userData.type}"`);
+            self.nodedata[key] = {
+                health: self._healthData[value.userData.type]
+            };
+        },
+        deleteProperty(target, key) {
+            delete self._nodes[key];
+            delete self.nodedata[key]; // [!] may need to use Reflect.deleteProperty() instead?
+        }
+    });
     // this.nodelist = {
     //     value: {},
     //     get function(key) {
