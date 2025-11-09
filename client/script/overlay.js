@@ -79,8 +79,11 @@ const FocusMenu = {
 
 const GenericElement = {
     buttonMenu: function (...elements) {
+const GenericElement = {
+    buttonMenu: function (...elements) {
         const wrapper = document.createElement("div");
         wrapper.classList.add("button-menu");
+        elements.forEach(el => wrapper.appendChild(el));
         elements.forEach(el => wrapper.appendChild(el));
         return wrapper;
     },
@@ -93,8 +96,18 @@ const GenericElement = {
         el.addEventListener("click", function (event) {
             action();
         });
+    button: function (text, action = () => {}) {
+        const el = document.createElement("button");
+        el.classList.add("button", "pointer-events");
+        el.style.height = "2rem";
+        el.style.width = "5rem";
+        el.innerText = text;
+        el.addEventListener("click", function (event) {
+            action();
+        });
         return el;
     },
+    hideButton: function () {
     hideButton: function () {
         const el = document.createElement("button");
         el.classList.add("button", "pointer-events");
@@ -104,6 +117,12 @@ const GenericElement = {
         el.innerText = "<";
         el.dataset.active = "false";
         el.addEventListener("click", function (event) {
+            const hideEl = document.getElementById("hideTestButtons");
+            document.querySelectorAll(".button-menu > *:not(#hideTestButtons)").forEach(el => {
+                el.style.visibility = hideEl.dataset.active == "false" ? "hidden" : "visible";
+            })
+            hideEl.dataset.active = hideEl.dataset.active == "false" ? "true" : "false";
+            hideEl.innerText = hideEl.dataset.active == "false" ? "<" : ">";
             const hideEl = document.getElementById("hideTestButtons");
             document.querySelectorAll(".button-menu > *:not(#hideTestButtons)").forEach(el => {
                 el.style.visibility = hideEl.dataset.active == "false" ? "hidden" : "visible";
@@ -120,8 +139,16 @@ const GenericElement = {
         el.rows = 5;
         el.cols = 40;
         el.placeholder = "Paste layouts here";
+    textBox: function () {
+        const el = document.createElement("textarea");
+        el.classList.add("pointer-events");
+        el.id = "textBox";
+        el.rows = 5;
+        el.cols = 40;
+        el.placeholder = "Paste layouts here";
         return el;
     }
+};
 };
 
 export function OverlayManager(
@@ -133,10 +160,13 @@ export function OverlayManager(
     scaleFormula = zoomScaleFormula,
 ) {
     let self = this;
+    let self = this;
     this._scene = scene;
     this._camera = camera;
     this._renderer = renderer;
     this._raycaster = raycaster;
+    this._nodeManager = undefined;
+    this._mouseManager = undefined;
     this._nodeManager = undefined;
     this._mouseManager = undefined;
     this._scaler = scaleFormula;
@@ -159,7 +189,46 @@ export function OverlayManager(
         _overlay: overlayContainerElement,
         focusMenu: undefined, // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
         buttonMenu: undefined // for debug, for now
+        focusMenu: undefined, // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
+        buttonMenu: undefined // for debug, for now
     };
+    this._updateFocusMenu = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
+        if (self.state.focusedNode) {
+            const positionData = self._nodeManager.getFlatCoordinateFromNode(self.focusedNodeId);
+            const scale = UTIL.clamp(self._scaler(
+                scaleRange[1] - UTIL.clamp(positionData.distance, scaleRange[0], scaleRange[1]),
+                scaleRange[1]
+            ), clampScale[0], clampScale[1]);
+            // Adjust translation proportionally to scale- compensate for newly empty space
+            const x = positionData.x - ((self.element.focusMenu.clientWidth - (self.element.focusMenu.clientWidth * scale)) / 2);
+            const y = positionData.y; 
+            self.element.focusMenu.style.setProperty("--x", `${x}px`);
+            self.element.focusMenu.style.setProperty("--y", `${y}px`);
+            self.element.focusMenu.style.setProperty("--scale", scale);
+        }
+    }
+    this._initOverlay = function () { // must be implemented by extending classes
+
+    }
+    this._createFocusMenuElement = function () { // must be implemented by extending classes
+
+    }
+    this._addOverlayElement = function () {
+
+    }
+    this._removeOverlayElement = function () {
+        
+    }
+    this.focusNode = function (nodeid) {
+        if (!self.state.stopFocusing) {
+            self.unfocusNode();
+            self.element.focusMenu = self._createFocusMenuElement();
+            self.focusedNodeId = nodeid;
+            self._updateFocusMenu();
+            self.element._overlay.appendChild(self.element.focusMenu);
+            redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
+            self.element.focusMenu.classList.add("show");
+        }
     this._updateFocusMenu = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
         if (self.state.focusedNode) {
             const positionData = self._nodeManager.getFlatCoordinateFromNode(self.focusedNodeId);
@@ -258,9 +327,13 @@ export function BuildOverlayManager(
                 }
             }),
             GenericElement.button("save", function () {
+            }),
+            GenericElement.button("save", function () {
                 const data = UTIL.layoutToJson(self._scene, self._nodeManager);
                 navigator.clipboard.writeText(data);
                 alert("Layout copied to clipboard");
+            }),
+            GenericElement.button("SAVE DEBUG FILE FOR DEV", function () {
             }),
             GenericElement.button("SAVE DEBUG FILE FOR DEV", function () {
                 const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager, false);
@@ -272,7 +345,16 @@ export function BuildOverlayManager(
                 );
             }),
             GenericElement.button("clear", function () {
+            }),
+            GenericElement.button("clear", function () {
                 self._nodeManager.clear();
+            }),
+            GenericElement.button("Attack phase" , function () {
+                self.element._overlay.dispatchEvent(UTIL.createEvent(
+                    "swapphase",
+                    {phase: "attack"}
+                ));
+            })
             }),
             GenericElement.button("Attack phase" , function () {
                 self.element._overlay.dispatchEvent(UTIL.createEvent(
@@ -283,7 +365,10 @@ export function BuildOverlayManager(
         );
         self.element._overlay.appendChild(el);
         self.element.buttonMenu = el;
+        self.element._overlay.appendChild(el);
+        self.element.buttonMenu = el;
     }
+    self._createFocusMenuElement = function () {
     self._createFocusMenuElement = function () {
         const maxNodeDistance = 3; // arbitrary
         return FocusMenu.createMenuElement(
@@ -334,24 +419,68 @@ export function BuildOverlayManager(
     }
 
     return self;
+
+    return self;
 }
 
 export function AttackOverlayManager(
     overlayManager
+    overlayManager
 ) {
+    const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
+    self.state = {
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
     self.state = {
         inMenu: false,
         get keepFocus() {
             return false; // will need for later in dev
+            return false; // will need for later in dev
         },
         get stopFocusing() {
+            return self.state.inMenu;
             return self.state.inMenu;
         },
         get focusedNode() {
             return self.focusedNodeId != undefined;
         }
     }
+    self._initOverlay = function () {
+        const el = GenericElement.buttonMenu(
+            GenericElement.hideButton(),
+            GenericElement.button("SAVE DEBUG FILE FOR DEV", function () {
+                const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager, false);
+                const domData = document.documentElement.outerHTML;
+                Logger.log("Generating debug file for download");
+                UTIL.download(
+                    (new Date()).toISOString() + ".txt",
+                    `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${Logger.history}\n`
+                );
+            }),
+            GenericElement.button("Build phase", function () {
+                self.element._overlay.dispatchEvent(UTIL.createEvent(
+                    "swapphase",
+                    {phase: "build"}
+                ));
+            })
+        );
+        self.element._overlay.appendChild(el);
+        self.element.buttonMenu = el;
+    }
+    self._createFocusMenuElement = function () {
+        return FocusMenu.createMenuElement(
+            function linkButtonAction() {
+                Logger.log("[AttackOverlayManager] | Link focus menu button clicked");
+            },
+            function addButtonAction() {
+                Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
+            },
+            function infoButtonAction() {
+                Logger.log("[AttackOverlayManager] | info focus menu button clicked");
+            }
+        );
+    }
+
+    return self;
     self._initOverlay = function () {
         const el = GenericElement.buttonMenu(
             GenericElement.hideButton(),
