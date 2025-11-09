@@ -64,13 +64,6 @@ export function Mouse(
             return new Vector2(this.x, this.y);
         }
     };
-    this._createEvent = function(eventName, details = {}) { 
-        return new CustomEvent(eventName, {
-            bubbles: true,
-            cancelable: true,
-            detail: details
-        });
-    }
     this._initListeners = function () {
         this._window.addEventListener('mousemove', function (event) {
             self.position.set(
@@ -90,7 +83,7 @@ export function Mouse(
                 self.distanceTraveledSquared() < self._clickDistance ** 2
             )
                 self.canvasElement.dispatchEvent(
-                    self._createEvent("clicked", { button: self.up.event.button })
+                    UTIL.createEvent("clicked", { button: self.up.event.button })
                 );
         });
         this.canvasElement.addEventListener("contextmenu", function(event) {

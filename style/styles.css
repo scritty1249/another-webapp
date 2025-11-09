@@ -87,9 +87,11 @@ canvas {
     left: 10px;
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     margin: 0;
     overflow-y: hidden;
     overflow-x: scroll;
+    max-width: 50%;
 }
 .button-menu * {
     overflow-y: hidden;

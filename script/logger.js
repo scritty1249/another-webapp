@@ -45,25 +45,25 @@ export function LogManager() {
         );
     };
     this.warn = function (...args) {
-        console.log(...args);
+        console.warn(...args);
         self._history.push(
             `WARN [${new Date().toISOString()}] ` + this._argsToString(args)
         );
     };
     this.error = function (...args) {
-        console.log(...args);
+        console.error(...args);
         self._history.push(
             `ERROR [${new Date().toISOString()}] ` + this._argsToString(args)
         );
     };
     this.info = function (...args) {
-        console.log(...args);
+        console.info(...args);
         self._history.push(
             `INFO [${new Date().toISOString()}] ` + this._argsToString(args)
         );
     };
     this.debug = function (...args) {
-        console.log(...args);
+        console.debug(...args);
         self._history.push(
             `DEBUG [${new Date().toISOString()}] ` + this._argsToString(args)
         );
