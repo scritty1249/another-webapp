@@ -93,6 +93,7 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
             nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]])
         );
         dragControls.objects = nodeManager.nodelist;
+        nodeManager.centerNodes();
         Logger.debug("Loaded layout: ", data);
         return true;
     } catch (error) {

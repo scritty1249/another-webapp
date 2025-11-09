@@ -202,7 +202,6 @@ function mainloop() {
 
         // render the stuff
         function animate() {
-            
             //requestIdleCallback(animate)
 
             PhysicsController.update();
@@ -216,7 +215,6 @@ function mainloop() {
         }
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
-
         setTimeout(() => {
             trackLowPerformace = true;
         }, 2500); // time before we start checking if we need to turn on low performance mode

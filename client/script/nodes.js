@@ -32,6 +32,13 @@ export function NodeManager(
             self._setLowPerformanceMode(value);
         }
     });
+    this.centerNodes = function () {
+        // get mean node location
+        const mean = new Vector3();
+        self.nodelist.forEach(node => mean.add(node.position));
+        mean.divideScalar(self.nodelist.length);
+        self.nodelist.forEach(node => node.position.sub(mean));
+    }
     this._popNode = function (node) {
         // remove tethers
         if (node.userData.tetherlist.length)

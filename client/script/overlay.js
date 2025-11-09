@@ -185,7 +185,7 @@ export function OverlayManager(
 
     }
     this._removeOverlayElement = function () {
-        
+
     }
     this.focusNode = function (nodeid) {
         if (!self.state.stopFocusing) {
@@ -229,9 +229,7 @@ export function OverlayManager(
         });
         Object.entries(Object.getOwnPropertyDescriptors(self.state))
             .filter(([, desc]) => desc.hasOwnProperty('value') && typeof desc.value !== 'function')
-            .forEach(([key]) => {
-                self.state[key] = false;
-            });
+            .forEach(([key]) => self.state[key] = false);
         self.focusedNodeId = undefined;
     }
     return this;
