@@ -138,6 +138,21 @@ export function initAttackPhase(
         Listener: new ListenerManager(),
     };
     controllers.Overlay.init(controls, controllers);
+    controllers.Listener.listener(rendererDom).add(
+        "clicked",
+        function (event) {
+            const clickedNodeId =
+                controllers.Node.getNodeFromFlatCoordinate(
+                    managers.Mouse.position
+                );
+            if (
+                clickedNodeId &&
+                controllers.Overlay.focusedNodeId != clickedNodeId
+            )
+                controllers.Overlay.focusNode(clickedNodeId);
+            else controllers.Overlay.unfocusNode();
+        }
+    );
     Logger.log("Finished loading attack phase");
     return controllers;
 }

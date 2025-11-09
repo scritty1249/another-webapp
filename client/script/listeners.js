@@ -13,7 +13,8 @@ function ListenerCollection (target) {
     this.target = target;
     this.listeners = [];
     this.add = function (type, callback, params = {}) {
-        const listener = self.target.addEventListener(type, callback, params);
+        const listener = callback;
+        self.target.addEventListener(type, listener, params);
         self.listeners.push(new Listener(type, listener));
         return self; // return self instead of new Listener for chaining
     }

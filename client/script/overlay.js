@@ -215,10 +215,10 @@ export function OverlayManager(
     }
     this.init = function (controls, managers) {
         self = this;
-        self._nodeManager = managers.Node;
-        self._mouseManager = managers.Mouse;
-        self._controls = controls;
-        self._initOverlay();
+        this._nodeManager = managers.Node;
+        this._mouseManager = managers.Mouse;
+        this._controls = controls;
+        this._initOverlay();
     }
     this.clear = function () {
         Object.entries(self.element).forEach(([key, element]) => {
