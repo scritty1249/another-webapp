@@ -38,6 +38,7 @@ export function NodeManager(
         self.nodelist.forEach(node => mean.add(node.position));
         mean.divideScalar(self.nodelist.length);
         self.nodelist.forEach(node => node.position.sub(mean));
+        self._updateTethers();
     }
     this._popNode = function (node) {
         // remove tethers
@@ -191,6 +192,16 @@ export function NodeManager(
         const [origin, target] = this.getNodes(originid, targetid);
         return origin.position.angleTo(target.position);
     }
+    this._updateTethers = function () {
+        this.tetherlist.forEach(tether => {
+            if (
+                tether.userData.origin.position != tether.userData.vectors.origin ||
+                tether.userData.target.position != tether.userData.vectors.target
+            ) {
+                tether.userData.update();
+            }
+        });
+    }
     return this;
 }
 
@@ -240,16 +251,6 @@ export function AttackNodeManager (
 export function BuildNodeManager (
     nodeManager
 ) {
-    this._updateTethers = function () {
-        this.tetherlist.forEach(tether => {
-            if (
-                tether.userData.origin.position != tether.userData.vectors.origin ||
-                tether.userData.target.position != tether.userData.vectors.target
-            ) {
-                tether.userData.update();
-            }
-        });
-    }
     this.untetherNodes = function (originid, targetid) {
         const tether = this._getTetherFromNodes(originid, targetid);
         this.removeTether(tether.uuid); // a bit inefficient
