@@ -4,9 +4,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import * as MESH from "./mesh.js";
 import * as THREEUTILS from "./three-utils.js";
-import { NodeManager, BuildNodeManager } from "./nodes.js";
+import { NodeManager, BuildNodeManager, AttackNodeManager } from "./nodes.js";
 import { Mouse } from "./cursor.js";
-import { OverlayManager } from "./overlay.js";
+import { OverlayManager, AttackOverlayManager, BuildOverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
 import * as UTILS from "./utils.js";
 
@@ -46,16 +46,23 @@ if (WebGL.isWebGL2Available()) {
 
 function mainloop() {
     const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
-    const NodeController = new BuildNodeManager(new NodeManager(scene, renderer, camera, raycaster));
+    const NodeController = new NodeManager(scene, renderer, camera, raycaster);
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
-        MouseController, NodeController, document.getElementById("overlay"));
+        document.getElementById("overlay")
+    );
     const PhysicsController = new PhysicsManager(NodeController,
         shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
     );
+    const Manager = {
+        Node: undefined,
+        Overlay: undefined,
+        Listener: undefined,
+        set: function (managers) {
+            ({Node: this.Node, Overlay: this.Overlay, Listener: this.Listener} = managers);
+        }
+    };
     const clock = new THREE.Clock();
     document.getElementById("container").appendChild(renderer.domElement);
-
-    Logger.log(NodeController);
 
     // start loading everything
     const gtlfData = Promise.all([
@@ -79,32 +86,47 @@ function mainloop() {
     // release right click
     controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
     controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
-
-    controls.camera.addEventListener("change", function (event) {
-        const zoom = THREEUTILS.getZoom(camera);
-    });
-    controls.drag.addEventListener("drag", function (event) {
-        
-    });
-    controls.drag.addEventListener("dragstart", function (event) {
-        controls.camera.enabled = false;
-        event.object.userData.dragged = true;
-        try {
-            NodeController.highlightNode(event.object.uuid);
-        } catch {
-            Logger.error("DragControls selected a bad node: ", event.object, controls.drag.objects, NodeController.nodelist);
-        }
-    });
-    controls.drag.addEventListener("dragend", function (event) {
-        controls.camera.enabled = true;
-        event.object.userData.dragged = false;
-        try {
-            NodeController.unhighlightNode(event.object.uuid);
-        } catch {
-            Logger.error("DragControls selected a bad node: ", event.object, controls.drag.objects, NodeController.nodelist);
-        }
-    });
     
+    OverlayController.element._overlay.addEventListener("swapphase", function (event) {
+        const phaseType = event.detail.phase;
+        try {
+            if (phaseType == "build") {
+                Manager.set(UTILS.initBuildPhase(
+                    UTILS.layoutToJson(scene, NodeController, false),
+                    scene,
+                    renderer.domElement,
+                    controls,
+                    {
+                        Node: NodeController,
+                        Overlay: OverlayController,
+                        Physics: PhysicsController,
+                        Mouse: MouseController,
+                        Listener: Manager.Listener
+                    }
+                ));
+            } else if (phaseType == "attack") {
+                Manager.set(UTILS.initAttackPhase(
+                    UTILS.layoutToJson(scene, NodeController, false),
+                    scene,
+                    renderer.domElement,
+                    controls,
+                    {
+                        Node: NodeController,
+                        Overlay: OverlayController,
+                        Physics: PhysicsController,
+                        Mouse: MouseController,
+                        Listener: Manager.Listener
+                    }
+                ));
+            } else {
+                Logger.error(`Unrecognized phase "${phaseType}"`);
+            }
+        } catch (err) {
+            Logger.error(`Failed to swap phase to "${phaseType}"`);
+            Logger.throw(err);
+        }
+    })
+
     const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
     // // render a plane
@@ -138,16 +160,7 @@ function mainloop() {
 
     gtlfData.then(values => {
         const [ cubeData, globeData, eyeData, ..._] = values;
-        Logger.info("Finished loading shape data:", values);
-
-        // functions using geometry
-        renderer.domElement.addEventListener("clicked", function(event) {
-            const clickedNodeId = NodeController.getNodeFromFlatCoordinate(MouseController.position);
-            if (clickedNodeId && OverlayController.focusedNodeId != clickedNodeId)
-                OverlayController.focusNode(clickedNodeId);
-            else
-                OverlayController.unfocusNode();
-        });
+        Logger.info("Finished loading shape data:", values);        
 
         NodeController.addMeshData({
             cube: () => MESH.Nodes.Cube(cubeData),
@@ -157,6 +170,7 @@ function mainloop() {
         });
         
         let trackLowPerformace = false;
+        document.getElementById("performance").textContent = "Low Performance mode: OFF";
         const FPSCounter = new Framerate(
             (fps) => {
                 document.getElementById("framerate").textContent = `FPS: ${fps}`;
@@ -172,74 +186,41 @@ function mainloop() {
                 }
             }
         );
+
+        Manager.set(UTILS.initBuildPhase(
+            "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbMiwwLDRdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoic2Nhbm5lciIsInBvc2l0aW9uIjpbOSwwLDVdLCJfZGF0YSI6e319LHsidXVpZCI6IjIiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzIsMCwtM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbLTMsMCwtMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNCIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMTIsMCwyXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI1IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOls4LDAsOV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNiIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMiwwLDExXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstMywwLDNdLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDddLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6WzAsMCwxXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOls2LDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjEyIiwidHlwZSI6InNjYW5uZXIiLCJwb3NpdGlvbiI6WzgsMCwwXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMyIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsxMiwwLDddLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzAsN10sWzgsMF0sWzExLDhdLFsxMSwyXSxbMTAsM10sWzgsMTBdLFs4LDEyXSxbOCw5XSxbMTIsMV0sWzEsMTNdLFs1LDEzXSxbOSw2XSxbMSw0XV0sImJhY2tncm91bmQiOiIifQ==",
+            scene,
+            renderer.domElement,
+            controls,
+            {
+                Node: NodeController,
+                Overlay: OverlayController,
+                Physics: PhysicsController,
+                Mouse: MouseController
+            }
+        ));
+
         // render the stuff
         function animate() {
             
             //requestIdleCallback(animate)
 
             PhysicsController.update();
-
-            NodeController.update(UTILS.clamp(clock.getDelta(), 0, 1000));
-
-            OverlayController.update();
+            Manager.Node.update(UTILS.clamp(clock.getDelta(), 0, 1000));
+            Manager.Overlay.update();
 
             // required if controls.enableDamping or controls.autoRotate are set to true
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
             FPSCounter.update();
             renderer.render(scene, camera);
         }
-        NodeController.createNode("cube", [], [4, 0, 5]);
-        NodeController.createNode("scanner", [], [5, 0, 4]);
-        NodeController.createNode("globe", [], [0, 2, 5]);
-        document.getElementById("performance").textContent = "Low Performance mode: OFF";
-        OverlayController.init(controls);
         FPSCounter.reset();
         renderer.setAnimationLoop(animate);
-        Logger.log(NodeController.nodelist, controls.drag.objects);
-        enableAttackPhase(
-            "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbMiwwLDRdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoic2Nhbm5lciIsInBvc2l0aW9uIjpbOSwwLDVdLCJfZGF0YSI6e319LHsidXVpZCI6IjIiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzIsMCwtM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbLTMsMCwtMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNCIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMTIsMCwyXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI1IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOls4LDAsOV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNiIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMiwwLDExXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstMywwLDNdLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDddLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6WzAsMCwxXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOls2LDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjEyIiwidHlwZSI6InNjYW5uZXIiLCJwb3NpdGlvbiI6WzgsMCwwXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMyIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsxMiwwLDddLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzAsN10sWzgsMF0sWzExLDhdLFsxMSwyXSxbMTAsM10sWzgsMTBdLFs4LDEyXSxbOCw5XSxbMTIsMV0sWzEsMTNdLFs1LDEzXSxbOSw2XSxbMSw0XV0sImJhY2tncm91bmQiOiIifQ==",
-            scene,
-            controls,
-            NodeController,
-            OverlayController,
-            PhysicsController
-        );
 
         setTimeout(() => {
             trackLowPerformace = true;
         }, 2500); // time before we start checking if we need to turn on low performance mode
     });
-}
-function enableAttackPhase(
-    layoutData,
-    scene,
-    controls,
-    nodeManager,
-    overlayManager,
-    physicsManager
-) {
-    Logger.info("Loading attack phase");
-    controls.drag.enabled = false;
-    physicsManager.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
-    nodeManager.clear();
-    UTILS.layoutFromJson(layoutData, scene, controls.drag, nodeManager);
-
-    Logger.info("Switched to attack phase");
-}
-function enableBuildPhase(
-    layoutData,
-    scene,
-    controls,
-    nodeManager,
-    overlayManager,
-    physicsManager,
-) {
-    Logger.info("Loading build phase");
-    controls.drag.enabled = true;
-    physicsManager.activate();
-    nodeManager.clear();
-    UTILS.layoutFromJson(layoutData, scene, controls.drag, nodeManager);
-    Logger.info("Switched to build phase");
 }
 
 function Framerate (

@@ -91,6 +91,7 @@ canvas {
     margin: 0;
     overflow-y: hidden;
     overflow-x: scroll;
+    max-width: 50%;
 }
 .button-menu * {
     overflow-y: hidden;

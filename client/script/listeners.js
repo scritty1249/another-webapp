@@ -25,7 +25,7 @@ function ListenerCollection (target) {
     return this;
 }
 
-function ListenerManager () {
+export function ListenerManager () {
     const self = this;
     this.targets = [];
     this.listeners = {};
@@ -42,7 +42,7 @@ function ListenerManager () {
         return hash;
     }
     this.getHash = function (targetObj) { // [!] adds the targeted object to hash collection if not already present
-        const index = self.target.findIndex(t => t.object === targetObj);
+        const index = self.targets.findIndex(t => t.object === targetObj);
         return index == -1 ? self._addTarget(targetObj) : self.targets[index].hash;
     }
     this.listener = function (target) { // [!] returns Listener object for chaining
