@@ -179,6 +179,7 @@ const Nodes = {
         scanner.userData.children("ball").material = ballMat;
         scanner.userData.children("ball").userData.children("pupil").material = pupilMat;
         scanner.userData.type = "scanner";
+        scanner.scale.set(0.7, 0.7, 0.7);
         if (animationOptions) {
             if (animationOptions.randomize) {
                 scanner.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
