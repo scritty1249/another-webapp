@@ -75,7 +75,7 @@ export function NodeManager(
                 t.userData.target.uuid === originid
             )
         );
-        if (tether.length)
+        if (tether.length > 0)
             return tether[0].uuid;
         return false;
     }
