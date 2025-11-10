@@ -228,7 +228,7 @@ export function OverlayManager(
             }
         });
         Object.entries(Object.getOwnPropertyDescriptors(self.state))
-            .filter(([, desc]) => desc.hasOwnProperty('value') && typeof desc.value !== 'function')
+            .filter(([, desc]) => desc.value && typeof desc.value !== 'function')
             .forEach(([key]) => self.state[key] = false);
         self.focusedNodeId = undefined;
     }

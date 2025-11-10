@@ -34,7 +34,9 @@ export function LogManager() {
             .map((arg) =>
                 typeof arg === "string" || arg instanceof String
                     ? arg
-                    : JSON.stringify(arg, getCircularReplacer())
+                    : arg.isObject3D
+                    ? arg.toJSON()
+                    : JSON.stringify(arg, getCircularReplacer(), "\t")
             )
             .join("\n\t");
     };

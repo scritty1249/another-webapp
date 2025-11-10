@@ -46,7 +46,7 @@ export function NodeManager(
             node.userData.tetherlist.forEach(tether => this._popTether(tether));
         this._scene.remove(node);
         delete this.nodes[node.uuid];
-        this.nodelist = [...Object.values(this.nodes)]; 
+        this.nodelist = [...Object.values(this.nodes)];
     }
     this._pushNode = function (node) {
         this.nodes[node.uuid] = node;
@@ -54,15 +54,19 @@ export function NodeManager(
     }
     this._popTether = function (tether) { // does not pop tether reference from attached nodes
         this._scene.remove(tether);
+        // tether.userData.origin = undefined;
+        // tether.userData.target = undefined;
         delete this.tethers[tether.uuid];
-        this.tetherlist = Object.values(this.tethers); // [!] may be optimizied, see if performance is impacted by this
+        Logger.log(this.tetherlist);
+        delete this.tetherlist;
+        this.tetherlist = [...Object.values(this.tethers)]; // [!] may be optimizied, see if performance is impacted by this
+        Logger.log(this.tetherlist);
     }
     this._pushTether = function (tether) {
         this.tethers[tether.uuid] = tether;
         this.tetherlist.push(this.tethers[tether.uuid]);
     }
     this.isNeighbor = function (originid, targetid) { // order does not matter, returns the tether uuid if true
-
         // there should only be one tether between each node
         const tether = this.tetherlist.filter(t => 
             (
@@ -87,6 +91,12 @@ export function NodeManager(
         delete target.userData.tethers.target[tether.uuid];
         this._popTether(tether);
     }
+    this._getNodesFromTether = function (tether) {
+        return [
+            tether.userData.origin,
+            tether.userData.target
+        ];
+    }
     this._updateAnimations = function (timedelta) {
         this.nodelist.forEach(node => {
             if (node.userData.updateAnimations)
@@ -101,7 +111,7 @@ export function NodeManager(
     }
     this.createNode = function (nodeType, position = [0, 0, 0]) {
         const newNode = this._getMesh(nodeType);
-        if (position.hasOwnProperty("x"))
+        if (position.x)
             newNode.position.set(position.x, position.y, position.z);
         else
             newNode.position.set(...position);

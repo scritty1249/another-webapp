@@ -130,14 +130,14 @@ export function initAttackPhase(
     managers.Physics.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
     managers.Node.clear();
     managers.Overlay.clear();
-    if (managers.hasOwnProperty("Listener") && managers.Listener != undefined) managers.Listener.clear();
+    managers.Listener?.clear();
     layoutFromJson(layoutData, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new AttackNodeManager(managers.Node),
         Overlay: new AttackOverlayManager(managers.Overlay),
         Listener: new ListenerManager(),
     };
-    controllers.Overlay.init(controls, controllers);
+    controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
     controllers.Listener.listener(rendererDom).add(
         "clicked",
         function (event) {
@@ -181,14 +181,14 @@ export function initBuildPhase(
     managers.Physics.activate();
     managers.Node.clear();
     managers.Overlay.clear();
-    if (managers.hasOwnProperty("Listener") && managers.Listener != undefined) managers.Listener.clear();
+    managers.Listener?.clear();
     layoutFromJson(layoutData, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new BuildNodeManager(managers.Node),
         Overlay: new BuildOverlayManager(managers.Overlay),
         Listener: new ListenerManager(),
     };
-    controllers.Overlay.init(controls, controllers);
+    controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
     // Add event listeners
     controllers.Listener.listener(controls.camera).add(
         "change",
