@@ -57,10 +57,8 @@ export function NodeManager(
         // tether.userData.origin = undefined;
         // tether.userData.target = undefined;
         delete this.tethers[tether.uuid];
-        Logger.log(this.tetherlist);
         delete this.tetherlist;
         this.tetherlist = [...Object.values(this.tethers)]; // [!] may be optimizied, see if performance is impacted by this
-        Logger.log(this.tetherlist);
     }
     this._pushTether = function (tether) {
         this.tethers[tether.uuid] = tether;
