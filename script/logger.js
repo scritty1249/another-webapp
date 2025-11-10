@@ -31,10 +31,10 @@ export function LogManager() {
     });
     this._argsToString = function (args) {
         return args
-            .map((arg) =>
+            .map(arg =>
                 typeof arg === "string" || arg instanceof String
                     ? arg
-                    : arg.isObject3D
+                    : arg.isObject3D && arg.type !== "Line2"
                     ? arg.toJSON()
                     : JSON.stringify(arg, getCircularReplacer(), "\t")
             )

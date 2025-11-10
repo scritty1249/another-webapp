@@ -69,6 +69,11 @@ function Tether(origin, target, color = 0xc0c0c0) {
     });
     const geometry = new LineGeometry();
     const tether = new Line2(geometry, material);
+    // Line2 does not implement a toJSON method, and any attempt to serialize the object normally causes an error.
+    //  so, we create one ourselves
+    tether.toJSON = function () {
+        return {...tether.userData};
+    }
     tether.userData.vectors = {
         origin: new Vector3(),
         target: new Vector3()
