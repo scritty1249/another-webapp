@@ -87,7 +87,7 @@ export function LogManager() {
             if (self._triggers[id].once)
                 delete self._triggers[id];
         } else {
-            self.warn(`Missed debug trigger: ID ${id}`);
+            self.warn(`[LogManager] | Missed debug trigger: ID ${id}`);
         }
         event.preventDefault();
     });
