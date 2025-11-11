@@ -13,16 +13,43 @@ export function NodeManager(
     nodeMeshData = {}
 ) {
     const self = this;
-    this.nodes = {};
-    this.nodelist = []; // read-only, updated by this.nodes
-    this.tethers = {};
-    this.tetherlist = []; // read-only, updated by this.tethers
     this._lowPerformance = false;
     this._scene = scene;
     this._camera = camera;
     this._renderer = renderer;
     this._raycaster = raycaster;
     this._meshData = nodeMeshData;
+    
+    self._handlers = {
+        nodeHandler: {
+            set(target, key, value, receiver) {
+                Reflect.apply(Array.prototype.push, self.nodelist, value); // self._nodelist.push(value);
+                return Reflect.set(target, key, value, receiver); // default behavior, equal to "self._nodes[key] = value"
+            },
+            deleteProperty(target, key) {
+                const res = Reflect.deleteProperty(target, key); // default behavior, equal to "delete self._nodes[key]"
+                self._nodelist = [...Object.values(self._nodes)];
+                return res;
+            }
+        },
+        tetherHandler: {
+            set(target, key, value, receiver) {
+                Reflect.apply(Array.prototype.push, self.tetherlist, value); // self._tetherlist.push(value);
+                return Reflect.set(target, key, value, receiver); // default behavior, equal to "self._tethers[key] = value"
+            },
+            deleteProperty(target, key) {
+                const res = Reflect.deleteProperty(target, key); // default behavior, equal to "delete self._tethers[key]"
+                self._tetherlist = [...Object.values(self._tethers)];
+                return res;
+            }
+        },
+        tetherListHandler: {},
+        nodeListHandler: {}
+    };
+    self.nodes = new Proxy(self._nodes, self._handlers.nodeHandler);
+    self.nodelist = new Proxy(self._nodelist, self._handlers.nodeListHandler);
+    self.tethers = new Proxy(self._tethers, self._handlers.tetherHandler);
+    self.tetherlist = new Proxy(self._tetherlist, self._handlers.tetherListHandler);
     Object.defineProperty(self, "lowPerformanceMode", {
         get: function() {
             return self._lowPerformance;
@@ -213,30 +240,39 @@ export function NodeManager(
     return this;
 }
 
+NodeManager.prototype = { // define static properties in a constructor pattern
+    _nodes: {},
+    _nodelist: [],
+    _tethers: {},
+    _tetherlist: [],
+};
+
 export function AttackNodeManager (
     nodeManager,
     healthData = {}
 ) {
-    const self = this;
-    this._healthData = healthData;
-    this._nodes = {};
-    this.nodedata = {}; // read-only, modified by object this.nodes
-    this.nodes = new Proxy(self._nodes, {
+    const self = {...nodeManager};
+    self._healthData = healthData;
+    self.nodedata = {}; // read-only, modified by object this.nodes
+    self._nodes = nodeManager.nodes;
+    self.nodes = new Proxy(self._nodes, {
         set(target, key, value, receiever) {
-            self._nodes[key] = value;
+            self.nodelist.push(value);
             if (!self._healthData[value.userData.type])
                 Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No health data found for Node type "${value.userData.type}"`);
             self.nodedata[key] = {
                 health: self._healthData[value.userData.type]
             };
+            Reflect.set(target, key, value, receiver); // default behavior, equal to "self._nodes[key] = value"
         },
         deleteProperty(target, key) {
-            delete self._nodes[key];
-            delete self.nodedata[key]; // [!] may need to use Reflect.deleteProperty() instead?
+            Reflect.deleteProperty(target, key); // default behavior, equal to "delete self._nodes[key]"
+            delete self.nodedata[key];
+            self.nodelist = [...Object.values(self._nodes)];
         }
     });
-    this.addHealthData = function (healthData) {
-        Object.keys(healthData).forEach(nodeType => this._healthData[nodeType] = healthData[nodeType]);
+    self.addHealthData = function (healthData) {
+        Object.keys(healthData).forEach(nodeType => self._healthData[nodeType] = healthData[nodeType]);
     }
     // this.nodelist = {
     //     value: {},
@@ -253,32 +289,33 @@ export function AttackNodeManager (
     //     }
     // }
 
-    return {...nodeManager, ...this};
+    return self;
 }
 
 export function BuildNodeManager (
     nodeManager
 ) {
-    this.untetherNodes = function (originid, targetid) {
-        const tether = this._getTetherFromNodes(originid, targetid);
-        this.removeTether(tether.uuid); // a bit inefficient
+    const self = {...nodeManager};
+    self.untetherNodes = function (originid, targetid) {
+        const tether = self._getTetherFromNodes(originid, targetid);
+        self.removeTether(tether.uuid); // a bit inefficient
     }
-    this.untetherNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        node.userData.tetherlist.forEach(tether => this._removeTether(tether));
+    self.untetherNode = function (nodeid) {
+        const node = self.getNode(nodeid);
+        node.userData.tetherlist.forEach(tether => self._removeTether(tether));
     }
-    this.removeNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        this._popNode(node);
+    self.removeNode = function (nodeid) {
+        const node = self.getNode(nodeid);
+        self._popNode(node);
     }
-    this._setNodeEmissive = function (node, emissive) {
+    self._setNodeEmissive = function (node, emissive) {
         node.userData.traverseMesh(function (mesh) {
             if (mesh.material.emissive)
                 mesh.material.emissive.set(emissive);
         });
     }
-    this.highlightNode = function (nodeid) {
-        const node = this.getNode(nodeid);
+    self.highlightNode = function (nodeid) {
+        const node = self.getNode(nodeid);
         node.userData.traverseMesh(function (mesh) {
             if (mesh.material.emissive && !mesh.material.emissive.equals(emissiveValue)) {
                 mesh.userData.oldEmissive = mesh.material.emissive.clone();
@@ -286,16 +323,19 @@ export function BuildNodeManager (
             }
         });
     }
-    this.unhighlightNode = function (nodeid) {
-        const node = this.getNode(nodeid);
+    self.unhighlightNode = function (nodeid) {
+        const node = self.getNode(nodeid);
         node.userData.traverseMesh(function (mesh) {
             if (mesh.material.emissive && mesh.userData.oldEmissive)
                 mesh.material.emissive.set(mesh.userData.oldEmissive);
         });
     }
-    this.update = function (timedelta) {
-        this._updateAnimations(timedelta);
-        this._updateTethers();
+    self.update = function (timedelta) {
+        self._updateAnimations(timedelta);
+        self._updateTethers();
     }
-    return {...nodeManager, ...this};
+    return self;
 }
+
+BuildNodeManager.prototype = Object.create(NodeManager.prototype);
+BuildNodeManager.prototype.constructor = BuildNodeManager;
