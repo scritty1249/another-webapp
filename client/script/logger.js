@@ -76,5 +76,33 @@ export function LogManager() {
         );
         throw error;
     };
+
+    this.eventDomElement = document.createElement("div");
+    this.eventDomElement.style.display = "none";
+    this._triggers = {};
+    this.eventDomElement.addEventListener("debug_trigger", function (event) {
+        const id = event.detail?.id;
+        if (Object.keys(self._triggers).includes(id)) {
+            self._triggers[id].callback?.();
+            if (self._triggers[id].once)
+                delete self._triggers[id];
+        } else {
+            self.warn(`Missed debug trigger: ID ${id}`);
+        }
+        event.preventDefault();
+    });
+    this.trigger = function (eventid = Date.now().toString()) {
+        self.eventDomElement.dispatchEvent(new CustomEvent("debug_trigger", {
+            bubbles: false,
+            cancelable: true,
+            detail: {id: eventid}
+        }));
+    };
+    this.when = function (eventid, callback = () => {}, once = false) {
+        self._triggers[eventid] = {
+            callback: callback,
+            once: once
+        }
+    }
     return this;
 }
