@@ -145,7 +145,20 @@ export function initAttackPhase(
     managers.Listener?.clear();
     layoutFromJson(layoutData, scene, controls.drag, managers.Node);
     const controllers = {
-        Node: new AttackNodeManager(managers.Node),
+        Node: new AttackNodeManager(
+            managers.Node,
+            {
+                cube: {
+                    health: 100
+                },
+                scanner: {
+                    health: 75
+                },
+                globe: {
+                    health: 0
+                }
+            }
+        ),
         Overlay: new AttackOverlayManager(managers.Overlay),
         Listener: new ListenerManager(),
     };
