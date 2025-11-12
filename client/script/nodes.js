@@ -5,6 +5,7 @@ import {
 import * as UTIL from "./utils.js";
 
 const emissiveValue = new Color(0xdedede);
+const colorValue = new Color(0xaa0000);
 
 export function NodeManager(
     scene,
@@ -74,6 +75,13 @@ export function NodeManager(
         if (tether.length > 0)
             return tether[0].uuid;
         return false;
+    }
+    this.getNeighbors = function (nodeid) {
+        const node = this.getNode(nodeid);
+        return [
+            ...Object.values(node.userData.tethers.origin).map(t => t.userData.target),
+            ...Object.values(node.userData.tethers.target).map(t => t.userData.origin)
+        ];
     }
     this.getNodes = function (...nodeids) {
         return nodeids.map(nodeid => this.getNode(nodeid));
@@ -252,6 +260,7 @@ export function AttackNodeManager (
                 get isDead () {
                     return this.hp.total <= 0;
                 },
+                friendly: (node.userData.type == "globe"),
                 hp: NodeHealthDataFactory(healthData)
             };
     }
@@ -261,7 +270,38 @@ export function AttackNodeManager (
             Logger.throw(new Error(`[AttackNodeManager] | Error getting data: Node with UUID "${nodeid}" does not exist.`));
         return nodeData;
     }
-
+    self.setNodeFriendly = function (nodeid) {
+        const node = this.getNode(nodeid);
+        const nodeData = this.getNodeData(nodeid);
+        if (node.userData.type != "globe") {
+            nodeData.friendly = true;
+            node.userData.traverseMesh(function (mesh) {
+                if (mesh.material.emissive && !mesh.material.emissive.equals(colorValue)) {
+                    mesh.userData.oldEmissive = mesh.material.color.clone();
+                    mesh.material.emissive.set(colorValue);
+                }
+            });
+        }
+    }
+    self.setNodeEnemy = function (nodeid) {
+        const node = this.getNode(nodeid);
+        const nodeData = this.getNodeData(nodeid);
+        if (node.userData.type != "globe") {
+            nodeData.friendly = false;
+            node.userData.traverseMesh(function (mesh) {
+                if (mesh.material.emissive && mesh.userData.oldEmissive)
+                    mesh.material.emissive.set(mesh.userData.oldEmissive);
+            });
+        }
+    }
+    self.isNodeFriendly = function (nodeid) {
+        const nodeData = this.getNodeData(nodeid);
+        return nodeData.friendly;
+    }
+    self.isNodeAttackable = function (nodeid) {
+        const nodes = this.getNeighbors(nodeid);
+        return nodes.some(node => self.isNodeFriendly(node.uuid));
+    }
     // init data for existing nodes
     Object.values(self.nodes).forEach(node => self._addNodeData(node));
 
@@ -317,9 +357,6 @@ export function BuildNodeManager (
     return self;
 }
 
-const NodeHealthPrototype = {
-    
-};
 function NodeHealthDataFactory (maxHealth) {
     return {
         _health: {
