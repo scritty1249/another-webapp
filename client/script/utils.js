@@ -43,6 +43,17 @@ export function createEvent(eventName, details = {}) {
     });
 }
 
+export function bindProperty(object, target, property) {
+    Object.defineProperty(target, property, {
+        get: function() {
+            return object[property];
+        },
+        set: function(value) {
+            object[property] = value;
+        }
+    });
+}
+
 export function layoutToJson(scene, nodeManager, obfuscate = true) {
     const data = {
         nodes: [],
@@ -189,7 +200,7 @@ export function initBuildPhase(
         Overlay: new BuildOverlayManager(managers.Overlay),
         Listener: new ListenerManager(),
     };
-    controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
+    controllers.Overlay.init(controls, {Mouse: managers.Mouse, Node: controllers.Node});
     // Add event listeners
     controllers.Listener.listener(controls.camera).add(
         "change",
