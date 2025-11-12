@@ -383,7 +383,8 @@ export function AttackOverlayManager(
                 Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
             },
             function infoButtonAction() {
-                Logger.log("[AttackOverlayManager] | info focus menu button clicked");
+                // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
+                Logger.log(self._nodeManager.getNodeData(self.focusedNodeId));
             }
         );
     }

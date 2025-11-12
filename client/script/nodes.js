@@ -218,19 +218,20 @@ NodeManager.prototype = {
 
 export function AttackNodeManager (
     nodeManager,
-    healthData = {}
+    nodeTypeData = {}
 ) {
     const self = {...nodeManager};
-    self._healthData = healthData;
+    self._nodeTypeData = nodeTypeData;
+    self.nodedata = {};
     UTIL.bindProperty(nodeManager, self, "nodelist");
     UTIL.bindProperty(nodeManager, self, "tethers");
     UTIL.bindProperty(nodeManager, self, "tetherlist");
     self.nodes = new Proxy(nodeManager.nodes, {
         set(target, key, value, receiver) {
             nodeManager.nodelist.push(value);
-            if (!self._healthData[value.userData.type])
-                Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No health data found for Node type "${value.userData.type}"`);
-            self.nodedata[key] = { health: self._healthData[value.userData.type] };
+            if (!self._nodeTypeData[value.userData.type])
+                Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No data found for Node type "${value.userData.type}"`);
+            self.nodedata[key] = { health: self._nodeTypeData[value.userData.type] };
             return Reflect.set(target, key, value, receiver); // default behavior, equal to "self._nodes[key] = value"
         },
         deleteProperty(target, key) {
@@ -242,6 +243,27 @@ export function AttackNodeManager (
     self.addHealthData = function (healthData) {
         Object.keys(healthData).forEach(nodeType => self._healthData[nodeType] = healthData[nodeType]);
     }
+    self._addNodeData = function (node) {
+        const healthData = self._nodeTypeData[node.userData.type]?.health;
+        if (healthData === undefined || healthData === NaN)
+            Logger.throw(`[AttackNodeManager] | Error while creating node data for type (${node.userData.type}): No health data found`);
+        else
+            self.nodedata[node.uuid] = {
+                get isDead () {
+                    return this.hp.total <= 0;
+                },
+                hp: NodeHealthDataFactory(healthData)
+            };
+    }
+    self.getNodeData = function (nodeid) {
+        const nodeData = self.nodedata[nodeid];
+        if (!nodeData)
+            Logger.throw(new Error(`[AttackNodeManager] | Data for Node with UUID "${nodeid}" does not exist.`));
+        return nodeData;
+    }
+
+    // init data for existing nodes
+    Object.values(self.nodes).forEach(node => self._addNodeData(node));
 
     return self;
 }
@@ -293,4 +315,59 @@ export function BuildNodeManager (
         this._updateTethers();
     }
     return self;
+}
+
+const NodeHealthPrototype = {
+    _health: {
+        max: 0,
+        current: 0,
+    },
+    _shield: {
+        current: 0
+    },
+    get total () {
+        return this.health + this.shield;
+    },
+    get shield () {
+        return this._shield.current;
+    },
+    set shield (value) {
+        const difference = Math.max(0, value - this._shield.current);
+        this._shield.current = Math.max(0, value);
+        return difference;
+    },
+    get health () {
+        return this._health.current;
+    },
+    set health (value) {
+        this._health.current = UTIL.clamp(value, 0, this.maxHealth);
+        if (value > this.maxHealth)
+            return value - this.maxHealth;
+        else if (value < 0)
+            return value;
+    },
+    get maxHealth () {
+        return this._health.max;
+    },
+    set applyDamage (value) { // should be a positive value!
+        let damage = Math.abs(value);
+        damage = (this.shield -= damage);
+        damage = (this.health -= damage);
+        return damage; // returns the extra damage, for easier callbacks later
+    },
+    set applyHeal (value) { // should be a positive value!
+        let heal = Math.abs(value);
+        heal = (this.health += heal)
+        return heal; // returns overhealing, for easier callbacks later
+    },
+    set applyShield (value) { // should be a positive value!
+        let shield = Math.abs(value);
+        this.shield += shield;
+    }
+};
+function NodeHealthDataFactory (maxHealth) {
+    const obj = Object.create(NodeHealthPrototype);
+    obj._health.max = maxHealth;
+    obj._health.current = maxHealth;
+    return obj;
 }
