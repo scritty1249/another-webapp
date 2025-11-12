@@ -380,7 +380,13 @@ export function AttackOverlayManager(
                 Logger.log("[AttackOverlayManager] | Link focus menu button clicked");
             },
             function addButtonAction() {
-                Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
+                //Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
+                if (self._nodeManager.isNodeFriendly(self.focusedNodeId))
+                    self._nodeManager.setNodeEnemy(self.focusedNodeId);
+                else if (self._nodeManager.isNodeAttackable(self.focusedNodeId))
+                    self._nodeManager.setNodeFriendly(self.focusedNodeId);
+                else
+                    Logger.info(`Cannot attack a node with no friendly neighbors (${self.focusedNodeId})`);
             },
             function infoButtonAction() {
                 // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
