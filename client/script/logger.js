@@ -80,6 +80,7 @@ export function LogManager() {
         self._history.push(
             `ALERTED [${new Date().toISOString()}] ` + message
         );
+        console.warn(message);
         alert(message);
     }
 
