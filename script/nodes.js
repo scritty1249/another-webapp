@@ -305,7 +305,7 @@ export function AttackNodeManager (
     self._updateAnimations = function (timedelta) {
         this.nodelist.forEach(node => {
             if (node.userData.updateAnimations)
-                node.userData.updateAnimations((this.isNodeFriendly(node.uuid) ? 0.5 : 1) * timedelta);
+                node.userData.updateAnimations((this.isNodeFriendly(node.uuid) && node.userData.type != "globe" ? 0.5 : 1) * timedelta);
         });
     }
     // init data for existing nodes
