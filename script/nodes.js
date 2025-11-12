@@ -248,9 +248,6 @@ export function AttackNodeManager (
             return res;
         }
     });
-    self.addHealthData = function (healthData) {
-        Object.keys(healthData).forEach(nodeType => self._healthData[nodeType] = healthData[nodeType]);
-    }
     self._addNodeData = function (node) {
         const healthData = self._nodeTypeData[node.userData.type]?.health;
         if (healthData === undefined || healthData === NaN)
@@ -270,11 +267,18 @@ export function AttackNodeManager (
             Logger.throw(new Error(`[AttackNodeManager] | Error getting data: Node with UUID "${nodeid}" does not exist.`));
         return nodeData;
     }
+    self._getTypeData = function (nodeType) {
+        if (!Object.keys(self._nodeTypeData).includes(nodeType))
+            Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`));
+        return self._nodeTypeData[nodeType];
+    }
     self.setNodeFriendly = function (nodeid) {
         const node = this.getNode(nodeid);
         const nodeData = this.getNodeData(nodeid);
+        const typeData = this._getTypeData(node.userData.type);
         if (node.userData.type != "globe") {
             nodeData.friendly = true;
+            nodeData.hp.set(typeData.health / 2);
             node.userData.traverseMesh(function (mesh) {
                 if (mesh.material.emissive && !mesh.material.emissive.equals(colorValue)) {
                     mesh.userData.oldEmissive = mesh.material.color.clone();
@@ -286,14 +290,47 @@ export function AttackNodeManager (
     self.setNodeEnemy = function (nodeid) {
         const node = this.getNode(nodeid);
         const nodeData = this.getNodeData(nodeid);
+        const typeData = this._getTypeData(node.userData.type);
         if (node.userData.type != "globe") {
             nodeData.friendly = false;
+            nodeData.hp.set(typeData.health);
             node.userData.traverseMesh(function (mesh) {
                 if (mesh.material.emissive && mesh.userData.oldEmissive)
                     mesh.material.emissive.set(mesh.userData.oldEmissive);
             });
         }
     }
+
+    self.getShield = function (nodeid) {
+        const nodeData = this.getNodeData(nodeid);
+        return nodeData.hp.shield;
+    }
+    self.setShield = function (nodeid, value) {
+        const nodeData = this.getNodeData(nodeid);
+        nodeData.hp.shield = value;
+    }
+    self.damageShield = function (nodeid, value) {
+        const nodeData = this.getNodeData(nodeid);
+        return (nodeData.hp.shield -= value);
+    }
+    self.addShield = function (nodeid, value) {
+        const nodeData = this.getNodeData(nodeid);
+        return nodeData.hp.applyShield(value);
+    }
+    self.healNode = function (nodeid, value) {
+        const nodeData = this.getNodeData(nodeid);
+        return nodeData.hp.applyHeal(value);
+    }
+    self.damageNode = function (nodeid, value) {
+        const nodeData = this.getNodeData(nodeid);
+        nodeData.hp.applyDamage(value)
+        if (nodeData.isDead)
+            if (nodeData.friendly)
+                this.setNodeEnemy(nodeid);
+            else
+                this.setNodeFriendly(nodeid);
+    }
+
     self.isNodeFriendly = function (nodeid) {
         const nodeData = this.getNodeData(nodeid);
         return nodeData.friendly;
@@ -305,7 +342,7 @@ export function AttackNodeManager (
     self._updateAnimations = function (timedelta) {
         this.nodelist.forEach(node => {
             if (node.userData.updateAnimations)
-                node.userData.updateAnimations((this.isNodeFriendly(node.uuid) && node.userData.type != "globe" ? 0.5 : 1) * timedelta);
+                node.userData.updateAnimations((this.isNodeFriendly(node.uuid) && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
         });
     }
     // init data for existing nodes
@@ -372,6 +409,11 @@ function NodeHealthDataFactory (maxHealth) {
         _shield: {
             current: 0
         },
+        set: function (health) {
+            this._health.max = health;
+            this._health.current = health;
+            this._shield.current = 0;
+        },
         get total () {
             return this.health + this.shield;
         },
@@ -379,35 +421,37 @@ function NodeHealthDataFactory (maxHealth) {
             return this._shield.current;
         },
         set shield (value) {
-            const difference = Math.max(0, value - this._shield.current);
             this._shield.current = Math.max(0, value);
-            return difference;
         },
         get health () {
             return this._health.current;
         },
         set health (value) {
             this._health.current = UTIL.clamp(value, 0, this.maxHealth);
-            if (value > this.maxHealth)
-                return value - this.maxHealth;
-            else if (value < 0)
-                return value;
         },
         get maxHealth () {
             return this._health.max;
         },
-        set applyDamage (value) { // should be a positive value!
+        // [!] ugly as hell, fix this soon!
+        applyDamage: function (value) { // should be a positive value
             let damage = Math.abs(value);
-            damage = (this.shield -= damage);
-            damage = (this.health -= damage);
-            return damage; // returns the extra damage, for easier callbacks later
+            let shieldExcess = this.shield - damage;
+            this.shield = shieldExcess;
+            if (shieldExcess < 0) {
+                let healthExcess = this.health + shieldExcess;
+                this.health = healthExcess;
+                if (healthExcess < 0)
+                    return Math.abs(healthExcess); // returns the extra damage, for easier callbacks later
+            }
+            return 0;
         },
-        set applyHeal (value) { // should be a positive value!
+        applyHeal: function (value) { // should be a positive value
             let heal = Math.abs(value);
-            heal = (this.health += heal)
-            return heal; // returns overhealing, for easier callbacks later
+            let excess = Math.abs(Math.min(0, this.maxHealth - (this.health + heal)));
+            this.health += heal;
+            return excess; // returns overhealing, for easier callbacks later
         },
-        set applyShield (value) { // should be a positive value!
+        applyShield: function (value) { // should be a positive value
             let shield = Math.abs(value);
             this.shield += shield;
         }
