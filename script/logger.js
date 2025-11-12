@@ -76,6 +76,12 @@ export function LogManager() {
         );
         throw error;
     };
+    this.alert = function (message) {
+        self._history.push(
+            `ALERTED [${new Date().toISOString()}] ` + message
+        );
+        alert(message);
+    }
 
     this.eventDomElement = document.createElement("div");
     this.eventDomElement.style.display = "none";
