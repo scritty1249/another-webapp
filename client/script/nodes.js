@@ -5,7 +5,7 @@ import {
 import * as UTIL from "./utils.js";
 
 const emissiveValue = new Color(0xdedede);
-const colorValue = new Color(0xaa0000);
+const colorValue = new Color(0x0000aa);
 
 export function NodeManager(
     scene,

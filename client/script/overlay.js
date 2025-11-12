@@ -386,7 +386,7 @@ export function AttackOverlayManager(
                 else if (self._nodeManager.isNodeAttackable(self.focusedNodeId))
                     self._nodeManager.setNodeFriendly(self.focusedNodeId);
                 else
-                    Logger.info(`Cannot attack a node with no friendly neighbors (${self.focusedNodeId})`);
+                    Logger.alert(`Cannot attack a node with no friendly neighbors!\n(${self.focusedNodeId})`);
             },
             function infoButtonAction() {
                 // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
