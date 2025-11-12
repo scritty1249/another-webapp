@@ -384,7 +384,10 @@ export function AttackOverlayManager(
             },
             function infoButtonAction() {
                 // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
-                Logger.log(self._nodeManager.getNodeData(self.focusedNodeId));
+                Logger.log(
+                    self._nodeManager.getNodeData(self.focusedNodeId),
+                    self._nodeManager.getNode(self.focusedNodeId)
+                );
             }
         );
     }

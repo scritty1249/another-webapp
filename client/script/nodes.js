@@ -258,7 +258,7 @@ export function AttackNodeManager (
     self.getNodeData = function (nodeid) {
         const nodeData = self.nodedata[nodeid];
         if (!nodeData)
-            Logger.throw(new Error(`[AttackNodeManager] | Data for Node with UUID "${nodeid}" does not exist.`));
+            Logger.throw(new Error(`[AttackNodeManager] | Error getting data: Node with UUID "${nodeid}" does not exist.`));
         return nodeData;
     }
 
@@ -318,56 +318,55 @@ export function BuildNodeManager (
 }
 
 const NodeHealthPrototype = {
-    _health: {
-        max: 0,
-        current: 0,
-    },
-    _shield: {
-        current: 0
-    },
-    get total () {
-        return this.health + this.shield;
-    },
-    get shield () {
-        return this._shield.current;
-    },
-    set shield (value) {
-        const difference = Math.max(0, value - this._shield.current);
-        this._shield.current = Math.max(0, value);
-        return difference;
-    },
-    get health () {
-        return this._health.current;
-    },
-    set health (value) {
-        this._health.current = UTIL.clamp(value, 0, this.maxHealth);
-        if (value > this.maxHealth)
-            return value - this.maxHealth;
-        else if (value < 0)
-            return value;
-    },
-    get maxHealth () {
-        return this._health.max;
-    },
-    set applyDamage (value) { // should be a positive value!
-        let damage = Math.abs(value);
-        damage = (this.shield -= damage);
-        damage = (this.health -= damage);
-        return damage; // returns the extra damage, for easier callbacks later
-    },
-    set applyHeal (value) { // should be a positive value!
-        let heal = Math.abs(value);
-        heal = (this.health += heal)
-        return heal; // returns overhealing, for easier callbacks later
-    },
-    set applyShield (value) { // should be a positive value!
-        let shield = Math.abs(value);
-        this.shield += shield;
-    }
+    
 };
 function NodeHealthDataFactory (maxHealth) {
-    const obj = Object.create(NodeHealthPrototype);
-    obj._health.max = maxHealth;
-    obj._health.current = maxHealth;
-    return obj;
+    return {
+        _health: {
+            max: maxHealth,
+            current: maxHealth,
+        },
+        _shield: {
+            current: 0
+        },
+        get total () {
+            return this.health + this.shield;
+        },
+        get shield () {
+            return this._shield.current;
+        },
+        set shield (value) {
+            const difference = Math.max(0, value - this._shield.current);
+            this._shield.current = Math.max(0, value);
+            return difference;
+        },
+        get health () {
+            return this._health.current;
+        },
+        set health (value) {
+            this._health.current = UTIL.clamp(value, 0, this.maxHealth);
+            if (value > this.maxHealth)
+                return value - this.maxHealth;
+            else if (value < 0)
+                return value;
+        },
+        get maxHealth () {
+            return this._health.max;
+        },
+        set applyDamage (value) { // should be a positive value!
+            let damage = Math.abs(value);
+            damage = (this.shield -= damage);
+            damage = (this.health -= damage);
+            return damage; // returns the extra damage, for easier callbacks later
+        },
+        set applyHeal (value) { // should be a positive value!
+            let heal = Math.abs(value);
+            heal = (this.health += heal)
+            return heal; // returns overhealing, for easier callbacks later
+        },
+        set applyShield (value) { // should be a positive value!
+            let shield = Math.abs(value);
+            this.shield += shield;
+        }
+    };
 }
