@@ -324,6 +324,7 @@ export function AttackNodeManager (
     self.damageNode = function (nodeid, value) {
         const nodeData = this.getNodeData(nodeid);
         nodeData.hp.applyDamage(value)
+        Logger.debug(`Dealt ${value} damage to node ${nodeid}`);
         if (nodeData.isDead)
             if (nodeData.friendly)
                 this.setNodeEnemy(nodeid);
