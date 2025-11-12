@@ -229,6 +229,10 @@ export function AttackNodeManager (
     nodeTypeData = {}
 ) {
     const self = {...nodeManager};
+    self.tick = {
+        delta: 0,
+        interval: 0.1 // seconds, configurable
+    };
     self._nodeTypeData = nodeTypeData;
     self.nodedata = {};
     UTIL.bindProperty(nodeManager, self, "nodelist");
@@ -346,6 +350,19 @@ export function AttackNodeManager (
                 node.userData.updateAnimations((this.isNodeFriendly(node.uuid) && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
         });
     }
+    self._updateTick = function (timedelta) {
+        this.tick.delta += timedelta;
+        if (this.tick.delta < this.tick.interval)
+            return;
+        // deal damage and whatnot here
+
+        this.tick.delta = this.tick.delta % this.tick.interval;
+    }
+    self.update = function (timedelta) {
+        this._updateTick(timedelta);
+        this._updateAnimations(timedelta);
+    }
+
     // init data for existing nodes
     Object.values(self.nodes).forEach(node => self._addNodeData(node));
 
