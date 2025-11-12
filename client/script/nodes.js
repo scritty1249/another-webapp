@@ -302,6 +302,12 @@ export function AttackNodeManager (
         const nodes = this.getNeighbors(nodeid);
         return nodes.some(node => self.isNodeFriendly(node.uuid));
     }
+    self._updateAnimations = function (timedelta) {
+        this.nodelist.forEach(node => {
+            if (node.userData.updateAnimations)
+                node.userData.updateAnimations((this.isNodeFriendly(node.uuid) ? 0.5 : 1) * timedelta);
+        });
+    }
     // init data for existing nodes
     Object.values(self.nodes).forEach(node => self._addNodeData(node));
 
