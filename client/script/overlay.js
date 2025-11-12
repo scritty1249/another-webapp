@@ -381,12 +381,16 @@ export function AttackOverlayManager(
             },
             function addButtonAction() {
                 //Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
-                if (self._nodeManager.isNodeFriendly(self.focusedNodeId))
+                if (!self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
+                    if (self._nodeManager.isNodeAttackable(self.focusedNodeId)) {
+                        const nodeData = self._nodeManager.getNodeData(self.focusedNodeId);
+                        self._nodeManager.damageNode(self.focusedNodeId, nodeData.hp.total);
+                    } else {
+                        Logger.alert(`Cannot attack a node with no friendly neighbors!\n(${self.focusedNodeId})`);
+                    }
+                } else {
                     self._nodeManager.setNodeEnemy(self.focusedNodeId);
-                else if (self._nodeManager.isNodeAttackable(self.focusedNodeId))
-                    self._nodeManager.setNodeFriendly(self.focusedNodeId);
-                else
-                    Logger.alert(`Cannot attack a node with no friendly neighbors!\n(${self.focusedNodeId})`);
+                }   
             },
             function infoButtonAction() {
                 // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
