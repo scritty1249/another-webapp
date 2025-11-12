@@ -189,6 +189,12 @@ export function NodeManager(
         const tether = this.getTether(tetherid);
         this._removeTether(tether);
     }
+    this.getTether = function (tetherid) {
+        const tether = this.tethers[tetherid];
+        if (!tether)
+            Logger.throw(new Error(`[NodeManager] | Tether with UUID "${tetherid}" does not exist.`));
+        return tether;
+    }
     this.getDistance = function (originid, targetid) {
         const [origin, target] = this.getNodes(originid, targetid);
         return origin.position.distanceTo(target.position);
