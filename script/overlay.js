@@ -318,11 +318,13 @@ export function BuildOverlayManager(
             },
             function addButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);
-                self._nodeManager.createNode(node.userData.type, [self.focusedNodeId], [
+                const pos = [
                     node.position.x + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5),
                     node.position.y + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5),
                     node.position.z + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5)
-                ]);
+                ];
+                const newNodeId = self._nodeManager.createNode(node.userData.type, pos);
+                self._nodeManager.tetherNodes(node.uuid, newNodeId);
             },
             function infoButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);

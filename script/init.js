@@ -129,7 +129,7 @@ function mainloop() {
 
     const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
-    // // render a plane
+    // render a plane
     // const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
     // const planeMaterial = new THREE.MeshPhongMaterial({
     //     color: 0x000000,
