@@ -6,6 +6,41 @@ import { ListenerManager } from "./listeners.js";
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 
+export function createVideoElement (videopath, speed = 1) {
+    const videoEl = document.createElement("video");
+    videoEl.src = videopath;
+    videoEl.playbackRate = speed;
+    videoEl.crossOrigin = "anonymous";
+    // we will manually loop so callbacks can be set at the end of every loop
+    videoEl.autoplay = false;
+    videoEl.loop = false;
+    videoEl.muted = true; // [!] muted autoplay required by most browsers
+    videoEl.style.display = "none";
+    videoEl.preload = "auto";
+    videoEl.playsinline = true; // for safari on ios
+    videoEl.load();
+    return videoEl;
+}
+
+function videoReadyPromise (element) {
+  return new Promise((resolve, reject) => {
+    if (!element || !(element instanceof HTMLVideoElement)) {
+      reject(Logger.error("Invalid video element given"));
+      return;
+    }
+    if (element.readyState > 1) {
+      resolve(element);
+      return;
+    }
+    element.addEventListener("canplaythrough", (event) => {
+      resolve(element);
+    }, { once: true });
+    element.addEventListener("error", (event) => {
+      reject(Logger.error(`Video loading error: ${event.message || event.type}`));
+    }, { once: true });
+  });
+}
+
 export function download(filename, text) {
     const el = document.createElement("a");
     el.setAttribute(
@@ -52,6 +87,21 @@ export function bindProperty(object, target, property) {
             object[property] = value;
         }
     });
+}
+
+export function loadVideoTextureSource (videopath, maskpath, speed = 1) {
+    const video = createVideoElement(videopath, speed);
+    const mask = createVideoElement(maskpath, speed);
+    return {
+        video: video,
+        mask: mask,
+        promise: Promise.all([videoReadyPromise(video), videoReadyPromise(mask)])
+            .then(([v, m]) => {
+                v.playbackRate = speed;
+                m.playbackRate = speed;
+                return [v, m];
+            })
+    };
 }
 
 export function layoutToJson(scene, nodeManager, obfuscate = true) {
@@ -119,11 +169,11 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
 }
 
 export function initAttackPhase(
-    layoutData,
+    attackData, // Expects layout, attacks, and nodes
     scene,
     rendererDom,
     controls,
-    managers // expects Node, Physics, Overlay, Mouse- optional: Listener
+    managers, // expects Node, Physics, Overlay, Mouse- optional: Listener
 ) {
     Logger.info("Loading Attack phase");
     {
@@ -138,26 +188,29 @@ export function initAttackPhase(
                 );
         });
     }
+    {
+        const expectedNames = ["layout", "attacks", "nodes"];
+        const names = Object.keys(attackData);
+        expectedNames.forEach((expectedName) => {
+            if (!names.includes(expectedName))
+                Logger.throw(
+                    new Error(
+                        `Cannot load attack phase! Missing ${expectedName} data`
+                    )
+                );
+        });
+    }
     controls.drag.enabled = false;
     managers.Physics.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
     managers.Node.clear();
     managers.Overlay.clear();
     managers.Listener?.clear();
-    layoutFromJson(layoutData, scene, controls.drag, managers.Node);
+    layoutFromJson(attackData.layout, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new AttackNodeManager(
             managers.Node,
-            {
-                cube: {
-                    health: 100
-                },
-                scanner: {
-                    health: 75
-                },
-                globe: {
-                    health: 0
-                }
-            }
+            attackData.nodes,
+            attackData.attacks
         ),
         Overlay: new AttackOverlayManager(managers.Overlay),
         Listener: new ListenerManager(),

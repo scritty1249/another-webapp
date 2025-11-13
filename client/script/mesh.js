@@ -10,7 +10,8 @@ import {
     CylinderGeometry,
     VideoTexture,
     RGBAFormat,
-    RepeatWrapping
+    RepeatWrapping,
+    DoubleSide
 } from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -67,40 +68,12 @@ function Node(mesh, animations = []) {
     return wrapper;
 }
 
-function Beam (videopath, maskpath, originVec, targetVec, thickness = 0.5, segments = 5) {
+function Beam (videopath, maskpath, thickness = 0.5, segments = 5, repeatSides = 5) {
     const geometry = new CylinderGeometry(thickness, thickness, thickness, segments, 1, true);
-    geometry.translate( thickness, thickness/2, thickness ); // make origin point for translations the end instead of midpoint to save headache later
-
-    const videoEl = createVideoElement(videopath, 1.7);
-    const maskEl = createVideoElement(maskpath, 1.7);
-
-    const texture = new VideoTexture(videoEl);
-    texture.format = RGBAFormat;
-    texture.wrapS = RepeatWrapping;
-    texture.wrapT = RepeatWrapping;
-    texture.repeat.set(
-        Math.ceil(segments / 2), // # of sides (excluding caps)
-        1 // # of repeats on each side
-    );
-    texture.needsUpdate = true;
-
-    const mask = new VideoTexture(maskEl);
-    mask.format = RGBAFormat;
-    mask.wrapS = RepeatWrapping;
-    mask.wrapT = RepeatWrapping;
-    mask.repeat.set(
-        Math.ceil(segments / 2), // # of sides (excluding caps)
-        1 // # of repeats on each side
-    );
-    mask.needsUpdate = true;
-
-    const material = new MeshBasicMaterial({ map: texture, alphaMap: mask, transparent: true });
-    const cylinder_must_not_be_harmed = new Mesh(geometry, material);
-    cylinder_must_not_be_harmed.position.copy(originVec);
-    // sure, whatever the fuck this means...
-    const direction = targetVec.clone().sub(originVec).normalize();
-    const quaternion = new Quaternion().setFromUnitVectors(cylinder_must_not_be_harmed.up, direction);
-    cylinder_must_not_be_harmed.setRotationFromQuaternion(quaternion);
+    // geometry.translate( thickness, thickness/2, thickness ); // make origin point for translations the end instead of midpoint to save headache later
+    const {video: videoEl, mask: maskEl, promise} = UTIL.loadVideoTextureSource(videopath, maskpath, 4);
+    const materialPlaceholder = new MeshBasicMaterial({transparent: true, opacity: 0});
+    const cylinder_must_not_be_harmed = new Mesh(geometry, materialPlaceholder);
 
     cylinder_must_not_be_harmed.userData = {
         textureElement: {
@@ -111,7 +84,10 @@ function Beam (videopath, maskpath, originVec, targetVec, thickness = 0.5, segme
             cylinder_must_not_be_harmed.position.copy(this.position.current);
         },
         start: function (startPercent = 0.0) { // float between 0 and 1
-            this.elapsed = UTIL.clamp(startPercent, 0.0, 1.0);
+            if (this.ready && startPercent >= Number.EPSILON)
+                this.elapsed = UTIL.clamp(startPercent, 0.0, 1.0);
+            else
+                this.video.elapsed = 0;
             this.video.play();
         },
         get elapsed () { // returns a percentage of duration as float (should be 0-1), instead of seconds elapsed
@@ -126,10 +102,17 @@ function Beam (videopath, maskpath, originVec, targetVec, thickness = 0.5, segme
         get ready () {
             return (this.video.duration === NaN);
         },
-        tetherid: tether.uuid,
+        set: function (originVector, targetVector) {
+            this.position.start.copy(originVector);
+            this.position.end.copy(targetVector); 
+            cylinder_must_not_be_harmed.position.copy(originVector);
+            // sure, whatever the fuck this means...
+            const quaternion = new Quaternion().setFromUnitVectors(cylinder_must_not_be_harmed.up, this.position.direction);
+            cylinder_must_not_be_harmed.setRotationFromQuaternion(quaternion);
+        },
         position: {
-            start: originVec.clone(),
-            end: targetVec.clone(),
+            start: new Vector3(),
+            end: new Vector3(),
             get direction () {
                 return this.start.clone().sub(this.end).normalize();
             },
@@ -173,7 +156,33 @@ function Beam (videopath, maskpath, originVec, targetVec, thickness = 0.5, segme
                 cylinder_must_not_be_harmed.userData.textureElement.video.onended = callback;
             }
         }
-    };       
+    };
+
+    promise.then(([videoEl, maskEl]) => {
+        // videoEl.playbackRate = 5;
+        // maskEl.playbackRate = 5;
+        const texture = new VideoTexture(videoEl);
+        texture.format = RGBAFormat;
+        texture.wrapS = RepeatWrapping;
+        texture.wrapT = RepeatWrapping;
+        texture.repeat.set(
+            repeatSides, // # of sides (excluding caps)
+            1 // # of repeats on each side
+        );
+        texture.needsUpdate = true;
+
+        const mask = new VideoTexture(maskEl);
+        mask.format = RGBAFormat;
+        mask.wrapS = RepeatWrapping;
+        mask.wrapT = RepeatWrapping;
+        mask.repeat.set(
+            repeatSides, // # of sides (excluding caps)
+            1 // # of repeats on each side
+        );
+        mask.needsUpdate = true;
+        cylinder_must_not_be_harmed.material.copy(new MeshBasicMaterial({ map: texture, alphaMap: mask, transparent: true, side: DoubleSide }));
+        
+    });
     return cylinder_must_not_be_harmed;
 }
 
@@ -315,22 +324,9 @@ const Nodes = {
     }
 };
 const Attack = {
-    Particle: function (tether) {
-        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", tether);
+    Particle: function () {
+        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.65, 3, 3);
     }
 };
-
-function createVideoElement(videopath, speed = 1) {
-    const videoEl = document.createElement("video");
-    videoEl.src = videopath;
-    videoEl.playbackRate = speed;
-    videoEl.crossOrigin = "anonymous";
-    // we will manually loop so callbacks can be set at the end of every loop
-    videoEl.autoplay = false;
-    videoEl.loop = false;
-    videoEl.muted = true; // [!] muted autoplay required by most browsers
-    videoEl.style.display = "none";
-    return videoEl;
-}
 
 export { Tether, Nodes, Node, Attack };

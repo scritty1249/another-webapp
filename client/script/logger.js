@@ -54,9 +54,11 @@ export function LogManager() {
     };
     this.error = function (...args) {
         console.error(...args);
+        const message = this._argsToString(args);
         self._history.push(
-            `ERROR [${new Date().toISOString()}] ` + this._argsToString(args)
+            `ERROR [${new Date().toISOString()}] ` + message
         );
+        return new Error(message);
     };
     this.info = function (...args) {
         console.info(...args);

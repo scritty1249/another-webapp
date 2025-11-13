@@ -93,7 +93,6 @@ export function Mouse(
     this.getNextEvent = function (eventName) {
         return new Promise(function (resolve) {
             self.canvasElement.addEventListener(eventName, function (event) {
-                //call any handler you want here, if needed
                 resolve(event);
             }, { once: true });
         });

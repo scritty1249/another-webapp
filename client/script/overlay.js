@@ -144,12 +144,12 @@ export function OverlayManager(
     this.focusedNodeId = undefined;
     this.state = {
         inMenu: false,
-        linking: false,
+        targeting: false,
         get keepFocus() {
-            return self.state.linking;
+            return self.state.targeting;
         },
         get stopFocusing() {
-            return self.state.linking || self.state.inMenu;
+            return self.state.targeting || self.state.inMenu;
         },
         get focusedNode() {
             return self.focusedNodeId != undefined;
@@ -286,32 +286,34 @@ export function BuildOverlayManager(
         const maxNodeDistance = 3; // arbitrary
         return FocusMenu.createMenuElement(
             function linkButtonAction() {
-                if (!self.state.linking) {
+                if (!self.state.targeting) {
                     self._nodeManager.highlightNode(self.focusedNodeId);
-                    self.state.linking = true;
+                    self.state.targeting = true;
                     self._mouseManager.getNextEvent("clicked").then(event => {
-                        const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
-                        // [!] ugly as hell
-                        if (nodeid) {
-                            if (nodeid == self.focusedNodeId) { // selected self, remove all tethers
-                                self._nodeManager.untetherNode(nodeid);
-                                Logger.log("detached node");
-                            } else {
-                                const tetherid = self._nodeManager.isNeighbor(nodeid, self.focusedNodeId);
-                                if (tetherid) { // selected neighbor, remove tether
-                                    self._nodeManager.removeTether(tetherid);
-                                    Logger.log("unlinked nodes");
-                                } else { // selected untethered node, create new tether
-                                    self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
-                                    Logger.log("interlinked");
+                        if (self.state.targeting) {
+                            const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
+                            // [!] ugly as hell
+                            if (nodeid) {
+                                if (nodeid == self.focusedNodeId) { // selected self, remove all tethers
+                                    self._nodeManager.untetherNode(nodeid);
+                                    Logger.log("detached node");
+                                } else {
+                                    const tetherid = self._nodeManager.isNeighbor(nodeid, self.focusedNodeId);
+                                    if (tetherid) { // selected neighbor, remove tether
+                                        self._nodeManager.removeTether(tetherid);
+                                        Logger.log("unlinked nodes");
+                                    } else { // selected untethered node, create new tether
+                                        self._nodeManager.tetherNodes(self.focusedNodeId, nodeid);
+                                        Logger.log("interlinked");
+                                    }
                                 }
+                            } else { // nothing selected
+                                Logger.log("didnt link :(");
                             }
-                        } else { // nothing selected
-                            Logger.log("didnt link :(");
+                            self._nodeManager.unhighlightNode(self.focusedNodeId);
+                            self.state.targeting = false;
+                            self.unfocusNode();
                         }
-                        self._nodeManager.unhighlightNode(self.focusedNodeId);
-                        self.state.linking = false;
-                        self.unfocusNode();
                     });
                     Logger.log("looking to link");
                 }
@@ -340,18 +342,6 @@ export function AttackOverlayManager(
     overlayManager
 ) {
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
-    self.state = {
-        inMenu: false,
-        get keepFocus() {
-            return false; // will need for later in dev
-        },
-        get stopFocusing() {
-            return self.state.inMenu;
-        },
-        get focusedNode() {
-            return self.focusedNodeId != undefined;
-        }
-    }
     self._initOverlay = function () {
         const el = GenericElement.buttonMenu(
             GenericElement.hideButton(),
@@ -377,10 +367,37 @@ export function AttackOverlayManager(
     self._createFocusMenuElement = function () {
         return FocusMenu.createMenuElement(
             function linkButtonAction() {
-                Logger.log("[AttackOverlayManager] | Link focus menu button clicked");
+                // Logger.log("[AttackOverlayManager] | Link focus menu button clicked");
+                if (!self.state.targeting && self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
+                    self.state.targeting = true;
+                    self._mouseManager.getNextEvent("clicked").then(event => {
+                        if (self.state.targeting) {
+                            const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
+                            // [!] ugly as hell
+                            if (
+                                nodeid &&
+                                nodeid != self.focusedNodeId &&
+                                !self._nodeManager.isNodeFriendly(nodeid) &&
+                                self._nodeManager.isNodeAttackable(nodeid)
+                            ) {
+                                const nodeData = self._nodeManager.getNodeData(nodeid);
+                                self._nodeManager.attackNode(self.focusedNodeId, nodeid, {
+                                    type: "particle",
+                                    damage: 40
+                                });
+                                Logger.log(`Attacking node ${nodeid}`);
+                            } else { // nothing selected
+                                Logger.log("nothing selected");
+                            }
+                            self.state.targeting = false;
+                            self.unfocusNode();
+                        }
+                    });
+                    Logger.log(`Selecting node to attack from ${self.focusedNodeId}`);
+                }
             },
             function addButtonAction() {
-                //Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
+                // Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
                 if (!self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
                     if (self._nodeManager.isNodeAttackable(self.focusedNodeId)) {
                         const nodeData = self._nodeManager.getNodeData(self.focusedNodeId);
