@@ -247,6 +247,15 @@ const Nodes = {
     },
     Globe: function (sceneData, animationOptions = {idle: true, randomize: true}) {
         const globe = Node(sceneData.mesh, sceneData.animations);
+        const lowPerfMat = new MeshPhongMaterial({
+            color: 0xffffff,
+            specular: 0xff0000,
+            shininess: 0
+        });
+        const highPerfMat = new MeshPhysicalMaterial({
+            transmission: 0.9,
+            roughness: 0.2
+        });
         globe.userData.children("globe").material = new MeshBasicMaterial({
             color: 0x000000,
             transparent: true,
@@ -257,23 +266,13 @@ const Nodes = {
             specular: 0xff0000,
             shininess: 100
         });
-        globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
-            transmission: 0.9,
-            roughness: 0.2
-        });
+        globe.userData.children("globe").userData.children("ball").material = highPerfMat;
         globe.userData.state = {
             setLowPerformance: function () {
-                globe.userData.children("globe").userData.children("ball").material = new MeshPhongMaterial({
-                    color: 0xffffff,
-                    specular: 0xff0000,
-                    shininess: 0
-                });
+                globe.userData.children("globe").userData.children("ball").material = lowPerfMat;
             },
             setHighPerformance: function () {
-                globe.userData.children("globe").userData.children("ball").material = new MeshPhysicalMaterial({
-                    transmission: 0.9,
-                    roughness: 0.2
-                });
+                globe.userData.children("globe").userData.children("ball").material = highPerfMat;
             }
         };
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
@@ -321,6 +320,32 @@ const Nodes = {
             }
         }
         return scanner;
+    },
+    Placeholder: function (sceneData, animationOptions = {idle: true, randomize: true}) {
+        const cube = Node(sceneData.mesh, sceneData.animations);
+        const lowPerfMat = new MeshPhongMaterial({ color: 0x757575, shininess: 80 });
+        const highPerfMat = new MeshPhysicalMaterial({
+            color: 0x757575,
+            transmission: 0.3,
+            roughness: 0.2,
+        });
+        cube.userData.state = {
+            setLowPerformance: function () {cube.userData.children("Cube").material = lowPerfMat},
+            setHighPerformance: function () {cube.userData.children("Cube").material = highPerfMat}
+        };
+        cube.userData.children("Cube").material = highPerfMat;
+        cube.userData.type = "placeholder";
+        cube.scale.set(0.45, 0.45, 0.45);
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                cube.userData.mixer.setTime(animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
+                cube.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                cube.userData.animations["cube-idle"].play();
+            }
+        }
+        return cube;
     }
 };
 const Attack = {
