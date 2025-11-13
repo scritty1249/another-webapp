@@ -378,12 +378,13 @@ export function AttackOverlayManager(
                                 nodeid &&
                                 nodeid != self.focusedNodeId &&
                                 !self._nodeManager.isNodeFriendly(nodeid) &&
-                                self._nodeManager.isNodeAttackable(nodeid)
+                                self._nodeManager.isNodeAttackable(nodeid) && 
+                                self._nodeManager.isNeighbor(self.focusedNodeId, nodeid)
                             ) {
                                 const nodeData = self._nodeManager.getNodeData(nodeid);
                                 self._nodeManager.attackNode(self.focusedNodeId, nodeid, {
                                     type: "particle",
-                                    damage: 40
+                                    damage: 15
                                 });
                                 Logger.log(`Attacking node ${nodeid}`);
                             } else { // nothing selected

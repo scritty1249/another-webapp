@@ -343,7 +343,8 @@ export function AttackNodeManager (
         this.attacklist.push(this.attacks[attack.uuid]);
     }
     self._popAttack = function (attack) {
-        this._scene.remove(attack);
+        attack.mesh.userData.video.pause();
+        this._scene.remove(attack.mesh);
         delete this.attacks[attack.uuid];
         this.attacklist = [...Object.values(this.attacks)]; // [!] may be optimizied, see if performance is impacted by this
     }
@@ -354,26 +355,39 @@ export function AttackNodeManager (
         return attack;
     }
     self.createAttack = function (originid, targetid, attackType, damage) {
-        const attack = this._getAttackMesh(attackType);
-        attack.userData.set(
+        const mesh = this._getAttackMesh(attackType);
+        const attack = {
+            mesh: mesh,
+            target: targetid,
+            origin: originid,
+            friendly: this.isNodeFriendly(originid),
+            uuid: mesh.uuid
+        };
+        attack.mesh.userData.set(
             this.getNode(originid)?.position,
             this.getNode(targetid)?.position
         );
-        attack.userData.callback = () => {
+        attack.mesh.userData.callback = () => {
             if (self.damageNode(targetid, damage))
                 self._popAttack(attack);
             else
-                attack.userData.start();   
+                attack.mesh.userData.start();   
         };
         this._pushAttack(attack);
-        this._scene.add(attack);
+        this._scene.add(attack.mesh);
         Logger.debug(`[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}\n\t${originid} -> ${targetid}`);
         return attack.uuid;
+    }
+    self.getAllAttacksFrom = function (nodeid) {
+        return this.attacklist.filter(attack => attack.origin == nodeid);
+    }
+    self.getAllAttacksTo = function (nodeid) {
+        return this.attacklist.filter(attack => attack.target == nodeid);
     }
     self.attackNode = function (originid, targetid, attackData) {
         const attackid = this.createAttack(originid, targetid, attackData.type, attackData.damage);
         const attack = this.getAttack(attackid);
-        attack.userData.start();
+        attack.mesh.userData.start();
         return attackid;
     }
     self.getShield = function (nodeid) {
@@ -401,6 +415,8 @@ export function AttackNodeManager (
         nodeData.hp.applyDamage(value)
         Logger.debug(`Dealt ${value} damage to node ${nodeid}`);
         if (nodeData.isDead) {
+            [...this.getAllAttacksFrom(nodeid), ...this.getAllAttacksTo(nodeid)]
+                .forEach(attack => self._popAttack(attack));
             if (nodeData.friendly)
                 this.setNodeEnemy(nodeid);
             else
@@ -424,7 +440,7 @@ export function AttackNodeManager (
         });
     }
     self._updateAttacks = function () {
-        this.attacklist.forEach(attack => attack.userData.update());
+        this.attacklist.forEach(attack => attack.mesh.userData.update());
     }
     self._updateTick = function (timedelta) {
         this.tick.delta += timedelta;

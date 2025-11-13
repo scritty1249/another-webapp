@@ -325,7 +325,7 @@ const Nodes = {
 };
 const Attack = {
     Particle: function () {
-        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.65, 3, 3);
+        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.55, 3, 3);
     }
 };
 
