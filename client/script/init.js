@@ -30,7 +30,7 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.z = 10;
 camera.position.y = 5;
 // rendererererer
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -199,6 +199,13 @@ function mainloop() {
                 Mouse: MouseController
             }
         ));
+        {
+            const tether = Manager.Node.tetherlist[0];
+            const test_beam = MESH.Attack.Beam("./source/particle-attack.mp4", "./source/particle-attack-mask.mp4", tether);
+            scene.add(test_beam);
+            test_beam.userData.onended = (e) => {Logger.log("ended");};
+            test_beam.userData.play();
+        }
 
         // render the stuff
         function animate() {
