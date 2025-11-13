@@ -407,7 +407,7 @@ export function AttackOverlayManager(
                         Logger.alert(`Cannot attack a node with no friendly neighbors!\n(${self.focusedNodeId})`);
                     }
                 } else {
-                    self._nodeManager.setNodeEnemy(self.focusedNodeId);
+                    self._nodeManager.damageNode(self.focusedNodeId, 999);
                 }   
             },
             function infoButtonAction() {
