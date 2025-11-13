@@ -5,7 +5,7 @@ import {
 import * as UTIL from "./utils.js";
 
 const emissiveValue = new Color(0xdedede);
-const colorValue = new Color(0x0000aa);
+const colorValue = new Color(0xaa0000);
 
 export function NodeManager(
     scene,
@@ -15,7 +15,6 @@ export function NodeManager(
     nodeMeshData = {}
 ) {
     const self = this;
-    this._lowPerformance = false;
     this._scene = scene;
     this._camera = camera;
     this._renderer = renderer;
@@ -61,6 +60,16 @@ export function NodeManager(
         this.tethers[tether.uuid] = tether;
         this.tetherlist.push(this.tethers[tether.uuid]);
     }
+    this._getTetherFromNodes = function (originid, targetid) {
+        // there should only be one tether between each node
+        const tether = this.tetherlist.filter(t => 
+            t.userData.origin.uuid === originid &&
+            t.userData.target.uuid === targetid
+        );
+        if (!tether.length)
+            throw new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`);
+        return tether[0]; // there should only be one
+    }
     this.isNeighbor = function (originid, targetid) { // order does not matter, returns the tether uuid if true
         // there should only be one tether between each node
         const tether = this.tetherlist.filter(t => 
@@ -75,6 +84,12 @@ export function NodeManager(
         if (tether.length > 0)
             return tether[0].uuid;
         return false;
+    }
+    this.getOtherNode = function (tetherid, nodeid) {
+        const tether = this.getTether(tetherid);
+        const originid = tether.userData.origin.uuid;
+        const targetid = tether.userData.target.uuid;
+        return (originid == nodeid) ? targetid : originid;
     }
     this.getNeighbors = function (nodeid) {
         const node = this.getNode(nodeid);
@@ -224,6 +239,7 @@ export function NodeManager(
 }
 
 NodeManager.prototype = {
+    _lowPerformance: false,
     nodes: {},
     nodelist: [], // read only
     tethers: {},
@@ -232,7 +248,8 @@ NodeManager.prototype = {
 
 export function AttackNodeManager (
     nodeManager,
-    nodeTypeData = {}
+    nodeTypeData = {},
+    attackMeshData = {}
 ) {
     const self = {...nodeManager};
     self.tick = {
@@ -240,7 +257,10 @@ export function AttackNodeManager (
         interval: 0.1 // seconds, configurable
     };
     self._nodeTypeData = nodeTypeData;
+    self._attackMeshData = attackMeshData;
     self.nodedata = {};
+    self.attacks = {};
+    self.attacklist = []; // read only
     UTIL.bindProperty(nodeManager, self, "nodelist");
     UTIL.bindProperty(nodeManager, self, "tethers");
     UTIL.bindProperty(nodeManager, self, "tetherlist");
@@ -277,18 +297,26 @@ export function AttackNodeManager (
             Logger.throw(new Error(`[AttackNodeManager] | Error getting data: Node with UUID "${nodeid}" does not exist.`));
         return nodeData;
     }
-    self._getTypeData = function (nodeType) {
+    self._getNodeTypeData = function (nodeType) {
         if (!Object.keys(self._nodeTypeData).includes(nodeType))
             Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`));
         return self._nodeTypeData[nodeType];
     }
+    self._getAttackMesh = function (attackType, ...args) {
+        if (!Object.keys(this._attackMeshData).includes(attackType))
+            Logger.throw(new Error(`[AttackNodeManager] | Could load attack mesh of type "${attackType}": No mesh data found.`));
+        return this._attackMeshData[attackType](...args);
+    }
+    self.addAttackMeshData = function (attackMeshData) {
+        Object.keys(attackMeshData).forEach(attackType => this._attackMeshData[attackType] = attackMeshData[attackType]);
+    }
     self.setNodeFriendly = function (nodeid) {
         const node = this.getNode(nodeid);
         const nodeData = this.getNodeData(nodeid);
-        const typeData = this._getTypeData(node.userData.type);
+        const nodeTypeData = this._getNodeTypeData(node.userData.type);
         if (node.userData.type != "globe") {
             nodeData.friendly = true;
-            nodeData.hp.set(typeData.health / 2);
+            nodeData.hp.set(nodeTypeData.health / 2);
             node.userData.traverseMesh(function (mesh) {
                 if (mesh.material.emissive && !mesh.material.emissive.equals(colorValue)) {
                     mesh.userData.oldEmissive = mesh.material.color.clone();
@@ -300,17 +328,54 @@ export function AttackNodeManager (
     self.setNodeEnemy = function (nodeid) {
         const node = this.getNode(nodeid);
         const nodeData = this.getNodeData(nodeid);
-        const typeData = this._getTypeData(node.userData.type);
+        const nodeTypeData = this._getNodeTypeData(node.userData.type);
         if (node.userData.type != "globe") {
             nodeData.friendly = false;
-            nodeData.hp.set(typeData.health);
+            nodeData.hp.set(nodeTypeData.health);
             node.userData.traverseMesh(function (mesh) {
                 if (mesh.material.emissive && mesh.userData.oldEmissive)
                     mesh.material.emissive.set(mesh.userData.oldEmissive);
             });
         }
     }
-
+    self._pushAttack = function (attack) {
+        this.attacks[attack.uuid] = attack;
+        this.attacklist.push(this.attacks[attack.uuid]);
+    }
+    self._popAttack = function (attack) {
+        this._scene.remove(attack);
+        delete this.attacks[attack.uuid];
+        this.attacklist = [...Object.values(this.attacks)]; // [!] may be optimizied, see if performance is impacted by this
+    }
+    self.getAttack = function (attackid) {
+        const attack = this.attacks[attackid];
+        if (!attack)
+            Logger.throw(new Error(`[AttackNodeManager] | Attack with UUID "${attackid}" does not exist.`));
+        return attack;
+    }
+    self.createAttack = function (originid, targetid, attackType, damage) {
+        const attack = this._getAttackMesh(attackType);
+        attack.userData.set(
+            this.getNode(originid)?.position,
+            this.getNode(targetid)?.position
+        );
+        attack.userData.callback = () => {
+            if (self.damageNode(targetid, damage))
+                self._popAttack(attack);
+            else
+                attack.userData.start();   
+        };
+        this._pushAttack(attack);
+        this._scene.add(attack);
+        Logger.debug(`[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}\n\t${originid} -> ${targetid}`);
+        return attack.uuid;
+    }
+    self.attackNode = function (originid, targetid, attackData) {
+        const attackid = this.createAttack(originid, targetid, attackData.type, attackData.damage);
+        const attack = this.getAttack(attackid);
+        attack.userData.start();
+        return attackid;
+    }
     self.getShield = function (nodeid) {
         const nodeData = this.getNodeData(nodeid);
         return nodeData.hp.shield;
@@ -335,13 +400,15 @@ export function AttackNodeManager (
         const nodeData = this.getNodeData(nodeid);
         nodeData.hp.applyDamage(value)
         Logger.debug(`Dealt ${value} damage to node ${nodeid}`);
-        if (nodeData.isDead)
+        if (nodeData.isDead) {
             if (nodeData.friendly)
                 this.setNodeEnemy(nodeid);
             else
                 this.setNodeFriendly(nodeid);
+            return true;
+        }
+        return false;
     }
-
     self.isNodeFriendly = function (nodeid) {
         const nodeData = this.getNodeData(nodeid);
         return nodeData.friendly;
@@ -356,6 +423,9 @@ export function AttackNodeManager (
                 node.userData.updateAnimations((this.isNodeFriendly(node.uuid) && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
         });
     }
+    self._updateAttacks = function () {
+        this.attacklist.forEach(attack => attack.userData.update());
+    }
     self._updateTick = function (timedelta) {
         this.tick.delta += timedelta;
         if (this.tick.delta < this.tick.interval)
@@ -367,8 +437,15 @@ export function AttackNodeManager (
     self.update = function (timedelta) {
         this._updateTick(timedelta);
         this._updateAnimations(timedelta);
+        this._updateAttacks();
     }
-
+    self.clear = function () {
+        const nodeCount = this.nodelist.length;
+        const tetherCount = this.tetherlist.length;
+        const attackCount = this.attacklist.length;
+        this.nodelist.forEach(n => this._popNode(n));
+        Logger.log(`[AttackNodeManager] | Cleared ${nodeCount} nodes, ${attackCount} attacks, and ${tetherCount} tethers`);
+    }
     // init data for existing nodes
     Object.values(self.nodes).forEach(node => self._addNodeData(node));
 
@@ -385,7 +462,7 @@ export function BuildNodeManager (
     UTIL.bindProperty(nodeManager, self, "tetherlist");
     self.untetherNodes = function (originid, targetid) {
         const tether = this._getTetherFromNodes(originid, targetid);
-        this.removeTether(tether.uuid); // a bit inefficient
+        this._removeTether(tether); // a bit inefficient
     }
     self.untetherNode = function (nodeid) {
         const node = this.getNode(nodeid);

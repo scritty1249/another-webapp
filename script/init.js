@@ -106,7 +106,23 @@ function mainloop() {
                 ));
             } else if (phaseType == "attack") {
                 Manager.set(UTILS.initAttackPhase(
-                    UTILS.layoutToJson(scene, NodeController, false),
+                    {
+                        layout: UTILS.layoutToJson(scene, NodeController, false),
+                        nodes: {
+                            cube: {
+                                health: 100
+                            },
+                            scanner: {
+                                health: 75
+                            },
+                            globe: {
+                                health: 0
+                            }
+                        },
+                        attacks: {
+                            particle: MESH.Attack.Particle
+                        }
+                    },
                     scene,
                     renderer.domElement,
                     controls,
@@ -158,9 +174,9 @@ function mainloop() {
     light.shadow.camera.near = 1;
     light.shadow.camera.far = 10;
 
-    gtlfData.then(values => {
-        const [ cubeData, globeData, eyeData, ..._] = values;
-        Logger.info("Finished loading shape data:", values);        
+    gtlfData.then(data => {
+        const [ cubeData, globeData, eyeData, ..._] = data;
+        Logger.info("Finished loading shape data:", data);        
 
         NodeController.addMeshData({
             cube: () => MESH.Nodes.Cube(cubeData),
@@ -216,7 +232,6 @@ function mainloop() {
             // required if controls.enableDamping or controls.autoRotate are set to true
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
 
-            test_beam.userData.update();
             FPSCounter.update();
             renderer.render(scene, camera);
         }
