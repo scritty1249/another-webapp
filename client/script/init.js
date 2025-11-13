@@ -199,13 +199,11 @@ function mainloop() {
                 Mouse: MouseController
             }
         ));
-        {
-            const tether = Manager.Node.tetherlist[0];
-            const test_beam = MESH.Attack.Beam("./source/particle-attack.mp4", "./source/particle-attack-mask.mp4", tether);
-            scene.add(test_beam);
-            test_beam.userData.onended = (e) => {Logger.log("ended");};
-            test_beam.userData.play();
-        }
+        // const tether = Manager.Node.tetherlist[0];
+        // const test_beam = MESH.Attack.Particle(tether.userData.vectors);
+        // scene.add(test_beam);
+        // test_beam.userData.callback = (e) => {Logger.log("ended");test_beam.userData.start();};
+        
 
         // render the stuff
         function animate() {
@@ -217,6 +215,8 @@ function mainloop() {
 
             // required if controls.enableDamping or controls.autoRotate are set to true
             controls.camera.update(); // must be called after any manual changes to the camera"s transform
+
+            test_beam.userData.update();
             FPSCounter.update();
             renderer.render(scene, camera);
         }
