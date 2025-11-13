@@ -66,6 +66,7 @@ function mainloop() {
 
     // start loading everything
     const gtlfData = Promise.all([
+        THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
         THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
         THREEUTILS.loadGLTFShape("./source/globe.glb"),
         THREEUTILS.loadGLTFShape("./source/scanner.glb")
@@ -109,6 +110,9 @@ function mainloop() {
                     {
                         layout: UTILS.layoutToJson(scene, NodeController, false),
                         nodes: {
+                            placeholder: {
+                                health: 50
+                            },
                             cube: {
                                 health: 100
                             },
@@ -145,18 +149,6 @@ function mainloop() {
 
     const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
-    // render a plane
-    // const planeGeometry = new THREE.PlaneGeometry(20, 20); // A 20x20 unit plane
-    // const planeMaterial = new THREE.MeshPhongMaterial({
-    //     color: 0x000000,
-    //     transparent: true, // Ensure this is enabled for opacity
-    //     opacity: 0.8
-    // }); // single-sided plane
-    // const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    // scene.add(plane);
-    // plane.receiveShadow = true;
-    // plane.rotation.set(-Math.PI / 2, 0, 0); // Rotate to lie flat on the XZ plane
-    // plane.position.set(0, 0, 0);
 
     // Control shadows
     const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
@@ -175,10 +167,11 @@ function mainloop() {
     light.shadow.camera.far = 10;
 
     gtlfData.then(data => {
-        const [ cubeData, globeData, eyeData, ..._] = data;
+        const [ placeholderData, cubeData, globeData, eyeData, ..._] = data;
         Logger.info("Finished loading shape data:", data);        
 
         NodeController.addMeshData({
+            placeholder: () => MESH.Nodes.Placeholder(placeholderData),
             cube: () => MESH.Nodes.Cube(cubeData),
             globe: () => MESH.Nodes.Globe(globeData),
             scanner: () => MESH.Nodes.Scanner(eyeData),
@@ -202,9 +195,9 @@ function mainloop() {
                 }
             }
         );
-
+        
         Manager.set(UTILS.initBuildPhase(
-            "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbMiwwLDRdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoic2Nhbm5lciIsInBvc2l0aW9uIjpbOSwwLDVdLCJfZGF0YSI6e319LHsidXVpZCI6IjIiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzIsMCwtM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbLTMsMCwtMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNCIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMTIsMCwyXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI1IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOls4LDAsOV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNiIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMiwwLDExXSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstMywwLDNdLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbNSwwLDddLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6WzAsMCwxXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOls2LDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjEyIiwidHlwZSI6InNjYW5uZXIiLCJwb3NpdGlvbiI6WzgsMCwwXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMyIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsxMiwwLDddLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzAsN10sWzgsMF0sWzExLDhdLFsxMSwyXSxbMTAsM10sWzgsMTBdLFs4LDEyXSxbOCw5XSxbMTIsMV0sWzEsMTNdLFs1LDEzXSxbOSw2XSxbMSw0XV0sImJhY2tncm91bmQiOiIifQ==",
+            "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzMsMCwzXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6Wy0zLDAsM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlszLDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy0zLDAsLTNdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbXSwiYmFja2dyb3VuZCI6IiJ9",
             scene,
             renderer.domElement,
             controls,
@@ -215,11 +208,6 @@ function mainloop() {
                 Mouse: MouseController
             }
         ));
-        // const tether = Manager.Node.tetherlist[0];
-        // const test_beam = MESH.Attack.Particle(tether.userData.vectors);
-        // scene.add(test_beam);
-        // test_beam.userData.callback = (e) => {Logger.log("ended");test_beam.userData.start();};
-        
 
         // render the stuff
         function animate() {
