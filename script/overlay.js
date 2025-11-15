@@ -80,7 +80,7 @@ const BuildFocusMenu = {
 const AttackFocusMenu = {
     createMenuElement: function (...elements) {
         const wrapper = document.createElement("div");
-        wrapper.classList.add("attack-focus-menu", "reveal", "pointer-events");
+        wrapper.classList.add("attack-focus-menu", "reveal");
         elements.forEach((el, i) => {
             el.style.setProperty("--index", i);
             wrapper.appendChild(el);
