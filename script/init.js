@@ -9,6 +9,7 @@ import { Mouse } from "./cursor.js";
 import { OverlayManager, AttackOverlayManager, BuildOverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
 import * as UTILS from "./utils.js";
+import * as ATTACKERDATA from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -109,23 +110,9 @@ function mainloop() {
                 Manager.set(UTILS.initAttackPhase(
                     {
                         layout: UTILS.layoutToJson(scene, NodeController, false),
-                        nodes: {
-                            placeholder: {
-                                health: 50
-                            },
-                            cube: {
-                                health: 100
-                            },
-                            scanner: {
-                                health: 75
-                            },
-                            globe: {
-                                health: 0
-                            }
-                        },
-                        attacks: {
-                            particle: MESH.Attack.Particle
-                        }
+                        nodeTypes: ATTACKERDATA.NodeTypeData,
+                        attackTypes: ATTACKERDATA.AttackTypeData,
+                        attacks: ATTACKERDATA.AttackerData
                     },
                     scene,
                     renderer.domElement,
@@ -195,9 +182,18 @@ function mainloop() {
                 }
             }
         );
+
+        let _defaultLayout = "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzMsMCwzXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6Wy0zLDAsM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlszLDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy0zLDAsLTNdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbXSwiYmFja2dyb3VuZCI6IiJ9";
+
+        { // [!] testing only
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            if (urlParams.has("preset"))
+                _defaultLayout = "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDIsMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOlstNCwtMSw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIyIiwidHlwZSI6InNjYW5uZXIiLCJwb3NpdGlvbiI6WzIsLTEsMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbLTksMCwtNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNCIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTYsMCwtMV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTIsMCwtMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLDZdLCJfZGF0YSI6e319LHsidXVpZCI6IjciLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsOV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiOCIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTQsMCwxM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiOSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTUsMCwtNV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTAiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy01LDAsLTldLCJfZGF0YSI6e319LHsidXVpZCI6IjExIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlswLDAsLTZdLCJfZGF0YSI6e319LHsidXVpZCI6IjEyIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOls0LDAsLTEwXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMSwwLC0xM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTQiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEwLDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE1IiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6WzQsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOCwwLDRdLCJfZGF0YSI6e319LHsidXVpZCI6IjE3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOls5LDAsMF0sIl9kYXRhIjp7fX1dLCJuZWlnaGJvcnMiOltbNCwwXSxbNSwwXSxbNiwwXSxbNSwxXSxbNiwxXSxbMCwxXSxbNyw2XSxbOCw3XSxbNSwyXSxbNiwyXSxbOSw0XSxbOSwzXSxbMTEsOV0sWzEyLDExXSxbMTEsMTBdLFsxMiwxM10sWzE2LDE1XSxbMiwxNV0sWzE3LDE2XSxbMTQsMTddLFsyLDBdLFsyLDFdXSwiYmFja2dyb3VuZCI6IiJ9";
+        }
         
         Manager.set(UTILS.initBuildPhase(
-            "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzMsMCwzXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6Wy0zLDAsM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlszLDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy0zLDAsLTNdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbXSwiYmFja2dyb3VuZCI6IiJ9",
+            _defaultLayout,
             scene,
             renderer.domElement,
             controls,

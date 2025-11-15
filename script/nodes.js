@@ -179,6 +179,7 @@ export function NodeManager(
         const nodeCount = self.nodelist.length;
         const tetherCount = self.tetherlist.length;
         self.nodelist.forEach(n => self._popNode(n));
+        self.tetherlist.forEach(t => self._popTether(t));
         Logger.log(`[NodeManager] | Cleared ${nodeCount} nodes and ${tetherCount} tethers`);
     }
     this._tetherNodes = function (origin, target) {
@@ -249,7 +250,7 @@ NodeManager.prototype = {
 export function AttackNodeManager (
     nodeManager,
     nodeTypeData = {},
-    attackMeshData = {}
+    attackTypeData = {}
 ) {
     const self = {...nodeManager};
     self.tick = {
@@ -257,7 +258,7 @@ export function AttackNodeManager (
         interval: 0.1 // seconds, configurable
     };
     self._nodeTypeData = nodeTypeData;
-    self._attackMeshData = attackMeshData;
+    self._attackTypeData = attackTypeData;
     self.nodedata = {};
     self.attacks = {};
     self.attacklist = []; // read only
@@ -266,10 +267,9 @@ export function AttackNodeManager (
     UTIL.bindProperty(nodeManager, self, "tetherlist");
     self.nodes = new Proxy(nodeManager.nodes, {
         set(target, key, value, receiver) {
-            nodeManager.nodelist.push(value);
             if (!self._nodeTypeData[value.userData.type])
                 Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No data found for Node type "${value.userData.type}"`);
-            self.nodedata[key] = { health: self._nodeTypeData[value.userData.type] };
+            self.nodedata[key] = self._addNodeData(node.uuid);
             return Reflect.set(target, key, value, receiver); // default behavior, equal to "self._nodes[key] = value"
         },
         deleteProperty(target, key) {
@@ -279,17 +279,17 @@ export function AttackNodeManager (
         }
     });
     self._addNodeData = function (node) {
-        const healthData = self._nodeTypeData[node.userData.type]?.health;
-        if (healthData === undefined || healthData === NaN)
-            Logger.throw(`[AttackNodeManager] | Error while creating node data for type (${node.userData.type}): No health data found`);
-        else
-            self.nodedata[node.uuid] = {
-                get isDead () {
-                    return this.hp.total <= 0;
-                },
-                friendly: (node.userData.type == "globe"),
-                hp: NodeHealthDataFactory(healthData)
-            };
+        try {
+            self.nodedata[node.uuid] = NodeDataFactory(node.uuid, self);
+            if (!self.nodedata[node.uuid].isFriendly) {
+                //self.nodedata[node.uuid].slots = 99;
+                if (node.userData.type == "cube")
+                    self.addAttackToNode("cubedefense", node.uuid);
+            }
+        } catch (err) {
+            Logger.error(`[AttackNodeManager] | Error while creating node data for type: ${node.userData.type}`);
+            Logger.throw(err);
+        }   
     }
     self.getNodeData = function (nodeid) {
         const nodeData = self.nodedata[nodeid];
@@ -302,25 +302,26 @@ export function AttackNodeManager (
             Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`));
         return self._nodeTypeData[nodeType];
     }
-    self._getAttackMesh = function (attackType, ...args) {
-        if (!Object.keys(this._attackMeshData).includes(attackType))
-            Logger.throw(new Error(`[AttackNodeManager] | Could load attack mesh of type "${attackType}": No mesh data found.`));
-        return this._attackMeshData[attackType](...args);
+    self._getAttackTypeData = function (attackType) {
+        if (!Object.keys(this._attackTypeData).includes(attackType))
+            Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve attack data for type "${attackType}"`));
+        return this._attackTypeData[attackType];
     }
-    self.addAttackMeshData = function (attackMeshData) {
-        Object.keys(attackMeshData).forEach(attackType => this._attackMeshData[attackType] = attackMeshData[attackType]);
+    self.addAttackData = function (attackData) {
+        Object.keys(attackData).forEach(attackType => this._attackTypeData[attackType] = attackData[attackType]);
     }
     self.setNodeFriendly = function (nodeid) {
         const node = this.getNode(nodeid);
         const nodeData = this.getNodeData(nodeid);
         const nodeTypeData = this._getNodeTypeData(node.userData.type);
+        nodeData.attackers.clear();
         if (node.userData.type != "globe") {
             nodeData.friendly = true;
             nodeData.hp.set(nodeTypeData.health / 2);
             node.userData.traverseMesh(function (mesh) {
                 if (mesh.material.emissive && !mesh.material.emissive.equals(colorValue)) {
                     mesh.userData.oldEmissive = mesh.material.color.clone();
-                    mesh.material.emissive.set(colorValue);
+                    mesh.material.emissive.set(colorValue); 
                 }
             });
         }
@@ -329,6 +330,9 @@ export function AttackNodeManager (
         const node = this.getNode(nodeid);
         const nodeData = this.getNodeData(nodeid);
         const nodeTypeData = this._getNodeTypeData(node.userData.type);
+        nodeData.attackers.clear();
+        if (node.userData.type == "cube")
+            self.addAttackToNode("cubedefense", node.uuid);
         if (node.userData.type != "globe") {
             nodeData.friendly = false;
             nodeData.hp.set(nodeTypeData.health);
@@ -343,7 +347,7 @@ export function AttackNodeManager (
         this.attacklist.push(this.attacks[attack.uuid]);
     }
     self._popAttack = function (attack) {
-        attack.mesh.userData.video.pause();
+        attack.halt();
         this._scene.remove(attack.mesh);
         delete this.attacks[attack.uuid];
         this.attacklist = [...Object.values(this.attacks)]; // [!] may be optimizied, see if performance is impacted by this
@@ -354,28 +358,12 @@ export function AttackNodeManager (
             Logger.throw(new Error(`[AttackNodeManager] | Attack with UUID "${attackid}" does not exist.`));
         return attack;
     }
-    self.createAttack = function (originid, targetid, attackType, damage) {
-        const mesh = this._getAttackMesh(attackType);
-        const attack = {
-            mesh: mesh,
-            target: targetid,
-            origin: originid,
-            friendly: this.isNodeFriendly(originid),
-            uuid: mesh.uuid
-        };
-        attack.mesh.userData.set(
-            this.getNode(originid)?.position,
-            this.getNode(targetid)?.position
-        );
-        attack.mesh.userData.callback = () => {
-            if (self.damageNode(targetid, damage))
-                self._popAttack(attack);
-            else
-                attack.mesh.userData.start();   
-        };
+    self.createAttack = function (originid, attackType) {
+        const attack = AttackFactory(attackType, originid, self);
         this._pushAttack(attack);
+        attack.update();
         this._scene.add(attack.mesh);
-        Logger.debug(`[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}\n\t${originid} -> ${targetid}`);
+        Logger.debug(`[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}`);
         return attack.uuid;
     }
     self.getAllAttacksFrom = function (nodeid) {
@@ -384,63 +372,26 @@ export function AttackNodeManager (
     self.getAllAttacksTo = function (nodeid) {
         return this.attacklist.filter(attack => attack.target == nodeid);
     }
-    self.attackNode = function (originid, targetid, attackData) {
-        const attackid = this.createAttack(originid, targetid, attackData.type, attackData.damage);
-        const attack = this.getAttack(attackid);
-        attack.mesh.userData.start();
-        return attackid;
-    }
-    self.getShield = function (nodeid) {
+    self.addAttackToNode = function (attackType, nodeid) {
         const nodeData = this.getNodeData(nodeid);
-        return nodeData.hp.shield;
-    }
-    self.setShield = function (nodeid, value) {
-        const nodeData = this.getNodeData(nodeid);
-        nodeData.hp.shield = value;
-    }
-    self.damageShield = function (nodeid, value) {
-        const nodeData = this.getNodeData(nodeid);
-        return (nodeData.hp.shield -= value);
-    }
-    self.addShield = function (nodeid, value) {
-        const nodeData = this.getNodeData(nodeid);
-        return nodeData.hp.applyShield(value);
-    }
-    self.healNode = function (nodeid, value) {
-        const nodeData = this.getNodeData(nodeid);
-        return nodeData.hp.applyHeal(value);
-    }
-    self.damageNode = function (nodeid, value) {
-        const nodeData = this.getNodeData(nodeid);
-        nodeData.hp.applyDamage(value)
-        Logger.debug(`Dealt ${value} damage to node ${nodeid}`);
-        if (nodeData.isDead) {
-            [...this.getAllAttacksFrom(nodeid), ...this.getAllAttacksTo(nodeid)]
-                .forEach(attack => self._popAttack(attack));
-            if (nodeData.friendly)
-                this.setNodeEnemy(nodeid);
-            else
-                this.setNodeFriendly(nodeid);
-            return true;
-        }
-        return false;
-    }
-    self.isNodeFriendly = function (nodeid) {
-        const nodeData = this.getNodeData(nodeid);
-        return nodeData.friendly;
-    }
-    self.isNodeAttackable = function (nodeid) {
-        const nodes = this.getNeighbors(nodeid);
-        return nodes.some(node => self.isNodeFriendly(node.uuid));
+        if (nodeData.attackers.space >= 1)
+            nodeData.attackers.push({
+                uuid: this.createAttack(nodeid, attackType),
+                type: attackType
+            });
+        else
+            Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.attackers.length} slots.`);
     }
     self._updateAnimations = function (timedelta) {
         this.nodelist.forEach(node => {
-            if (node.userData.updateAnimations)
-                node.userData.updateAnimations((this.isNodeFriendly(node.uuid) && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
+            if (node.userData.updateAnimations) {
+                const data = this.getNodeData(node.uuid);
+                node.userData.updateAnimations((data.isFriendly && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
+            }
         });
     }
     self._updateAttacks = function () {
-        this.attacklist.forEach(attack => attack.mesh.userData.update());
+        this.attacklist.forEach(attack => attack.update());
     }
     self._updateTick = function (timedelta) {
         this.tick.delta += timedelta;
@@ -459,7 +410,17 @@ export function AttackNodeManager (
         const nodeCount = this.nodelist.length;
         const tetherCount = this.tetherlist.length;
         const attackCount = this.attacklist.length;
-        this.nodelist.forEach(n => this._popNode(n));
+        this.tetherlist.forEach(t => this._popTether(t));
+        this.attacklist.forEach(a => this._popAttack(a));
+
+        Object.entries(this.nodes).forEach(([id, n]) => {
+            this._popNode(n);
+            delete this.nodedata[id];
+        });
+        delete this._nodeTypeData;
+        this._nodeTypeData = {};
+        delete this._attackTypeData;
+        this._attackTypeData = {};
         Logger.log(`[AttackNodeManager] | Cleared ${nodeCount} nodes, ${attackCount} attacks, and ${tetherCount} tethers`);
     }
     // init data for existing nodes
@@ -517,8 +478,171 @@ export function BuildNodeManager (
     return self;
 }
 
-function NodeHealthDataFactory (maxHealth) {
-    return {
+function AttackFactory (attackType, originid, manager) {
+    const typeData = manager._getAttackTypeData(attackType);
+    const nodeData = manager.getNodeData(originid);
+    const mesh = typeData.mesh();
+    mesh.userData.setOrigin(manager.getNode(originid)?.position);
+    const attack = Object.create({
+        mesh: mesh,
+        _target: undefined,
+        origin: originid,
+        friendly: nodeData.isFriendly,
+        type: attackType,
+        uuid: mesh.uuid,
+        damage: typeData.damage,
+        logic: typeData.logic(),
+        get active () {
+            return this.mesh.visible;
+        },
+        set active (value) { // boolean
+            this.mesh.visible = value;
+        },
+        get target () {
+            return this._target;
+        },
+        set target (nodeid) {
+            this._target = nodeid;
+            if (nodeid) {
+                this.active = true;
+                this.mesh.userData.setTarget(manager.getNode(nodeid)?.position);
+                this.mesh.userData.callback = function () {
+                    if (attack.active) {
+                        try {
+                            manager.getNodeData(attack.target).damage(attack.damage);
+                            attack.update();
+                            if (attack.active)
+                                attack.mesh.userData.start();
+                        } catch (err) {
+                            Logger.warn(err.message);
+                        }
+                    }
+                }
+                this.mesh.userData.start();
+            } else
+                this.active = false;
+        },
+        update: function () { // assumes enabled
+            if (!this.active || !this.target || !manager.getNodeData(this.origin)?.canAttack(this.target))
+                this.target = this.logic.target(manager.getNodeData(this.origin)?.attackableNeighbors);
+            if (this.active)
+                this.mesh.userData.update();
+        },
+        halt: function () {
+            this.active = false;
+            this.mesh.userData.video.pause();
+        }
+    });
+    return attack;
+}
+
+function NodeDataFactory (nodeid, manager) {
+    const node = manager.getNode(nodeid);
+    const typeData = manager._getNodeTypeData(node.userData.type);
+    const obj = Object.create({
+        get neighbors () { // gets nodedata only
+            try {
+                const neighbors = manager.getNeighbors(this.uuid)?.map(n => manager.getNodeData(n.uuid));
+                return neighbors ? neighbors : [];
+            } catch (err) {
+                Logger.warn(err.message);
+                return [];
+            }
+        },
+        get isDead () {
+            return this.hp.total <= 0;
+        },
+        get isFriendly() {
+            return this.friendly;
+        },
+        get isAttackable() {
+            return this.neighbors.some(nd => nd.isFriendly) && !this.isFriendly;
+        },
+        get attackableNeighbors() {
+            return this.neighbors.filter(nd => nd.isFriendly != this.isFriendly && !nd.isDead);
+        },
+        canAttack: function (targetid) {
+            return this.attackableNeighbors.filter(nd => nd.uuid == targetid).length > 0;
+        },
+        damage: function (value) {
+            this.hp.applyDamage(value)
+            Logger.debug(`Dealt ${value} damage to node ${this.uuid}`);
+            if (this.isDead) {
+                [...manager.getAllAttacksFrom(this.uuid), ...manager.getAllAttacksTo(this.uuid)]
+                    .forEach(attack => attack.active = false);
+                if (this.isFriendly)
+                    manager.setNodeEnemy(this.uuid);
+                else
+                    manager.setNodeFriendly(this.uuid);
+                return true;
+            }
+            return false;
+        },
+        uuid: nodeid,
+        friendly: node.userData.type == "globe",
+        hp: NodeHealthFactory(typeData?.health),
+        _slots: typeData?.slots,
+        get slots () {
+            return this._slots;
+        },
+        set slots (length) {
+            const oldlength = this._slots;
+            this._slots = length;
+            if (oldlength > this._slots)
+                this.attackers.splice(this._slots, oldlength - this._slots);
+            else if (oldlength < this._slots)
+                this.attackers.fillempty();
+        },
+        attackers: Array.from({length: typeData?.slots}, () => {return {uuid: undefined, type: undefined}}),
+    });
+    Object.defineProperty(obj.attackers, "space", {
+        get: function() {
+            return obj.attackers.filter(a => a.uuid == undefined).length;
+        },
+    });
+    Object.defineProperty(obj.attackers, "filled", {
+        get: function() {
+            return obj.attackers.filter(a => a.uuid != undefined).length;
+        },
+    });
+    obj.attackers.pop = function (index) {
+        const idx = Number(index);
+        if (isNaN(idx) || idx < 0 || idx >= obj.attackers.length) {
+            Logger.warn(`Invalid index for deletion: ${idx}`);
+            return false;
+        }
+        // stop that attack
+        manager._popAttack(manager.getAttack(obj.attackers[idx].uuid));
+        // shift everything down
+        obj.attackers.splice(idx, 1);
+        obj.attackers[obj.attackers.length] = {uuid: undefined, type: undefined};
+        return true;
+    }
+    obj.attackers.push = function (...args) {
+        if (args.length + obj.attackers.filled <= obj.slots)
+            args.forEach((arg, i) => obj.attackers[obj.attackers.filled + i] = arg);
+        else {
+            args.forEach(arg => manager._popAttack(manager.getAttack(arg.uuid)));
+            Logger.error(`Cannot add attacker(s): Node is limited to ${obj.slots} slots.`);
+            return false;
+        }
+        return true;
+    }
+    obj.attackers.fillempty = function () {
+        for (let i = Math.max(0, obj.attackers.filled - 1); i < obj._slots; i++)
+            obj.attackers[i] = {uuid: undefined, type: undefined};
+    }
+    obj.attackers.clear = function () {
+        while (obj.attackers.filled > 0) {
+            obj.attackers.pop(0);
+        }
+    }
+    
+    return obj;
+}
+
+function NodeHealthFactory (maxHealth) {
+    return Object.create({
         _health: {
             max: maxHealth,
             current: maxHealth,
@@ -572,5 +696,5 @@ function NodeHealthDataFactory (maxHealth) {
             let shield = Math.abs(value);
             this.shield += shield;
         }
-    };
+    });
 }

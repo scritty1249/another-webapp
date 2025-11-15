@@ -65,17 +65,14 @@ export function Mouse(
         }
     };
     this._initListeners = function () {
-        this._window.addEventListener('mousemove', function (event) {
-            self.position.set(
-                (event.clientX / self._window.innerWidth) * 2 - 1,
-                -(event.clientY / self._window.innerHeight) * 2 + 1
-            );
-        }, false);
+        this._window.addEventListener('mousemove', self.updatePosition, false);
         this.canvasElement.addEventListener("mousedown", function(event) {
+            self.updatePosition(event);
             self.up.unset();
             self.down.set(Date.now(), event);
         });
         this.canvasElement.addEventListener("mouseup", function(event) {
+            self.updatePosition(event);
             self.up.set(Date.now(), event);
             if (
                 self.down.bool &&
@@ -87,6 +84,7 @@ export function Mouse(
                 );
         });
         this.canvasElement.addEventListener("contextmenu", function(event) {
+            self.updatePosition(event);s
             event.preventDefault();
         });
     }
@@ -108,6 +106,12 @@ export function Mouse(
             return (new Vector2(self.down.event.clientX, self.down.event.clientY))
                 .distanceToSquared(new Vector2(self.up.event.clientX, self.up.event.clientY));
         return 0;
+    }
+    this.updatePosition = function (event) {
+        self.position.set(
+            (event.clientX / self._window.innerWidth) * 2 - 1,
+            -(event.clientY / self._window.innerHeight) * 2 + 1
+        );
     }
 
     this._initListeners();
