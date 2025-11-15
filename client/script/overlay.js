@@ -475,7 +475,11 @@ export function AttackOverlayManager(
         }
     }
     self.update = function () {
-        
+        if (
+            self.state.focusedNode &&
+            self._nodeManager.getNodeData(self.focusedNodeId).attackers[0].type != self.element.focusMenu.children[0].dataset.attackType
+        )
+            self._updateFocusMenu();
     }
     self._createFocusMenuElement = function () {
         return AttackFocusMenu.createMenuElement(...self._loadTilesForNode());
