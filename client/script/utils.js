@@ -169,7 +169,7 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
 }
 
 export function initAttackPhase(
-    attackData, // Expects layout, attacks, and nodes
+    attackData, // Expects layout, attackTypes, nodeTypes and attacks
     scene,
     rendererDom,
     controls,
@@ -189,7 +189,7 @@ export function initAttackPhase(
         });
     }
     {
-        const expectedNames = ["layout", "attacks", "nodes"];
+        const expectedNames = ["layout", "attackTypes", "nodeTypes", "attacks"];
         const names = Object.keys(attackData);
         expectedNames.forEach((expectedName) => {
             if (!names.includes(expectedName))
@@ -209,10 +209,13 @@ export function initAttackPhase(
     const controllers = {
         Node: new AttackNodeManager(
             managers.Node,
-            attackData.nodes,
+            attackData.nodeTypes,
+            attackData.attackTypes
+        ),
+        Overlay: new AttackOverlayManager(
+            managers.Overlay,
             attackData.attacks
         ),
-        Overlay: new AttackOverlayManager(managers.Overlay),
         Listener: new ListenerManager(),
     };
     controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});

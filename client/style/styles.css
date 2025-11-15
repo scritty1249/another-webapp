@@ -41,6 +41,13 @@ canvas {
 #container > *:not(#overlay) {
     z-index: 1;
 }
+
+.pointer-events {
+    pointer-events: auto;
+}
+    .button {
+        background-size: contain;
+    }
 #overlay {
     pointer-events: none;
     z-index: 2;
@@ -49,89 +56,150 @@ canvas {
     padding: 1em;
     margin: 0;
     overflow: hidden;
-}
-.pointer-events {
-    pointer-events: auto;
-}
-#overlay > .nodeMenu {
-    --x-side: -50%;
-    --y-side: -50%;
-    position: absolute;
-    transform: translate(var(--x-side), var(--y-side)) scale(var(--scale));
-    margin: 0;
-    padding: 0;
-    top: var(--y);
-    left: var(--x);
-    overflow: visible;
-    background-size: auto;
-    background-repeat: no-repeat;
-    background-origin: center;
-}
-#overlay > .nodeMenu.right {
-    --x-side: 5%;
-}
-#overlay > .nodeMenu.left {
-    --x-side: -125%;
-}
-.nodeMenu > .button {
-    transform: translate(var(--left), var(--top));
-    transition: all 0.3s ease-out; 
-}
-.nodeMenu >.button:active {
-    filter: brightness(180%);
-    transition: all 2s ease-out; 
-}
-#overlay > .button-menu {
-    position: absolute;
-    bottom: 10px;
-    left: 10px;
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    margin: 0;
-    overflow-y: hidden;
-    overflow-x: scroll;
-    max-width: 50%;
-}
-.button-menu * {
-    overflow-y: hidden;
-}
-@keyframes mask-left-right {
-    100% {
-        mask-position: 35%;
-        -webkit-mask-position: 35%;
-    }
-}
 
-@keyframes unmask-right-left {
-    100% {
-        mask-position: 75%;
-        -webkit-mask-position: 75%;
-    }
-}
-.reveal {
-    --mask-source: linear-gradient(to right, #fff 0%, #fff 50%, #0000 51%, #0000 100%);
-    mask-image: var(--mask-source);
-    -webkit-mask-image: var(--mask-source);
-    mask-mode: alpha;
-    mask-size: 400% 100%;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: 400% 100%;
-    transition: mask-position 0.35s ease-in-out; 
-}
-@starting-style {
-    .reveal {
-        mask-position: 75%;
-        -webkit-mask-position: 75%;
-    }
-}
+    > .nodeMenu {
+        --x-side: -50%;
+        --y-side: -50%;
+        position: absolute;
+        transform: translate(var(--x-side), var(--y-side)) scale(var(--scale));
+        margin: 0;
+        padding: 0;
+        top: var(--y);
+        left: var(--x);
+        overflow: visible;
+        background-size: auto;
+        background-repeat: no-repeat;
+        background-origin: center;
+        &.right {
+            --x-side: 5%;
+        }
+        &.left {
+            --x-side: -125%;
+        }
+        > .button {
+            transform: translate(var(--left), var(--top));
+            transition: all 0.3s ease-out; 
+        }
+        > .button:active {
+            filter: brightness(180%);
+            transition: all 2s ease-out; 
+        }
+        &.reveal {
+            --mask-source: linear-gradient(to right, #fff 0%, #fff 50%, #0000 51%, #0000 100%);
+            mask-image: var(--mask-source);
+            -webkit-mask-image: var(--mask-source);
+            mask-mode: alpha;
+            mask-size: 400% 100%;
+            mask-repeat: no-repeat;
+            -webkit-mask-size: 400% 100%;
+            transition: mask-position 0.35s ease-in-out; 
+        }
+        @starting-style {
+            &.reveal {
+                mask-position: 75%;
+                -webkit-mask-position: 75%;
+            }
+        }
 
-.reveal.show {
-    mask-position: 30%;
-    -webkit-mask-position: 30%;
-}
+        &.reveal.show {
+            mask-position: 30%;
+            -webkit-mask-position: 30%;
+        }
 
-.reveal.hide {
-    mask-position: 75%;
-    -webkit-mask-position: 75%;
+        &.reveal.hide {
+            mask-position: 75%;
+            -webkit-mask-position: 75%;
+        }
+    }
+
+    > .button-menu {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin: 0;
+        overflow-y: hidden;
+        overflow-x: scroll;
+        max-width: 50%;
+        scrollbar-width: none;
+    }
+    > .button-menu * {
+        overflow-y: hidden;
+    }
+
+    > .attack-bar-menu > .button,
+    > .attack-focus-menu > .button {
+        --size-scale: 500px;
+        width: var(--size-scale);
+        height: var(--size-scale);
+        min-width: var(--size-scale);
+        min-height: var(--size-scale);
+        overflow: hidden;
+    }
+
+    > .attack-focus-menu {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        grid-auto-flow: dense;
+        gap: 2px;
+        place-items: center;
+        scrollbar-width: none;
+
+        > * {
+            --index: 0; /* used for offsetting animations */
+        }
+        > *:nth-child(5n - 4),
+        > *:nth-child(5n - 3) {
+            grid-column: span 3;
+        }
+        > *:nth-child(5n - 4) {
+            justify-self: right;
+        }
+        > *:nth-child(5n - 3) {
+            justify-self: left;
+        }
+
+        > *:nth-child(5n - 2),
+        > *:nth-child(5n - 1),
+        > *:nth-child(5n) {
+            grid-column: span 2;
+        }
+    
+        &.reveal > * {
+            transition: transform 0.35s ease-in-out calc(0.35s * (var(--index) * 0.2));
+        }
+        
+        @starting-style {
+            &.reveal > * {
+                transform: rotate(0deg) scale(0);
+            }
+        }
+        &.reveal.show > * {
+            transform: rotate(360deg) scale(1);
+        }
+        &.reveal.hide > * {
+            transform: rotate(0deg) scale(0);
+        }
+    }
+    > .attack-bar-menu {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        margin: 0 auto;
+        overflow-y: hidden;
+        overflow-x: scroll;
+        place-items: center;
+        scrollbar-width: none;
+    }
+
+    
 }

@@ -10,7 +10,7 @@ function redrawElement(element) {
     void(element.offsetHeight);
 }
 
-const FocusMenu = {
+const BuildFocusMenu = {
     createMenuElement: function(linkButtonAction, addButtonAction, infoButtonAction) {
         const el = document.createElement("div");
         el.classList.add("nodeMenu", "right", "reveal");
@@ -76,6 +76,47 @@ const FocusMenu = {
         return el;
     }
 }
+
+const AttackFocusMenu = {
+    createMenuElement: function (...elements) {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("attack-focus-menu", "reveal", "pointer-events");
+        elements.forEach((el, i) => {
+            el.style.setProperty("--index", i);
+            wrapper.appendChild(el);
+        });
+        return wrapper;
+    },
+    createTileElement: function (attackType = undefined) {
+        // hard coded- needs to be updated if file changes.
+        const el = document.createElement("div");
+        el.classList.add("button", "pointer-events");
+        el.dataset.buttonType = "tile";
+        if (attackType == "particle") {
+            el.style.backgroundImage = `url("./source/particle-attack-icon.png")`;
+            el.dataset.attackType = attackType
+        } else {
+            el.style.backgroundImage = `url("./source/blank-attack-icon.png")`;
+            el.dataset.attackType = undefined;
+        }
+        // actual dims = 500x500 px
+        el.style.setProperty("--size-scale", "10rem");
+
+        return el;
+    }
+};
+
+const AttackBarMenu = {
+    createMenuElement: function (...elements) {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("attack-bar-menu");
+        // hard coded- needs to be updated if tile asset changes.
+        wrapper.style.minWidth = "10rem";
+        wrapper.style.minHeight = "10rem";
+        elements.forEach(el => wrapper.appendChild(el));
+        return wrapper;
+    }
+};
 
 const GenericElement = {
     buttonMenu: function (...elements) {
@@ -160,25 +201,13 @@ export function OverlayManager(
         focusMenu: undefined, // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
         buttonMenu: undefined // for debug, for now
     };
-    this._updateFocusMenu = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
-        if (self.state.focusedNode) {
-            const positionData = self._nodeManager.getFlatCoordinateFromNode(self.focusedNodeId);
-            const scale = UTIL.clamp(self._scaler(
-                scaleRange[1] - UTIL.clamp(positionData.distance, scaleRange[0], scaleRange[1]),
-                scaleRange[1]
-            ), clampScale[0], clampScale[1]);
-            // Adjust translation proportionally to scale- compensate for newly empty space
-            const x = positionData.x - ((self.element.focusMenu.clientWidth - (self.element.focusMenu.clientWidth * scale)) / 2);
-            const y = positionData.y; 
-            self.element.focusMenu.style.setProperty("--x", `${x}px`);
-            self.element.focusMenu.style.setProperty("--y", `${y}px`);
-            self.element.focusMenu.style.setProperty("--scale", scale);
-        }
-    }
     this._initOverlay = function () { // must be implemented by extending classes
 
     }
     this._createFocusMenuElement = function () { // must be implemented by extending classes
+
+    }
+    this.update = function () { // must be implemented by extending classes
 
     }
     this._addOverlayElement = function () {
@@ -206,12 +235,9 @@ export function OverlayManager(
             redrawElement(oldElement);
             oldElement.classList.add("hide");
             oldElement.addEventListener("transitionend", function (event) {
-                event.target.remove();
-            }, { once: true });
+                oldElement.remove();
+            }, { once: true});
         }
-    }
-    this.update = function () {
-        self._updateFocusMenu();
     }
     this.init = function (controls, managers) {
         self = this;
@@ -284,7 +310,7 @@ export function BuildOverlayManager(
     }
     self._createFocusMenuElement = function () {
         const maxNodeDistance = 3; // arbitrary
-        return FocusMenu.createMenuElement(
+        return BuildFocusMenu.createMenuElement(
             function linkButtonAction() {
                 if (!self.state.targeting) {
                     self._nodeManager.highlightNode(self.focusedNodeId);
@@ -334,16 +360,39 @@ export function BuildOverlayManager(
             }
         );
     }
+    self._updateFocusMenu = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
+        if (self.state.focusedNode) {
+            const positionData = self._nodeManager.getFlatCoordinateFromNode(self.focusedNodeId);
+            const scale = UTIL.clamp(self._scaler(
+                scaleRange[1] - UTIL.clamp(positionData.distance, scaleRange[0], scaleRange[1]),
+                scaleRange[1]
+            ), clampScale[0], clampScale[1]);
+            // Adjust translation proportionally to scale- compensate for newly empty space
+            const x = positionData.x - ((self.element.focusMenu.clientWidth - (self.element.focusMenu.clientWidth * scale)) / 2);
+            const y = positionData.y; 
+            self.element.focusMenu.style.setProperty("--x", `${x}px`);
+            self.element.focusMenu.style.setProperty("--y", `${y}px`);
+            self.element.focusMenu.style.setProperty("--scale", scale);
+        }
+    }
+    self.update = function () {
+        self._updateFocusMenu();
+    }
 
     return self;
 }
 
 export function AttackOverlayManager(
-    overlayManager
+    overlayManager,
+    attackManager
 ) {
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
+    self._attackManager = attackManager;
+    self.element.attackBarMenu = undefined;
+
     self._initOverlay = function () {
-        const el = GenericElement.buttonMenu(
+        // create testing menu
+        self.element.buttonMenu = GenericElement.buttonMenu(
             GenericElement.hideButton(),
             GenericElement.button("SAVE DEBUG FILE FOR DEV", function () {
                 const layoutData = UTIL.layoutToJson(self._scene, self._nodeManager, false);
@@ -361,64 +410,132 @@ export function AttackOverlayManager(
                 ));
             })
         );
-        self.element._overlay.appendChild(el);
-        self.element.buttonMenu = el;
+        
+        // create attack bar menu
+        const attackTiles = Array.from(self._attackManager.attacks, (attack) => {
+            const tile = AttackFocusMenu.createTileElement(attack.type);
+            tile.addEventListener("click", (event) => {
+                if (self.state.focusedNode && self._nodeManager.getNodeData(self.focusedNodeId)?.isFriendly) {
+                    self._nodeManager.addAttackToNode(attack.type, self.focusedNodeId);
+                    self._updateFocusMenu();
+                }
+            });
+            return tile;
+        });
+        self.element.attackBarMenu = AttackBarMenu.createMenuElement(...attackTiles);
+
+        self.element._overlay.appendChild(self.element.buttonMenu);
+        self.element._overlay.appendChild(self.element.attackBarMenu);
+    }
+    self._updateFocusMenu = function () {
+        if (self.state.focusedNode) {
+            while (self.element.focusMenu.firstChild) {
+                self.element.focusMenu.removeChild(self.element.focusMenu.firstChild);
+            }
+            self._loadTilesForNode().forEach(el => self.element.focusMenu.appendChild(el));
+        }
+    }
+    self._loadTilesForNode = function () {
+        const nodeData = self._nodeManager.getNodeData(self.focusedNodeId);
+        const attackerTiles = Array.from(
+                nodeData.attackers,
+                ({type}) => AttackFocusMenu.createTileElement(type)
+        )
+        attackerTiles.forEach((el, i) => 
+            el.addEventListener("click", (e) => {
+                nodeData.attackers.pop(i);
+                self._updateFocusMenu();
+            }, {once: true})
+        );
+        return attackerTiles;
+    }
+    self.focusNode = function (nodeid) {
+        if (!self.state.stopFocusing) {
+            self.unfocusNode();
+            self.focusedNodeId = nodeid;
+            self.element.focusMenu = self._createFocusMenuElement();
+            self.element._overlay.appendChild(self.element.focusMenu);
+            redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
+            self.element.focusMenu.classList.add("show");
+        }
+    }
+    self.unfocusNode = function () {
+        if (self.state.focusedNode && !self.state.keepFocus) {
+            const oldElement = self.element.focusMenu;
+            self.element.focusMenu = undefined;
+            self.focusedNodeId = undefined;
+            redrawElement(oldElement);
+            oldElement.classList.add("hide");
+             // animation is staggered, so need to wait for all children to finish
+            let countdown = oldElement.children.length;
+            oldElement.addEventListener("transitionend", function (event) {
+                if (--countdown <= 0)
+                    oldElement.remove();
+            });
+        }
+    }
+    self.update = function () {
+        
     }
     self._createFocusMenuElement = function () {
-        return FocusMenu.createMenuElement(
-            function linkButtonAction() {
-                // Logger.log("[AttackOverlayManager] | Link focus menu button clicked");
-                if (!self.state.targeting && self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
-                    self.state.targeting = true;
-                    self._mouseManager.getNextEvent("clicked").then(event => {
-                        if (self.state.targeting) {
-                            const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
-                            // [!] ugly as hell
-                            if (
-                                nodeid &&
-                                nodeid != self.focusedNodeId &&
-                                !self._nodeManager.isNodeFriendly(nodeid) &&
-                                self._nodeManager.isNodeAttackable(nodeid) && 
-                                self._nodeManager.isNeighbor(self.focusedNodeId, nodeid)
-                            ) {
-                                const nodeData = self._nodeManager.getNodeData(nodeid);
-                                self._nodeManager.attackNode(self.focusedNodeId, nodeid, {
-                                    type: "particle",
-                                    damage: 15
-                                });
-                                Logger.log(`Attacking node ${nodeid}`);
-                            } else { // nothing selected
-                                Logger.log("nothing selected");
-                            }
-                            self.state.targeting = false;
-                            self.unfocusNode();
-                        }
-                    });
-                    Logger.log(`Selecting node to attack from ${self.focusedNodeId}`);
-                }
-            },
-            function addButtonAction() {
-                // Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
-                if (!self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
-                    if (self._nodeManager.isNodeAttackable(self.focusedNodeId)) {
-                        const nodeData = self._nodeManager.getNodeData(self.focusedNodeId);
-                        self._nodeManager.damageNode(self.focusedNodeId, nodeData.hp.total);
-                    } else {
-                        Logger.alert(`Cannot attack a node with no friendly neighbors!\n(${self.focusedNodeId})`);
-                    }
-                } else {
-                    self._nodeManager.damageNode(self.focusedNodeId, 999);
-                }   
-            },
-            function infoButtonAction() {
-                // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
-                Logger.log(
-                    self._nodeManager.getNodeData(self.focusedNodeId),
-                    self._nodeManager.getNode(self.focusedNodeId)
-                );
-            }
-        );
+        return AttackFocusMenu.createMenuElement(...self._loadTilesForNode());
     }
+    // Old version
+    // self._createFocusMenuElement = function () {
+    //     return BuildFocusMenu.createMenuElement(
+    //         function linkButtonAction() {
+    //             // Logger.log("[AttackOverlayManager] | Link focus menu button clicked");
+    //             if (!self.state.targeting && self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
+    //                 self.state.targeting = true;
+    //                 self._mouseManager.getNextEvent("clicked").then(event => {
+    //                     if (self.state.targeting) {
+    //                         const nodeid = self._nodeManager.getNodeFromFlatCoordinate(self._mouseManager.position);
+    //                         // [!] ugly as hell
+    //                         if (
+    //                             nodeid &&
+    //                             nodeid != self.focusedNodeId &&
+    //                             !self._nodeManager.isNodeFriendly(nodeid) &&
+    //                             self._nodeManager.isNodeAttackable(nodeid) && 
+    //                             self._nodeManager.isNeighbor(self.focusedNodeId, nodeid)
+    //                         ) {
+    //                             const nodeData = self._nodeManager.getNodeData(nodeid);
+    //                             self._nodeManager.attackNode(self.focusedNodeId, nodeid, {
+    //                                 type: "particle",
+    //                                 damage: 15
+    //                             });
+    //                             Logger.log(`Attacking node ${nodeid}`);
+    //                         } else { // nothing selected
+    //                             Logger.log("nothing selected");
+    //                         }
+    //                         self.state.targeting = false;
+    //                         self.unfocusNode();
+    //                     }
+    //                 });
+    //                 Logger.log(`Selecting node to attack from ${self.focusedNodeId}`);
+    //             }
+    //         },
+    //         function addButtonAction() {
+    //             // Logger.log("[AttackOverlayManager] | Add focus menu button clicked");
+    //             if (!self._nodeManager.isNodeFriendly(self.focusedNodeId)) {
+    //                 if (self._nodeManager.isNodeAttackable(self.focusedNodeId)) {
+    //                     const nodeData = self._nodeManager.getNodeData(self.focusedNodeId);
+    //                     self._nodeManager.damageNode(self.focusedNodeId, nodeData.hp.total);
+    //                 } else {
+    //                     Logger.alert(`Cannot attack a node with no friendly neighbors!\n(${self.focusedNodeId})`);
+    //                 }
+    //             } else {
+    //                 self._nodeManager.damageNode(self.focusedNodeId, 999);
+    //             }   
+    //         },
+    //         function infoButtonAction() {
+    //             // Logger.log("[AttackOverlayManager] | info focus menu button clicked");
+    //             Logger.log(
+    //                 self._nodeManager.getNodeData(self.focusedNodeId),
+    //                 self._nodeManager.getNode(self.focusedNodeId)
+    //             );
+    //         }
+    //     );
+    // }
 
     return self;
 }

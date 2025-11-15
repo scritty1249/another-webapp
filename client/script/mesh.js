@@ -110,6 +110,12 @@ function Beam (videopath, maskpath, thickness = 0.5, segments = 5, repeatSides =
             const quaternion = new Quaternion().setFromUnitVectors(cylinder_must_not_be_harmed.up, this.position.direction);
             cylinder_must_not_be_harmed.setRotationFromQuaternion(quaternion);
         },
+        setOrigin: function (originVector) {
+            this.set(originVector, this.position.end);
+        },
+        setTarget: function (targetVector) {
+            this.set(this.position.start, targetVector);
+        },
         position: {
             start: new Vector3(),
             end: new Vector3(),
@@ -351,6 +357,9 @@ const Nodes = {
 const Attack = {
     Particle: function () {
         return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.55, 3, 3);
+    },
+    CubeDefense: function () {
+        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.65, 16, 1);
     }
 };
 
