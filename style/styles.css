@@ -114,8 +114,8 @@ canvas {
 
     > .button-menu {
         position: absolute;
-        bottom: 10px;
-        left: 10px;
+        bottom: 0.5rem;
+        left: 0.5rem;
         display: flex;
         flex-direction: row;
         flex-wrap: wrap;
@@ -188,7 +188,7 @@ canvas {
     }
     > .attack-bar-menu {
         position: absolute;
-        bottom: 10px;
+        bottom: 0.5rem;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
