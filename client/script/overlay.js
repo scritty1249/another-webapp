@@ -99,6 +99,8 @@ const AttackFocusMenu = {
             el.style.backgroundImage = `url("./source/blank-attack-icon.png")`;
             el.dataset.attackType = undefined;
         }
+        el.style.maxWidth = "25vw";
+        el.style.maxHeight = "25vw";
         // actual dims = 500x500 px
         el.style.setProperty("--size-scale", "10rem");
 
