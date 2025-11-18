@@ -131,11 +131,6 @@ canvas {
 
     > .attack-bar-menu > .button,
     > .attack-focus-menu > .button {
-        --size-scale: 500px;
-        width: var(--size-scale);
-        height: var(--size-scale);
-        min-width: var(--size-scale);
-        min-height: var(--size-scale);
         overflow: hidden;
     }
 
@@ -149,10 +144,6 @@ canvas {
         gap: 2px;
         place-items: center;
         scrollbar-width: none;
-
-        > * {
-            --index: 0; /* used for offsetting animations */
-        }
         > *:nth-child(5n - 4),
         > *:nth-child(5n - 3) {
             grid-column: span 3;
@@ -169,21 +160,27 @@ canvas {
         > *:nth-child(5n) {
             grid-column: span 2;
         }
-    
-        &.reveal > * {
-            transition: transform 0.35s ease-in-out calc(0.35s * (var(--index) * 0.2));
-        }
         
+        &.reveal > * {
+            --index: 0; /* used for offsetting animations */
+            transition: transform 0.2s ease-in-out calc(0.35s * calc(var(--index) * 0.15));
+        }
         @starting-style {
             &.reveal > * {
                 transform: rotate(0deg) scale(0);
+                -webkit-transform: rotate(0deg) scale(0);
+                -moz-transform: rotate(0deg) scale(0);
             }
         }
         &.reveal.show > * {
             transform: rotate(360deg) scale(1);
+            -webkit-transform: rotate(360deg) scale(1);
+            -moz-transform: rotate(360deg) scale(1);
         }
         &.reveal.hide > * {
             transform: rotate(0deg) scale(0);
+            -webkit-transform: rotate(0deg) scale(0);
+            -moz-transform: rotate(0deg) scale(0);
         }
     }
     > .attack-bar-menu {
