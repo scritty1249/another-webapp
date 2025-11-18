@@ -17,7 +17,7 @@ export function createVideoElement (videopath, speed = 1) {
     videoEl.muted = true; // [!] muted autoplay required by most browsers
     videoEl.style.display = "none";
     videoEl.preload = "auto";
-    videoEl.playsinline = true; // for safari on ios
+    videoEl.setAttribute("playsinline", true);// for safari on ios
     videoEl.load();
     return videoEl;
 }
