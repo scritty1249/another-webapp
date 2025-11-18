@@ -4,6 +4,7 @@ import {
     SpriteMaterial,
     TextureLoader
 } from "three";
+import Menu from "./menu.js";
 
 const zoomScaleFormula = (zoom, maxZoom) => {
     return 1/(
@@ -25,10 +26,10 @@ const BuildFocusMenu = {
         el.classList.add("nodeMenu", "right", "reveal");
         // hard coded- needs to be updated if file changes.
         el.style.backgroundImage = `url("./source/node-overlay-menu.png")`;
-        el.style.minWidth = "32rem";
-        el.style.minHeight = "32.5rem";
-        el.style.maxWidth = "50vw";
-        el.style.maxHeight = "50vh";
+        el.style.minWidth = "calc(var(--unit) * 32)";
+        el.style.minHeight = "calc(var(--unit) * 32.5)";
+        //el.style.maxWidth = "50vw";
+        //el.style.maxHeight = "50vh";
         el.style.width = "516px";
         el.style.height = "545px";
 
@@ -113,8 +114,8 @@ const AttackFocusMenu = {
         el.style.maxWidth = "25vw";
         el.style.maxHeight = "25vw";
         // actual dims = 500x500 px
-        el.style.width = "10rem";
-        el.style.height = "10rem";
+        el.style.width = "calc(var(--unit) * 10)";
+        el.style.height = "calc(var(--unit) * 10)";
 
         return el;
     }
@@ -125,8 +126,8 @@ const AttackBarMenu = {
         const wrapper = document.createElement("div");
         wrapper.classList.add("attack-bar-menu");
         // hard coded- needs to be updated if tile asset changes.
-        wrapper.style.minWidth = "10rem";
-        wrapper.style.minHeight = "10rem";
+        wrapper.style.minWidth = "calc(var(--unit) * 10)";
+        wrapper.style.minHeight = "calc(var(--unit) * 10)";
         elements.forEach(el => wrapper.appendChild(el));
         return wrapper;
     }
@@ -135,15 +136,18 @@ const AttackBarMenu = {
 const GenericElement = {
     buttonMenu: function (...elements) {
         const wrapper = document.createElement("div");
-        wrapper.classList.add("button-menu");
+        wrapper.classList.add("button-menu", "pointer-events");
         elements.forEach(el => wrapper.appendChild(el));
+        wrapper.style.maxWidth = "6rem";
+        wrapper.dataset.ogWidth = "6rem";
+        wrapper.dataset.ogHeight = "auto";
         return wrapper;
     },
     button: function (text, action = () => {}) {
         const el = document.createElement("button");
         el.classList.add("button", "pointer-events");
-        el.style.height = "2rem";
-        el.style.width = "5rem";
+        el.style.height = "3rem";
+        el.style.width = "6rem";
         el.innerText = text;
         el.addEventListener("click", function (event) {
             action();
@@ -160,11 +164,15 @@ const GenericElement = {
         el.dataset.active = "false";
         el.addEventListener("click", function (event) {
             const hideEl = document.getElementById("hideTestButtons");
-            document.querySelectorAll(".button-menu > *:not(#hideTestButtons)").forEach(el => {
-                el.style.visibility = hideEl.dataset.active == "false" ? "hidden" : "visible";
+            const menuEl = document.querySelector(".button-menu");
+            const isActive = hideEl.dataset.active == "false";
+            menuEl.querySelectorAll(":scope > *:not(#hideTestButtons)").forEach(el => {
+                el.style.visibility = isActive ? "hidden" : "visible";
             })
-            hideEl.dataset.active = hideEl.dataset.active == "false" ? "true" : "false";
-            hideEl.innerText = hideEl.dataset.active == "false" ? "<" : ">";
+            menuEl.style.width = isActive ? el.style.width : menuEl.dataset.ogWidth;
+            menuEl.style.height = isActive ? el.style.height : menuEl.dataset.ogHeight;
+            hideEl.dataset.active = isActive ? "true" : "false";
+            hideEl.innerText = isActive ? "<" : ">";
         });
         return el;
     },
@@ -174,6 +182,8 @@ const GenericElement = {
         el.id = "textBox";
         el.rows = 5;
         el.cols = 40;
+        el.style.height = "3rem";
+        el.style.width = "6rem";
         el.placeholder = "Paste layouts here";
         return el;
     }
@@ -230,7 +240,8 @@ export function OverlayManager(
     this.element = {
         _overlay: overlayContainerElement,
         focusMenu: undefined, // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
-        buttonMenu: undefined // for debug, for now
+        buttonMenu: undefined, // for debug, for now
+        menu: undefined // the actual menu
     };
     this.sprite = {
         focusHighlight: undefined
@@ -247,7 +258,7 @@ export function OverlayManager(
         self._updateFocusHighlight();
     }
     this._updateFocusHighlight = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
-        if (self.state.focusedNode) {
+        if (self.state.focusedNode && !self.state.inMenu) {
             const nodePos = self._nodeManager.getNode(self.focusedNodeId).position;
             const direction = self._nodeManager.getCameraDirection(self.focusedNodeId);
             if (!nodePos.equals(self.sprite.focusHighlight.position)) {
@@ -261,6 +272,35 @@ export function OverlayManager(
                 ));
             }
         }
+    }
+    this._destroyMenu = function () {
+        self.element._overlay.removeChild(self.element.menu);
+        self.element.menu = undefined;
+    }
+    this._createMenu = function () {
+        return Menu.createMenu(self.closeMenu,
+            Menu.createButton("locked", ["bottom-right"], {
+                click: (event) => {
+                    Logger.log("clicked");
+                }
+            }),
+            Menu.createButton("locked", ["bottom-left"], {
+                click: (event) => {
+                    Logger.log("clicked");
+                }
+            })
+        );
+    }
+    this.closeMenu = function () {
+        self.state.inMenu = false;
+        self._destroyMenu();
+        Logger.debug("[OverlayManager] | Closed Menu");
+    }
+    this.openMenu = function () {
+        self.state.inMenu = true;
+        self.element.menu = self._createMenu();
+        self.element._overlay.appendChild(self.element.menu);
+        Logger.debug("[OverlayManager] | Opened Menu");
     }
     this._addOverlayElement = function () {
 
@@ -375,6 +415,9 @@ export function BuildOverlayManager(
             }),
             GenericElement.button("Dump Mouse Info", function () {
                 Logger.log(self._mouseManager);
+            }),
+            GenericElement.button("Open Menu", function () {
+                self.openMenu();
             })
         );
         self.element._overlay.appendChild(el);
@@ -433,7 +476,7 @@ export function BuildOverlayManager(
         );
     }
     self._updateFocusMenu = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
-        if (self.state.focusedNode) {
+        if (self.state.focusedNode && !self.state.inMenu) {
             const positionData = self._nodeManager.getFlatCoordinateFromNode(self.focusedNodeId);
             const scale = UTIL.clamp(self._scaler(
                 scaleRange[1] - UTIL.clamp(positionData.distance, scaleRange[0], scaleRange[1]),
@@ -518,6 +561,9 @@ export function AttackOverlayManager(
             }),
             GenericElement.button("Dump Mouse Info", function () {
                 Logger.log(self._mouseManager);
+            }),
+            GenericElement.button("Open Menu", function () {
+                self.openMenu();
             })
         );
         
