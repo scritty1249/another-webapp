@@ -279,16 +279,54 @@ export function OverlayManager(
     }
     this._createMenu = function () {
         return Menu.createMenu(self.closeMenu,
-            Menu.createButton("locked", ["bottom-right"], {
-                click: (event) => {
-                    Logger.log("clicked");
-                }
-            }),
-            Menu.createButton("locked", ["bottom-left"], {
-                click: (event) => {
-                    Logger.log("clicked");
-                }
-            })
+            [
+                Menu.createButton("locked-flipped", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+                Menu.createButton("locked-flipped", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+            ],
+            [
+                Menu.createButton("blank-flipped", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+                Menu.createButton("blank-flipped", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+            ],
+            [
+                Menu.createButton("blank", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+                Menu.createButton("locked", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+            ],
+            [
+                Menu.createButton("locked", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+                Menu.createButton("blank", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+            ],
         );
     }
     this.closeMenu = function () {
