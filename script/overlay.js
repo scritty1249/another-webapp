@@ -1,4 +1,9 @@
 import * as UTIL from "./utils.js";
+import {
+    Sprite,
+    SpriteMaterial,
+    TextureLoader
+} from "three";
 
 const zoomScaleFormula = (zoom, maxZoom) => {
     return 1/(
@@ -174,6 +179,23 @@ const GenericElement = {
     }
 };
 
+const GenericSprite = {
+    createFocusGlow: function () {
+        const map = new TextureLoader().load('./source/selection-glow.png');
+        const spriteMaterial = new SpriteMaterial({
+            map: map,
+            transparent: true,
+            depthTest: true, // compare against depth buffer
+            depthWrite: false
+        });
+        const sprite = new Sprite(spriteMaterial);
+        sprite.renderOrder = -1;
+        sprite.scale.set(3.5, 3.5, 3.5);
+        sprite.userData.ogScale = sprite.scale.clone();
+        return sprite;
+    }
+};
+
 export function OverlayManager(
     scene,
     renderer,
@@ -210,14 +232,35 @@ export function OverlayManager(
         focusMenu: undefined, // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
         buttonMenu: undefined // for debug, for now
     };
+    this.sprite = {
+        focusHighlight: undefined
+    };
     this._initOverlay = function () { // must be implemented by extending classes
-
+        self.sprite.focusHighlight = GenericSprite.createFocusGlow();
+        self.sprite.focusHighlight.visible = false;
+        self._scene.add(self.sprite.focusHighlight);
     }
     this._createFocusMenuElement = function () { // must be implemented by extending classes
 
     }
     this.update = function () { // must be implemented by extending classes
-
+        self._updateFocusHighlight();
+    }
+    this._updateFocusHighlight = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
+        if (self.state.focusedNode) {
+            const nodePos = self._nodeManager.getNode(self.focusedNodeId).position;
+            const direction = self._nodeManager.getCameraDirection(self.focusedNodeId);
+            if (!nodePos.equals(self.sprite.focusHighlight.position)) {
+                self.sprite.focusHighlight.position.copy(
+                    nodePos.clone()
+                        .sub(
+                            direction
+                                // approx radius of object. Since it's fine to overshoot, save on performance by hardcoding the offset, instead of calculating the node's bounding box every time this is called.
+                                // at time of writing, most node diameters do not exceed 1. Will need to modify scale proportinally if offset is increased.
+                                .multiplyScalar(1.5)
+                ));
+            }
+        }
     }
     this._addOverlayElement = function () {
 
@@ -228,24 +271,20 @@ export function OverlayManager(
     this.focusNode = function (nodeid) {
         if (!self.state.stopFocusing) {
             self.unfocusNode();
-            self.element.focusMenu = self._createFocusMenuElement();
             self.focusedNodeId = nodeid;
-            self._updateFocusMenu();
-            self.element._overlay.appendChild(self.element.focusMenu);
-            redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
-            self.element.focusMenu.classList.add("show");
+            self._updateFocusHighlight();
+
+            const nodeScale = self._nodeManager.getNode(self.focusedNodeId).scale;
+            self.sprite.focusHighlight.scale.copy(self.sprite.focusHighlight.userData.ogScale);
+            self.sprite.focusHighlight.scale.multiplyScalar(nodeScale.x);
+
+            self.sprite.focusHighlight.visible = true;
         }
     }
     this.unfocusNode = function () {
         if (self.state.focusedNode && !self.state.keepFocus) {
-            const oldElement = self.element.focusMenu;
-            self.element.focusMenu = undefined;
             self.focusedNodeId = undefined;
-            redrawElement(oldElement);
-            oldElement.classList.add("hide");
-            oldElement.addEventListener("transitionend", function (event) {
-                oldElement.remove();
-            }, { once: true});
+            self.sprite.focusHighlight.visible = false;
         }
     }
     this.init = function (controls, managers) {
@@ -257,9 +296,17 @@ export function OverlayManager(
     }
     this.clear = function () {
         Object.entries(self.element).forEach(([key, element]) => {
-            if (key != "_overlay" && element != undefined) {
+            if (!key.startsWith("_") && element != undefined) {
                 self.element._overlay.removeChild(element);
                 self.element[key] = undefined;
+            }
+        });
+        Object.entries(self.sprite).forEach(([key, sprite]) => {
+            if (!key.startsWith("_") && sprite != undefined) {
+                self._scene.remove(sprite);
+                sprite.material.dispose();
+                sprite.geometry.dispose();
+                self.sprite[key] = undefined;
             }
         });
         Object.entries(Object.getOwnPropertyDescriptors(self.state))
@@ -274,7 +321,14 @@ export function BuildOverlayManager(
     overlayManager
 ) {
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
+    const Overloaded = {
+        update: self.update,
+        focusNode: self.focusNode,
+        unfocusNode: self.unfocusNode,
+        initOverlay: self._initOverlay
+    };
     self._initOverlay = function () {
+        Overloaded.initOverlay();
         const el = GenericElement.buttonMenu(
             GenericElement.hideButton(),
             GenericElement.textBox(),
@@ -312,6 +366,15 @@ export function BuildOverlayManager(
                     "swapphase",
                     {phase: "attack"}
                 ));
+            }),
+            GenericElement.button("Dump Node Info", function () {
+                Logger.log(self._nodeManager);
+            }),
+            GenericElement.button("Dump Overlay Info", function () {
+                Logger.log(self);
+            }),
+            GenericElement.button("Dump Mouse Info", function () {
+                Logger.log(self._mouseManager);
             })
         );
         self.element._overlay.appendChild(el);
@@ -384,7 +447,30 @@ export function BuildOverlayManager(
             self.element.focusMenu.style.setProperty("--scale", scale);
         }
     }
+    self.focusNode = function (nodeid) {
+        if (!self.state.stopFocusing) {
+            Overloaded.focusNode(nodeid);
+            self.element.focusMenu = self._createFocusMenuElement();
+            self._updateFocusMenu();
+            self.element._overlay.appendChild(self.element.focusMenu);
+            redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
+            self.element.focusMenu.classList.add("show");
+        }
+    }
+    self.unfocusNode = function () {
+        if (self.state.focusedNode && !self.state.keepFocus) {
+            Overloaded.unfocusNode();
+            const oldElement = self.element.focusMenu;
+            self.element.focusMenu = undefined;
+            redrawElement(oldElement);
+            oldElement.classList.add("hide");
+            oldElement.addEventListener("transitionend", function (event) {
+                oldElement.remove();
+            }, { once: true});
+        }
+    }
     self.update = function () {
+        Overloaded.update();
         self._updateFocusMenu();
     }
 
@@ -398,8 +484,14 @@ export function AttackOverlayManager(
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
     self._attackManager = attackManager;
     self.element.attackBarMenu = undefined;
-
+    const Overloaded = {
+        update: self.update,
+        focusNode: self.focusNode,
+        unfocusNode: self.unfocusNode,
+        initOverlay: self._initOverlay
+    };
     self._initOverlay = function () {
+        Overloaded.initOverlay();
         // create testing menu
         self.element.buttonMenu = GenericElement.buttonMenu(
             GenericElement.hideButton(),
@@ -417,6 +509,15 @@ export function AttackOverlayManager(
                     "swapphase",
                     {phase: "build"}
                 ));
+            }),
+            GenericElement.button("Dump Node Info", function () {
+                Logger.log(self._nodeManager);
+            }),
+            GenericElement.button("Dump Overlay Info", function () {
+                Logger.log(self);
+            }),
+            GenericElement.button("Dump Mouse Info", function () {
+                Logger.log(self._mouseManager);
             })
         );
         
@@ -460,8 +561,7 @@ export function AttackOverlayManager(
     }
     self.focusNode = function (nodeid) {
         if (!self.state.stopFocusing) {
-            self.unfocusNode();
-            self.focusedNodeId = nodeid;
+            Overloaded.focusNode(nodeid);
             self.element.focusMenu = self._createFocusMenuElement();
             self.element._overlay.appendChild(self.element.focusMenu);
             redrawElementChildren(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
@@ -473,9 +573,9 @@ export function AttackOverlayManager(
     }
     self.unfocusNode = function () {
         if (self.state.focusedNode && !self.state.keepFocus) {
+            Overloaded.unfocusNode();
             const oldElement = self.element.focusMenu;
             self.element.focusMenu = undefined;
-            self.focusedNodeId = undefined;
             redrawElement(oldElement);
             oldElement.classList.add("hide");
              // animation is staggered, so need to wait for all children to finish
@@ -487,6 +587,7 @@ export function AttackOverlayManager(
         }
     }
     self.update = function () {
+        Overloaded.update();
         if (
             self.state.focusedNode &&
             String(self._nodeManager.getNodeData(self.focusedNodeId).attackers[0].type) != self.element.focusMenu.children[0].dataset.attackType
