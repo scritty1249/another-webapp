@@ -242,9 +242,22 @@ canvas {
         .no-bg {
             
         }
+        > div.top-left,
+        > div.bottom-left,
+        > div.top-right,
+        > div.bottom-right {
+            display: flex;
+            flex-direction: column;
+            flex-wrap: nowrap;
+            place-items: start;
+            > .button {
+                margin: calc(var(--unit) * -3) 0;
+            }
+        }
         > div.top-left {
             bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
             right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            transform: scaleX(-1);
         }
         > div.bottom-left {
             top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
