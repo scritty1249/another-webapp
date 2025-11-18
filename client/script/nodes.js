@@ -222,6 +222,22 @@ export function NodeManager(
             target.position
         );
     }
+    this.getCameraDirection = function (nodeid) { // [!] needs a concise, but DESCRIPTIVE name. come back to this later and do better
+        const node = this.getNode(nodeid);
+        const nodeWorldPos = new Vector3();
+        const cameraWorldPos = new Vector3();
+        const direction = new Vector3();
+        node.getWorldPosition(nodeWorldPos);
+        this._camera.getWorldPosition(cameraWorldPos);
+        direction.subVectors(cameraWorldPos, nodeWorldPos);
+        direction.normalize();
+        return direction;
+    }
+    this.getCameraDistance = function (nodeid) {
+        const node = this.getNode(nodeid);
+        const distance = this._camera.position.distanceTo(node.position);
+        return distance;
+    }
     this.getAngle = function (originid, targetid) { // returns in RADIANS
         const [origin, target] = this.getNodes(originid, targetid);
         return origin.position.angleTo(target.position);
@@ -267,6 +283,7 @@ export function AttackNodeManager (
     UTIL.bindProperty(nodeManager, self, "tetherlist");
     self.nodes = new Proxy(nodeManager.nodes, {
         set(target, key, value, receiver) {
+            Logger.log(key, value);
             if (!self._nodeTypeData[value.userData.type])
                 Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No data found for Node type "${value.userData.type}"`);
             self.nodedata[key] = self._addNodeData(node.uuid);
