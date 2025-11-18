@@ -29,6 +29,8 @@ canvas {
     -moz-user-select: none;
     -webkit-user-select: none;
     -ms-user-select: none;
+    touch-action: manipulation;
+    -ms-touch-action: manipulation;
 }
 #watermark > * {
     margin: 0;
