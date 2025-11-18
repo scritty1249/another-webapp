@@ -138,8 +138,8 @@ const GenericElement = {
         const wrapper = document.createElement("div");
         wrapper.classList.add("button-menu", "pointer-events");
         elements.forEach(el => wrapper.appendChild(el));
-        wrapper.style.maxWidth = "6rem";
-        wrapper.dataset.ogWidth = "6rem";
+        wrapper.style.maxWidth = "12rem";
+        wrapper.dataset.ogWidth = "12rem";
         wrapper.dataset.ogHeight = "auto";
         return wrapper;
     },
