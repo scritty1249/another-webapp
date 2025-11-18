@@ -197,7 +197,7 @@ canvas {
         }
     }
     > .attack-bar-menu {
-        position: absolute;
+        position: fixed;
         bottom: calc(var(--unit) / 2);
         left: 50%;
         transform: translateX(-50%);
