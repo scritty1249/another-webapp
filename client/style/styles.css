@@ -1,3 +1,12 @@
+:root {
+    --unit: 1rem;
+}
+@media (max-height: 1000px) or (max-width: 1000px) {
+    :root {
+        --unit: 0.4rem;
+    }
+}
+
 html,
 body {
     padding: 0;
@@ -53,7 +62,6 @@ canvas {
     z-index: 2;
     width: 100%;
     height: 100%;
-    padding: 1em;
     margin: 0;
     overflow: hidden;
 
@@ -114,19 +122,22 @@ canvas {
 
     > .button-menu {
         position: absolute;
-        bottom: 50%;
-        left: 0.5rem;
+        top: 30%;
+        left: calc(var(--unit) / 2);
         display: flex;
         flex-direction: row;
         flex-wrap: wrap;
         margin: 0;
-        overflow-y: hidden;
-        overflow-x: scroll;
+        overflow-y: scroll;
+        overflow-x: hidden;
         max-width: 50%;
         scrollbar-width: none;
     }
     > .button-menu * {
         overflow-y: hidden;
+    }
+    > .button-menu textarea {
+        resize: none;
     }
 
     > .attack-bar-menu > .button,
@@ -136,12 +147,12 @@ canvas {
 
     > .attack-focus-menu {
         position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
+        top: calc(var(--unit) / 2);
+        right: calc(var(--unit) / 2);
         display: grid;
         grid-template-columns: repeat(6, 1fr);
         grid-auto-flow: dense;
-        gap: 0.1rem;
+        gap: calc(var(--unit) / 10);
         place-items: center;
         scrollbar-width: none;
         > *:nth-child(5n - 4),
@@ -185,7 +196,7 @@ canvas {
     }
     > .attack-bar-menu {
         position: absolute;
-        bottom: 0.5rem;
+        bottom: calc(var(--unit) / 2);
         left: 50%;
         transform: translateX(-50%);
         display: flex;
@@ -198,5 +209,61 @@ canvas {
         scrollbar-width: none;
     }
 
-    
+    > #menu {
+        --center-offset-diameter-x: calc(var(--unit) * 30);
+        --center-offset-diameter-y: calc(var(--unit) * 10);
+        z-index: 10;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        margin: 0;
+        width: 100vw;
+        height: 100vh;
+        padding: 5rem;
+        backdrop-filter: blur(10px);
+        pointer-events: all;
+        background: url("../source/menu/menu-background-pattern.png"), rgba(0,0,0,0.95);
+        background-size: 5%;
+        background-blend-mode: difference;
+        background-repeat: repeat;
+
+        * {
+            pointer-events: none;
+        }
+        > * {
+            position: absolute;
+        }
+        .pointer-events {
+            pointer-events: all;
+        }
+        .button {
+            background-blend-mode: luminosity;
+        }
+        .no-bg {
+            
+        }
+        > div.top-left {
+            bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+            right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+        }
+        > div.bottom-left {
+            top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+            right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            transform: scaleX(-1);
+        }
+        > div.top-right {
+            bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+            left: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+        }
+        > div.bottom-right {
+            top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+            left: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+        }
+    }
+    @media (orientation: portrait) {
+        > #menu {
+            --center-offset-diameter-x: calc(var(--unit) * 10);
+            --center-offset-diameter-y: calc(var(--unit) * 30);
+        }
+    }
 }
