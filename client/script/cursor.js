@@ -65,13 +65,13 @@ export function Mouse(
         }
     };
     this._initListeners = function () {
-        this._window.addEventListener('mousemove', self.updatePosition, false);
-        this.canvasElement.addEventListener("mousedown", function(event) {
+        this._window.addEventListener('pointermove', self.updatePosition, false);
+        this.canvasElement.addEventListener("pointerdown", function(event) {
             self.updatePosition(event);
             self.up.unset();
             self.down.set(Date.now(), event);
         });
-        this.canvasElement.addEventListener("mouseup", function(event) {
+        this.canvasElement.addEventListener("pointerup", function(event) {
             self.updatePosition(event);
             self.up.set(Date.now(), event);
             if (
@@ -115,13 +115,5 @@ export function Mouse(
     }
 
     this._initListeners();
-    return this;
-}
-
-// [!] low priority, incomplete
-export function Touch(
-    canvasDomElement, // will be the renderer DOM element
-) {
-    this.canvasElement = canvasDomElement;
     return this;
 }

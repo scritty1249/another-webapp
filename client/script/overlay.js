@@ -20,8 +20,10 @@ const BuildFocusMenu = {
         el.classList.add("nodeMenu", "right", "reveal");
         // hard coded- needs to be updated if file changes.
         el.style.backgroundImage = `url("./source/node-overlay-menu.png")`;
-        el.style.minWidth = "516px";
-        el.style.minHeight = "545px";
+        el.style.minWidth = "32rem";
+        el.style.minHeight = "32.5rem";
+        el.style.maxWidth = "50vw";
+        el.style.maxHeight = "50vh";
         el.style.width = "516px";
         el.style.height = "545px";
 
