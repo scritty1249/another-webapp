@@ -1,5 +1,5 @@
 // main pause menu
-const menuPath = "../source/menu/"
+const menuPath = "./source/menu/"
 const menuButtonName = (type) => `menu-${type}-button.png`;
 const stopPropagation = (el) => el.addEventListener("click", function (event) {
     event.stopPropagation();
