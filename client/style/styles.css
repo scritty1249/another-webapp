@@ -216,6 +216,10 @@ canvas {
         bottom: 0;
         right: 0;
         overflow: hidden;
+        transition: translate 0.25s ease-out;
+        &:active {
+            translate: 100%;
+        }
     }
     &:has(#menu) > .corner-button { /* hide menu button in background when menu is open */
         display: none;
@@ -265,9 +269,9 @@ canvas {
             flex-direction: column;
             flex-wrap: nowrap;
             place-items: start;
-            background-position: center, center;
-            background-repeat: no-repeat;
             > .button {
+                background-position: center, center;
+                background-repeat: no-repeat;
                 margin: calc(var(--unit) * -3) 0;
             }
         }
