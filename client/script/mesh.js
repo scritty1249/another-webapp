@@ -276,9 +276,11 @@ const Nodes = {
         globe.userData.state = {
             setLowPerformance: function () {
                 globe.userData.children("globe").userData.children("ball").material = lowPerfMat;
+                globe.userData.children("globe").userData.children("ball").material.needsUpdate = true;
             },
             setHighPerformance: function () {
                 globe.userData.children("globe").userData.children("ball").material = highPerfMat;
+                globe.userData.children("globe").userData.children("ball").material.needsUpdate = true;
             }
         };
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
@@ -336,8 +338,14 @@ const Nodes = {
             roughness: 0.2,
         });
         cube.userData.state = {
-            setLowPerformance: function () {cube.userData.children("Cube").material = lowPerfMat},
-            setHighPerformance: function () {cube.userData.children("Cube").material = highPerfMat}
+            setLowPerformance: function () {
+                cube.userData.children("Cube").material = lowPerfMat;
+                cube.userData.children("Cube").material.needsUpdate = true;
+            },
+            setHighPerformance: function () {
+                cube.userData.children("Cube").material = highPerfMat;
+                cube.userData.children("Cube").material.needsUpdate = true;
+            }
         };
         cube.userData.children("Cube").material = highPerfMat;
         cube.userData.type = "placeholder";
