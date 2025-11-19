@@ -309,7 +309,7 @@ export function OverlayManager(
                     click: (event) => {
                         Logger.log("clicked");
                     }
-                }),
+                }, 1),
             ],
             [ // top right
                 Menu.createButton("sw", "lock", {
@@ -321,7 +321,7 @@ export function OverlayManager(
                     click: (event) => {
                         Logger.log("clicked");
                     }
-                }),
+                }, 1),
             ],
             [ // bottom left
                 Menu.createButton("ne", "add-node", {

@@ -255,6 +255,13 @@ canvas {
         .button {
             background-blend-mode: luminosity;
         }
+        svg.pointer-events {
+            pointer-events: none;
+            filter: blur(0);
+            > path {
+                pointer-events: visiblePainted;
+            }
+        }
         .button:active {
             filter: brightness(2) grayscale(1);
         }
@@ -265,23 +272,40 @@ canvas {
         > div.bottom-left,
         > div.top-right,
         > div.bottom-right {
+            pointer-events: none;
             display: flex;
             flex-direction: column;
             flex-wrap: nowrap;
             place-items: start;
             > .button {
+                --size: 25;
                 background-position: center, center;
                 background-repeat: no-repeat;
-                margin: calc(var(--unit) * -3) 0;
+                width: calc(var(--unit) * var(--size));
+                height: calc(var(--unit) * var(--size));
+            }
+        }
+        > div.top-left,
+        > div.top-right {
+            > .button:not(:last-child) {
+                margin-bottom: calc(calc(var(--unit) * var(--size)) * -0.5);
+            }
+        }
+        > div.bottom-left,
+        > div.bottom-right {
+            > .button:not(:first-child) {
+                margin-top: calc(calc(var(--unit) * var(--size)) * -0.5);
             }
         }
         > div.top-left {
             bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
             right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            align-items: flex-end;
         }
         > div.bottom-left {
             top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
             right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            align-items: flex-end;
         }
         > div.top-right {
             bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
