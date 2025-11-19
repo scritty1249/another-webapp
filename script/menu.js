@@ -35,28 +35,30 @@ const Menu = {
         wrapper.appendChild(sections.bl);
         wrapper.appendChild(sections.br);
         topLeft.forEach(el => {
-            stopPropagation(el)
-            sections.tl.appendChild(el)
+            stopPropagation(el);
+            sections.tl.appendChild(el);
         });
         topRight.forEach(el => {
-            stopPropagation(el)
-            sections.tr.appendChild(el)
+            stopPropagation(el);
+            sections.tr.appendChild(el);
         });
         bottomLeft.forEach(el => {
-            stopPropagation(el)
-            sections.bl.appendChild(el)
+            stopPropagation(el);
+            sections.bl.appendChild(el);
         });
         bottomRight.forEach(el => {
-            stopPropagation(el)
-            sections.br.appendChild(el)
+            stopPropagation(el);
+            sections.br.appendChild(el);
         });
         return wrapper;
     },
-    createButton: function (buttonType = "blank", events = {}) {
+    createButton: function (direction = "ne", buttonType = undefined, events = {}) {
         const el = document.createElement("div");
         el.classList.add("pointer-events", "button", "no-bg");
         // original dimensions 500x500 px
-        el.style.backgroundImage = `url("${menuPath + menuButtonName(buttonType)}")`
+        el.style.backgroundImage = `url("${menuPath + direction + "-button.png"}")`
+        if (buttonType)
+            el.style.backgroundImage += `, url("${menuPath + buttonType + "-icon.png"}")`;
         el.style.width = "calc(var(--unit) * 20)";
         el.style.height = "calc(var(--unit) * 20)";
         Object.entries(events).forEach(([eventType, handler]) => el.addEventListener(eventType, handler));

@@ -206,6 +206,23 @@ const GenericSprite = {
     }
 };
 
+const Button = { // unlikke some of the others, this is for buttons making it to prod!
+    mainMenu: function (openMenuCallback = () => {}) {
+        const el = document.createElement("div");
+        el.classList.add("corner-button", "button", "pointer-events");
+        el.style.height = "calc(var(--unit) * 10)";
+        el.style.width = "calc(var(--unit) * 10)";
+        el.style.backgroundImage = `url("./source/menu-corner-button.png")`;
+        el.addEventListener("click", function (event) {
+            openMenuCallback();
+        });
+        el.addEventListener("contextmenu", function (event) {
+            event.preventDefault();
+        });
+        return el;
+    }
+};
+
 export function OverlayManager(
     scene,
     renderer,
@@ -250,6 +267,9 @@ export function OverlayManager(
         self.sprite.focusHighlight = GenericSprite.createFocusGlow();
         self.sprite.focusHighlight.visible = false;
         self._scene.add(self.sprite.focusHighlight);
+        self.element._overlay.appendChild(
+            Button.mainMenu(self.openMenu)
+        );
     }
     this._createFocusMenuElement = function () { // must be implemented by extending classes
 
@@ -279,49 +299,49 @@ export function OverlayManager(
     }
     this._createMenu = function () {
         return Menu.createMenu(self.closeMenu,
-            [
-                Menu.createButton("locked-flipped", {
+            [ // top left
+                Menu.createButton("se", "lock", {
                     click: (event) => {
                         Logger.log("clicked");
                     }
                 }),
-                Menu.createButton("locked-flipped", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }),
-            ],
-            [
-                Menu.createButton("blank-flipped", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }),
-                Menu.createButton("blank-flipped", {
+                Menu.createButton("se", "lock", {
                     click: (event) => {
                         Logger.log("clicked");
                     }
                 }),
             ],
-            [
-                Menu.createButton("blank", {
+            [ // top right
+                Menu.createButton("sw", "lock", {
                     click: (event) => {
                         Logger.log("clicked");
                     }
                 }),
-                Menu.createButton("locked", {
+                Menu.createButton("sw", "", {
                     click: (event) => {
                         Logger.log("clicked");
                     }
                 }),
             ],
-            [
-                Menu.createButton("locked", {
+            [ // bottom left
+                Menu.createButton("ne", "add-node", {
                     click: (event) => {
                         Logger.log("clicked");
                     }
                 }),
-                Menu.createButton("blank", {
+                Menu.createButton("ne", "cpu", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+            ],
+            [ // bottom right
+                Menu.createButton("nw", "gear", {
+                    click: (event) => {
+                        Logger.log("clicked");
+                    }
+                }),
+                Menu.createButton("nw", "", {
                     click: (event) => {
                         Logger.log("clicked");
                     }
