@@ -211,6 +211,16 @@ canvas {
         scrollbar-width: none;
     }
 
+    > .corner-button {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        overflow: hidden;
+    }
+    &:has(#menu) > .corner-button { /* hide menu button in background when menu is open */
+        display: none;
+    }
+
     > #menu {
         --center-offset-diameter-x: calc(var(--unit) * 30);
         --center-offset-diameter-y: calc(var(--unit) * 10);
@@ -241,8 +251,11 @@ canvas {
         .button {
             background-blend-mode: luminosity;
         }
+        .button:active {
+            filter: brightness(2) grayscale(1);
+        }
         .no-bg {
-            
+
         }
         > div.top-left,
         > div.bottom-left,
@@ -252,6 +265,8 @@ canvas {
             flex-direction: column;
             flex-wrap: nowrap;
             place-items: start;
+            background-position: center, center;
+            background-repeat: no-repeat;
             > .button {
                 margin: calc(var(--unit) * -3) 0;
             }
@@ -259,12 +274,10 @@ canvas {
         > div.top-left {
             bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
             right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
-            transform: scaleX(-1);
         }
         > div.bottom-left {
             top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
             right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
-            transform: scaleX(-1);
         }
         > div.top-right {
             bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
