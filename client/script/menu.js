@@ -52,24 +52,40 @@ const Menu = {
         });
         return wrapper;
     },
-    createButton: function (direction = "ne", buttonType = undefined, events = {}) {
-        const el = document.createElement("div");
+    createButton: function (direction = "ne", buttonType = undefined, events = {}, buttonLength = 2) {
+        const angle = direction == "ne"
+            ? 67.5
+            : direction == "nw"
+            ? -67.5
+            : direction == "se"
+            ? 112.5
+            : direction == "sw"
+            ? -112.5
+            : 0;
+        const el = this.configurableTileSvg(buttonLength, angle, (
+            buttonType ? [this.iconSvgImg(menuPath + buttonType + "-icon.png")] : []
+        ))
         el.classList.add("pointer-events", "button", "no-bg");
-        // original dimensions 500x500 px
-        //el.style.backgroundImage = `url("${menuPath + direction + "-button.png"}")`
-
-        const svgUri = "data:image/svg+xml;base64," + btoa((new XMLSerializer()).serializeToString(this.configurableTile(100, 2, 45)))
-        el.style.backgroundImage = `url("${svgUri}")`;
-
-        if (buttonType)
-            el.style.backgroundImage += `, url("${menuPath + buttonType + "-icon.png"}")`;
-        el.style.width = "calc(var(--unit) * 20)";
-        el.style.height = "calc(var(--unit) * 20)";
+        el.style.setProperty("--size", buttonLength * 12.5)
         Object.entries(events).forEach(([eventType, handler]) => el.addEventListener(eventType, handler));
 
         return el;
     },
-    configurableTile: function (size = 100, scaleLength = 1, rotation = 0, fill = "#ff5757") {
+    svgToDataUri: function (svg) {
+        return  "data:image/svg+xml;base64," + btoa((new XMLSerializer()).serializeToString(svg));
+    },
+    iconSvgImg: function (imgPath) {
+        // original dimensions should be 500x500 px
+        var el = document.createElementNS("http://www.w3.org/2000/svg","image");
+        el.setAttributeNS(null,"height","100%");
+        el.setAttributeNS(null,"width","100%");
+        el.setAttributeNS("http://www.w3.org/1999/xlink","href", imgPath);
+        el.setAttributeNS(null,"x","-50%");
+        el.setAttributeNS(null,"y","-100%");
+        el.setAttributeNS(null, "visibility", "visible");
+        return el;
+    },
+    configurableTileSvg: function (scaleLength = 1, rotation = 0, children = [], size = 100, fill = "#ff5757") {
         /*
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -100 100 100">
         */
@@ -161,7 +177,17 @@ const Menu = {
         };
         const ogHeight = 100;
         const newLengthOffset = (ogHeight * scaleLength) - ogHeight;
-        const newViewBox = `${String(-50 *scaleLength)} ${String(-100 - newLengthOffset)} ${String(100 + newLengthOffset)} ${String(100 + newLengthOffset)}`;
+        const newViewBoxData = {
+            origin: {
+                x: -50 * scaleLength,
+                y: -100 - newLengthOffset
+            },
+            size: {
+                x: 100 + newLengthOffset,
+                y: 100 + newLengthOffset
+            }
+        };
+        const newViewBox = `${String(newViewBoxData.origin.x)} ${String(newViewBoxData.origin.y)} ${String(newViewBoxData.size.x)} ${String(newViewBoxData.size.y)}`;
         outerPathScalable.idx.forEach((idx, scaleIdx) => {
             outerPathData.offset[idx][0] += newLengthOffset * outerPathScalable.multiplier[scaleIdx];
         });
@@ -179,16 +205,19 @@ const Menu = {
         const innerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
         outerPath.setAttribute("fill", fill);
         outerPath.setAttribute("d", newOuterPathData);
+        outerPath.setAttribute("transform", `rotate(${String(rotation)} ${newViewBoxData.origin.x + newViewBoxData.size.x / 2} ${newViewBoxData.origin.y + newViewBoxData.size.y / 2})`);
         innerPath.setAttribute("fill", fill);
         innerPath.setAttribute("fill-opacity", "0.5");
         innerPath.setAttribute("d", newInnerPathData);
+        innerPath.setAttribute("transform", `rotate(${String(rotation)} ${newViewBoxData.origin.x + newViewBoxData.size.x / 2} ${newViewBoxData.origin.y + newViewBoxData.size.y / 2})`);
         svg.setAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:xlink", "http://www.w3.org/1999/xlink");
         svg.setAttribute("width", String(size * scaleLength));
         svg.setAttribute("height", String(size * scaleLength));
         svg.setAttribute("viewBox", newViewBox);
-        svg.setAttribute("transform", `rotate(${String(rotation)})`);
         svg.appendChild(outerPath);
         svg.appendChild(innerPath);
+        children.forEach(child => svg.appendChild(child));
+
         return svg;
     },
 };
