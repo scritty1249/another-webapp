@@ -66,7 +66,7 @@ const Menu = {
             buttonType ? [this.iconSvgImg(menuPath + buttonType + "-icon.png")] : []
         ))
         el.classList.add("pointer-events", "button", "no-bg");
-        el.style.setProperty("--size", buttonLength * 12.5)
+        el.style.setProperty("--length", buttonLength)
         Object.entries(events).forEach(([eventType, handler]) => el.addEventListener(eventType, handler));
 
         return el;

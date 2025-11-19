@@ -277,30 +277,40 @@ canvas {
             flex-direction: column;
             flex-wrap: nowrap;
             place-items: start;
+            height: calc(50vh - calc(var(--center-offset-diameter-y) / 2));
+            width: calc(50vw - calc(var(--center-offset-diameter-x) / 2));
             > .button {
-                --size: 25;
+                --length: 1;
                 background-position: center, center;
                 background-repeat: no-repeat;
-                width: calc(var(--unit) * var(--size));
-                height: calc(var(--unit) * var(--size));
+                width: calc(var(--unit) * 12.5);
+                height: calc(var(--unit) * 12.5);
+                transform: scale(var(--length));
             }
         }
         > div.top-left,
         > div.top-right {
             > .button:not(:last-child) {
-                margin-bottom: calc(calc(var(--unit) * var(--size)) * -0.5);
+                margin-bottom: calc(var(--unit) * -5%);
+            }
+            > :first-child {
+                margin-top: auto;
             }
         }
         > div.bottom-left,
         > div.bottom-right {
             > .button:not(:first-child) {
-                margin-top: calc(calc(var(--unit) * var(--size)) * -0.5);
+                margin-top: calc(var(--unit) * -5%);
+            }
+            > :last-child {
+                margin-bottom: auto;
             }
         }
         > div.top-left {
             bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
             right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
             align-items: flex-end;
+            justify-items: flex-end;
         }
         > div.bottom-left {
             top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
@@ -318,7 +328,7 @@ canvas {
     }
     @media (orientation: portrait) {
         > #menu {
-            --center-offset-diameter-x: calc(var(--unit) * 10);
+            --center-offset-diameter-x: calc(var(--unit) * 20);
             --center-offset-diameter-y: calc(var(--unit) * 30);
         }
     }
