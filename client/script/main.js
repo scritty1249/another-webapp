@@ -5,4 +5,6 @@ window.addEventListener("load", function() {
 window.addEventListener("resize", function (event) {
     document.body.height = window.innerHeight;
     document.body.width = window.innerWidth;
+    document.documentElement.style.setProperty("--vh", `${String(window.innerHeight / 100)}px`);
+    document.documentElement.style.setProperty("--vw", `${String(window.innerWidth / 100)}px`);
 });

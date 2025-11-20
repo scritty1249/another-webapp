@@ -1,5 +1,7 @@
 :root {
     --unit: 1rem;
+    --vw: 1vw;
+    --vh: 1vh;
 }
 @media (max-height: 1000px) or (max-width: 1000px) {
     :root {
@@ -22,6 +24,11 @@ body {
 canvas {
     display: block;
 }
+.absolutely-center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
 * {
     box-sizing: border-box;
     -webkit-user-drag: none;
@@ -37,8 +44,8 @@ canvas {
 }
 #container {
     overflow: hidden;
-    width: 100vw;
-    height: 100vh;
+    width: calc(var(--vw) * 100);
+    height: calc(var(--vh) * 100);
     position: fixed;
     margin: 0;
     padding: 0;
@@ -62,8 +69,8 @@ canvas {
 #overlay {
     pointer-events: none;
     z-index: 2;
-    width: 100vw;
-    height: 100vh;
+    width: calc(var(--vw) * 100);
+    height: calc(var(--vh) * 100);
     margin: 0;
     overflow: hidden;
 
@@ -221,7 +228,7 @@ canvas {
             translate: 100%;
         }
     }
-    &:has(#menu) > .corner-button { /* hide menu button in background when menu is open */
+    &:has(#menu:not(.close)) > .corner-button { /* hide menu button in background when menu is open */
         display: none;
     }
 
@@ -233,8 +240,8 @@ canvas {
         top: 0;
         bottom: 0;
         margin: 0;
-        width: 100vw;
-        height: 100vh;
+        width: calc(var(--vw) * 100);
+        height: calc(var(--vh) * 100);
         padding: 5rem;
         backdrop-filter: blur(10px);
         pointer-events: all;
@@ -243,6 +250,9 @@ canvas {
         background-blend-mode: difference;
         background-repeat: repeat;
 
+        &.close {
+            display: none;
+        }
         * {
             pointer-events: none;
         }
@@ -253,7 +263,11 @@ canvas {
             pointer-events: all;
         }
         .button {
+            --length: 1;
             background-blend-mode: luminosity;
+            width: calc(var(--unit) * 12.5);
+            height: calc(var(--unit) * 12.5);
+            transform: scale(var(--length));
         }
         svg.pointer-events {
             pointer-events: none;
@@ -265,65 +279,89 @@ canvas {
         .button:active {
             filter: brightness(2) grayscale(1);
         }
-        .no-bg {
-
-        }
-        > div.top-left,
-        > div.bottom-left,
-        > div.top-right,
-        > div.bottom-right {
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            flex-wrap: nowrap;
-            place-items: start;
-            height: calc(50vh - calc(var(--center-offset-diameter-y) / 2));
-            width: calc(50vw - calc(var(--center-offset-diameter-x) / 2));
-            > .button {
-                --length: 1;
-                background-position: center, center;
-                background-repeat: no-repeat;
-                width: calc(var(--unit) * 12.5);
-                height: calc(var(--unit) * 12.5);
-                transform: scale(var(--length));
+        &.addNode {
+            &.selectType {
+                > div.center {
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    grid-auto-flow: dense;
+                    gap: calc(var(--unit) / 10);
+                    place-items: center;
+                    > * {
+                        --length: 2 !important;
+                        margin: 20% -45%;
+                    }
+                    > *:nth-child(1) {
+                        grid-column: 1 / -1;
+                    }
+                    > *:nth-child(2) {
+                        justify-self: left;
+                    }
+                    > *:nth-child(3) {
+                        justify-self: right;
+                    }
+                }
+            }
+            &.baseType,
+            &.defenseType,
+            &.econType {
+                > div.center {
+                    display: flex;
+                    flex-direction: column;
+                    flex-wrap: nowrap;
+                }
             }
         }
-        > div.top-left,
-        > div.top-right {
-            > .button:not(:last-child) {
-                margin-bottom: calc(var(--unit) * -5%);
+        &.main {
+            > div.top-left,
+            > div.bottom-left,
+            > div.top-right,
+            > div.bottom-right {
+                pointer-events: none;
+                display: flex;
+                flex-direction: column;
+                flex-wrap: nowrap;
+                place-items: start;
+                height: calc(calc(var(--vh) * 100) - calc(var(--center-offset-diameter-y) / 2));
+                width: calc(calc(var(--vw) * 100) - calc(var(--center-offset-diameter-x) / 2));
             }
-            > :first-child {
-                margin-top: auto;
+            > div.top-left,
+            > div.top-right {
+                > .button:not(:last-child) {
+                    margin-bottom: calc(var(--unit) * -5%);
+                }
+                > :first-child {
+                    margin-top: auto;
+                }
             }
-        }
-        > div.bottom-left,
-        > div.bottom-right {
-            > .button:not(:first-child) {
-                margin-top: calc(var(--unit) * -5%);
+            > div.bottom-left,
+            > div.bottom-right {
+                > .button:not(:first-child) {
+                    margin-top: calc(var(--unit) * -5%);
+                }
+                > :last-child {
+                    margin-bottom: auto;
+                }
             }
-            > :last-child {
-                margin-bottom: auto;
+            > div.top-left {
+                bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+                right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+                align-items: flex-end;
+                justify-items: flex-end;
             }
-        }
-        > div.top-left {
-            bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
-            right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
-            align-items: flex-end;
-            justify-items: flex-end;
-        }
-        > div.bottom-left {
-            top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
-            right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
-            align-items: flex-end;
-        }
-        > div.top-right {
-            bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
-            left: calc(50% + calc(var(--center-offset-diameter-x) / 2));
-        }
-        > div.bottom-right {
-            top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
-            left: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            > div.bottom-left {
+                top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+                right: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+                align-items: flex-end;
+            }
+            > div.top-right {
+                bottom: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+                left: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            }
+            > div.bottom-right {
+                top: calc(50% + calc(var(--center-offset-diameter-y) / 2));
+                left: calc(50% + calc(var(--center-offset-diameter-x) / 2));
+            }
         }
     }
     @media (orientation: portrait) {

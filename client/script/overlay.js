@@ -4,7 +4,6 @@ import {
     SpriteMaterial,
     TextureLoader
 } from "three";
-import Menu from "./menu.js";
 
 const zoomScaleFormula = (zoom, maxZoom) => {
     return 1/(
@@ -12,16 +11,8 @@ const zoomScaleFormula = (zoom, maxZoom) => {
     );
 };
 
-function redrawElement(element) {
-    void(element.offsetWidth);
-}
-function redrawElementChildren(element) {
-    redrawElement(element);
-    [...element.children].forEach(el => redrawElement(el));
-}
-
 const BuildFocusMenu = {
-    createMenuElement: function(linkButtonAction, addButtonAction, infoButtonAction) {
+    createMenuElement: function(linkButtonAction, infoButtonAction) {
         const el = document.createElement("div");
         el.classList.add("nodeMenu", "right", "reveal");
         // hard coded- needs to be updated if file changes.
@@ -37,8 +28,6 @@ const BuildFocusMenu = {
         el.appendChild(linkButton);
         const infoButton = this.createInfoButton(infoButtonAction);
         el.appendChild(infoButton);
-        const addButton = this.createAddButton(addButtonAction);
-        el.appendChild(addButton);
 
         return el;
     },
@@ -72,21 +61,6 @@ const BuildFocusMenu = {
         
         return el;
     },
-    createAddButton: function(addButtonAction) {
-        const el = document.createElement("div");
-        el.classList.add("button", "pointer-events");
-        el.dataset.buttonType = "add";
-        el.style.backgroundImage = `url("./source/add-button.png")`;
-        el.style.width = "121px";
-        el.style.height = "125px";
-        el.style.setProperty("--left", "343px");
-        el.style.setProperty("--top", "155px");
-        el.addEventListener("click", function (event) {
-            addButtonAction();
-        });
-        
-        return el;
-    }
 }
 
 const AttackFocusMenu = {
@@ -229,21 +203,21 @@ export function OverlayManager(
     camera,
     raycaster,
     overlayContainerElement,
+    menuManager,
     scaleFormula = zoomScaleFormula,
 ) {
-    let self = this;
+    const self = this;
     this._scene = scene;
     this._camera = camera;
     this._renderer = renderer;
     this._raycaster = raycaster;
-    this._nodeManager = undefined;
-    this._mouseManager = undefined;
+    this._menuManager = menuManager;
     this._scaler = scaleFormula;
-    this._controls = undefined;
-    this.focusedNodeId = undefined;
     this.state = {
-        inMenu: false,
         targeting: false,
+        get inMenu() {
+            return self._menuManager.state.open;
+        },
         get keepFocus() {
             return self.state.targeting;
         },
@@ -258,31 +232,32 @@ export function OverlayManager(
         _overlay: overlayContainerElement,
         focusMenu: undefined, // better to destroy node overlay when unused vs hide it, since rendering everything is gonna take a bunch of memory anyways...
         buttonMenu: undefined, // for debug, for now
-        menu: undefined // the actual menu
+        menuButton: undefined // the actual menu
     };
     this.sprite = {
         focusHighlight: undefined
     };
     this._initOverlay = function () { // must be implemented by extending classes
-        self.sprite.focusHighlight = GenericSprite.createFocusGlow();
-        self.sprite.focusHighlight.visible = false;
-        self._scene.add(self.sprite.focusHighlight);
-        self.element._overlay.appendChild(
-            Button.mainMenu(self.openMenu)
+        this.sprite.focusHighlight = GenericSprite.createFocusGlow();
+        this.sprite.focusHighlight.visible = false;
+        this._scene.add(this.sprite.focusHighlight);
+        this.element.menuButton = Button.mainMenu(() => this._menuManager.open());
+        this.element._overlay.appendChild(
+            this.element.menuButton
         );
     }
     this._createFocusMenuElement = function () { // must be implemented by extending classes
 
     }
     this.update = function () { // must be implemented by extending classes
-        self._updateFocusHighlight();
+        this._updateFocusHighlight();
     }
     this._updateFocusHighlight = function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
-        if (self.state.focusedNode && !self.state.inMenu) {
-            const nodePos = self._nodeManager.getNode(self.focusedNodeId).position;
-            const direction = self._nodeManager.getCameraDirection(self.focusedNodeId);
-            if (!nodePos.equals(self.sprite.focusHighlight.position)) {
-                self.sprite.focusHighlight.position.copy(
+        if (this.state.focusedNode && !this.state.inMenu) {
+            const nodePos = this._nodeManager.getNode(this.focusedNodeId).position;
+            const direction = this._nodeManager.getCameraDirection(this.focusedNodeId);
+            if (!nodePos.equals(this.sprite.focusHighlight.position)) {
+                this.sprite.focusHighlight.position.copy(
                     nodePos.clone()
                         .sub(
                             direction
@@ -293,71 +268,11 @@ export function OverlayManager(
             }
         }
     }
-    this._destroyMenu = function () {
-        self.element._overlay.removeChild(self.element.menu);
-        self.element.menu = undefined;
-    }
-    this._createMenu = function () {
-        return Menu.createMenu(self.closeMenu,
-            [ // top left
-                Menu.createButton("se", "lock", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }, 1),
-                Menu.createButton("se", "lock", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }, 1),
-            ],
-            [ // top right
-                Menu.createButton("sw", "lock", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }),
-                Menu.createButton("sw", "", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }, 3),
-            ],
-            [ // bottom left
-                Menu.createButton("ne", "add-node", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }),
-                Menu.createButton("ne", "cpu", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }),
-            ],
-            [ // bottom right
-                Menu.createButton("nw", "gear", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }),
-                Menu.createButton("nw", "", {
-                    click: (event) => {
-                        Logger.log("clicked");
-                    }
-                }, 1),
-            ],
-        );
-    }
     this.closeMenu = function () {
-        self.state.inMenu = false;
-        self._destroyMenu();
         Logger.debug("[OverlayManager] | Closed Menu");
     }
     this.openMenu = function () {
-        self.state.inMenu = true;
-        self.element.menu = self._createMenu();
-        self.element._overlay.appendChild(self.element.menu);
+        this.unfocusNode();
         Logger.debug("[OverlayManager] | Opened Menu");
     }
     this._addOverlayElement = function () {
@@ -367,66 +282,79 @@ export function OverlayManager(
 
     }
     this.focusNode = function (nodeid) {
-        if (!self.state.stopFocusing) {
-            self.unfocusNode();
-            self.focusedNodeId = nodeid;
-            self._updateFocusHighlight();
+        if (!this.state.stopFocusing) {
+            this.unfocusNode();
+            this.focusedNodeId = nodeid;
+            this._updateFocusHighlight();
 
-            const nodeScale = self._nodeManager.getNode(self.focusedNodeId).scale;
-            self.sprite.focusHighlight.scale.copy(self.sprite.focusHighlight.userData.ogScale);
-            self.sprite.focusHighlight.scale.multiplyScalar(nodeScale.x);
+            const nodeScale = this._nodeManager.getNode(this.focusedNodeId).scale;
+            this.sprite.focusHighlight.scale.copy(this.sprite.focusHighlight.userData.ogScale);
+            this.sprite.focusHighlight.scale.multiplyScalar(nodeScale.x);
 
-            self.sprite.focusHighlight.visible = true;
+            this.sprite.focusHighlight.visible = true;
         }
     }
     this.unfocusNode = function () {
-        if (self.state.focusedNode && !self.state.keepFocus) {
-            self.focusedNodeId = undefined;
-            self.sprite.focusHighlight.visible = false;
+        if (this.state.focusedNode && !this.state.keepFocus) {
+            this.focusedNodeId = undefined;
+            this.sprite.focusHighlight.visible = false;
         }
     }
     this.init = function (controls, managers) {
-        self = this;
         this._nodeManager = managers.Node;
         this._mouseManager = managers.Mouse;
         this._controls = controls;
+        this._menuManager.init();
         this._initOverlay();
     }
     this.clear = function () {
-        Object.entries(self.element).forEach(([key, element]) => {
+        Object.entries(this.element).forEach(([key, element]) => {
             if (!key.startsWith("_") && element != undefined) {
-                self.element._overlay.removeChild(element);
-                self.element[key] = undefined;
+                this.element._overlay.removeChild(element);
+                this.element[key] = undefined;
             }
         });
-        Object.entries(self.sprite).forEach(([key, sprite]) => {
+        Object.entries(this.sprite).forEach(([key, sprite]) => {
             if (!key.startsWith("_") && sprite != undefined) {
-                self._scene.remove(sprite);
+                this._scene.remove(sprite);
                 sprite.material.dispose();
                 sprite.geometry.dispose();
-                self.sprite[key] = undefined;
+                this.sprite[key] = undefined;
             }
         });
-        Object.entries(Object.getOwnPropertyDescriptors(self.state))
+        Object.entries(Object.getOwnPropertyDescriptors(this.state))
             .filter(([, desc]) => desc.value && typeof desc.value !== 'function')
-            .forEach(([key]) => self.state[key] = false);
-        self.focusedNodeId = undefined;
+            .forEach(([key]) => this.state[key] = false);
+        this.focusedNodeId = undefined;
+        this._menuManager.loadMenu.clear();
+        this._menuManager.clearListeners();
     }
+
     return this;
+}
+
+OverlayManager.prototype = {
+    _scene: undefined,
+    _camera: undefined,
+    _renderer: undefined,
+    _raycaster: undefined,
+    _menuManager: undefined,
+    _nodeManager: undefined,
+    _mouseManager: undefined,
+    _scaler: undefined,
+    _controls: undefined,
+    state: undefined,
+    element: undefined,
+    sprite: undefined,
+    focusedNodeId: undefined,
 }
 
 export function BuildOverlayManager(
     overlayManager
 ) {
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
-    const Overloaded = {
-        update: self.update,
-        focusNode: self.focusNode,
-        unfocusNode: self.unfocusNode,
-        initOverlay: self._initOverlay
-    };
+    UTIL.bindProtoProperties(overlayManager, self);
     self._initOverlay = function () {
-        Overloaded.initOverlay();
         const el = GenericElement.buttonMenu(
             GenericElement.hideButton(),
             GenericElement.textBox(),
@@ -474,9 +402,9 @@ export function BuildOverlayManager(
             GenericElement.button("Dump Mouse Info", function () {
                 Logger.log(self._mouseManager);
             }),
-            GenericElement.button("Open Menu", function () {
-                self.openMenu();
-            })
+            GenericElement.button("Dump Menu Info", function () {
+                Logger.log(self._menuManager);
+            }),
         );
         self.element._overlay.appendChild(el);
         self.element.buttonMenu = el;
@@ -517,16 +445,6 @@ export function BuildOverlayManager(
                     Logger.log("looking to link");
                 }
             },
-            function addButtonAction() {
-                const node = self._nodeManager.getNode(self.focusedNodeId);
-                const pos = [
-                    node.position.x + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5),
-                    node.position.y + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5),
-                    node.position.z + UTIL.random(-maxNodeDistance/1.5, maxNodeDistance/1.5)
-                ];
-                const newNodeId = self._nodeManager.createNode(node.userData.type, pos);
-                self._nodeManager.tetherNodes(node.uuid, newNodeId);
-            },
             function infoButtonAction() {
                 const node = self._nodeManager.getNode(self.focusedNodeId);
                 Logger.log(node);
@@ -550,31 +468,42 @@ export function BuildOverlayManager(
     }
     self.focusNode = function (nodeid) {
         if (!self.state.stopFocusing) {
-            Overloaded.focusNode(nodeid);
+            self.unfocusNode();
+            overlayManager.focusNode(nodeid);
             self.element.focusMenu = self._createFocusMenuElement();
             self._updateFocusMenu();
             self.element._overlay.appendChild(self.element.focusMenu);
-            redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
+            UTIL.redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
             self.element.focusMenu.classList.add("show");
         }
     }
     self.unfocusNode = function () {
         if (self.state.focusedNode && !self.state.keepFocus) {
-            Overloaded.unfocusNode();
+            overlayManager.unfocusNode();
             const oldElement = self.element.focusMenu;
-            self.element.focusMenu = undefined;
-            redrawElement(oldElement);
+            UTIL.redrawElement(oldElement);
             oldElement.classList.add("hide");
             oldElement.addEventListener("transitionend", function (event) {
                 oldElement.remove();
             }, { once: true});
         }
     }
+    self.openMenu = function () {
+        self.unfocusNode();
+        overlayManager.openMenu();
+    }
     self.update = function () {
-        Overloaded.update();
+        overlayManager.update();
         self._updateFocusMenu();
     }
-
+    self.init = function (...args) {
+        overlayManager.init(...args);
+        self._menuManager.when("addnode", (detail) => {
+            self._nodeManager.createNode(detail.nodeType);
+            self._menuManager.close();
+        });
+        self._initOverlay();
+    }
     return self;
 }
 
@@ -583,16 +512,10 @@ export function AttackOverlayManager(
     attackManager
 ) {
     const self = {...overlayManager}; // shallow copy, avoid making copies of entire nodeManagers
+    UTIL.bindProtoProperties(overlayManager, self);
     self._attackManager = attackManager;
     self.element.attackBarMenu = undefined;
-    const Overloaded = {
-        update: self.update,
-        focusNode: self.focusNode,
-        unfocusNode: self.unfocusNode,
-        initOverlay: self._initOverlay
-    };
     self._initOverlay = function () {
-        Overloaded.initOverlay();
         // create testing menu
         self.element.buttonMenu = GenericElement.buttonMenu(
             GenericElement.hideButton(),
@@ -620,9 +543,9 @@ export function AttackOverlayManager(
             GenericElement.button("Dump Mouse Info", function () {
                 Logger.log(self._mouseManager);
             }),
-            GenericElement.button("Open Menu", function () {
-                self.openMenu();
-            })
+            GenericElement.button("Dump Menu Info", function () {
+                Logger.log(self._menuManager);
+            }),
         );
         
         // create attack bar menu
@@ -665,22 +588,21 @@ export function AttackOverlayManager(
     }
     self.focusNode = function (nodeid) {
         if (!self.state.stopFocusing) {
-            Overloaded.focusNode(nodeid);
+            self.unfocusNode();
+            overlayManager.focusNode(nodeid);
             self.element.focusMenu = self._createFocusMenuElement();
             self.element._overlay.appendChild(self.element.focusMenu);
-            redrawElementChildren(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
+            UTIL.redrawElement(self.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
             setTimeout(() => {
                 self.element.focusMenu.classList.add("show")
-                //redrawElementChildren(self.element.focusMenu);
             }, 0);
         }
     }
     self.unfocusNode = function () {
         if (self.state.focusedNode && !self.state.keepFocus) {
-            Overloaded.unfocusNode();
+            overlayManager.unfocusNode();
             const oldElement = self.element.focusMenu;
-            self.element.focusMenu = undefined;
-            redrawElement(oldElement);
+            UTIL.redrawElement(oldElement);
             oldElement.classList.add("hide");
              // animation is staggered, so need to wait for all children to finish
             let countdown = oldElement.children.length;
@@ -691,7 +613,7 @@ export function AttackOverlayManager(
         }
     }
     self.update = function () {
-        Overloaded.update();
+        overlayManager.update();
         if (
             self.state.focusedNode &&
             String(self._nodeManager.getNodeData(self.focusedNodeId).attackers[0].type) != self.element.focusMenu.children[0].dataset.attackType
@@ -700,6 +622,16 @@ export function AttackOverlayManager(
     }
     self._createFocusMenuElement = function () {
         return AttackFocusMenu.createMenuElement(...self._loadTilesForNode());
+    }
+    self.init = function (...args) {
+        overlayManager.init(...args);
+        self._menuManager.when("addnode", (detail) => {
+            Logger.alert(`Failed to add node (${detail.nodeType}): Cannot add nodes outside of build phase!`);
+        });
+        self._initOverlay();
+    }
+    self.clear = function () {
+        overlayManager.clear();
     }
 
     return self;
