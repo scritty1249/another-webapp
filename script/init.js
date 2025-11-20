@@ -8,7 +8,8 @@ import { NodeManager, BuildNodeManager, AttackNodeManager } from "./nodes.js";
 import { Mouse } from "./cursor.js";
 import { OverlayManager, AttackOverlayManager, BuildOverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
-import * as UTILS from "./utils.js";
+import { MenuManager } from "./menu.js";
+import * as UTIL from "./utils.js";
 import * as ATTACKERDATA from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
 
 const tetherForce = 0.2;
@@ -46,10 +47,11 @@ if (WebGL.isWebGL2Available()) {
 }
 
 function mainloop() {
+    const MenuController = new MenuManager(document.getElementById("overlay"));
     const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
     const NodeController = new NodeManager(scene, renderer, camera, raycaster);
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
-        document.getElementById("overlay")
+        document.getElementById("overlay"), MenuController
     );
     const PhysicsController = new PhysicsManager(NodeController,
         shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
@@ -93,8 +95,8 @@ function mainloop() {
         const phaseType = event.detail.phase;
         try {
             if (phaseType == "build") {
-                Manager.set(UTILS.initBuildPhase(
-                    UTILS.layoutToJson(scene, NodeController, false),
+                Manager.set(UTIL.initBuildPhase(
+                    UTIL.layoutToJson(scene, NodeController, false),
                     scene,
                     renderer.domElement,
                     controls,
@@ -107,9 +109,9 @@ function mainloop() {
                     }
                 ));
             } else if (phaseType == "attack") {
-                Manager.set(UTILS.initAttackPhase(
+                Manager.set(UTIL.initAttackPhase(
                     {
-                        layout: UTILS.layoutToJson(scene, NodeController, false),
+                        layout: UTIL.layoutToJson(scene, NodeController, false),
                         nodeTypes: ATTACKERDATA.NodeTypeData,
                         attackTypes: ATTACKERDATA.AttackTypeData,
                         attacks: ATTACKERDATA.AttackerData
@@ -192,7 +194,7 @@ function mainloop() {
                 _defaultLayout = "eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDIsMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOlstNCwtMSw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIyIiwidHlwZSI6InNjYW5uZXIiLCJwb3NpdGlvbiI6WzIsLTEsMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbLTksMCwtNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNCIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTYsMCwtMV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTIsMCwtMl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiNiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLDZdLCJfZGF0YSI6e319LHsidXVpZCI6IjciLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsOV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiOCIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTQsMCwxM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiOSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbLTUsMCwtNV0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTAiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy01LDAsLTldLCJfZGF0YSI6e319LHsidXVpZCI6IjExIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlswLDAsLTZdLCJfZGF0YSI6e319LHsidXVpZCI6IjEyIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOls0LDAsLTEwXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMyIsInR5cGUiOiJnbG9iZSIsInBvc2l0aW9uIjpbMSwwLC0xM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTQiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEwLDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE1IiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6WzQsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOCwwLDRdLCJfZGF0YSI6e319LHsidXVpZCI6IjE3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOls5LDAsMF0sIl9kYXRhIjp7fX1dLCJuZWlnaGJvcnMiOltbNCwwXSxbNSwwXSxbNiwwXSxbNSwxXSxbNiwxXSxbMCwxXSxbNyw2XSxbOCw3XSxbNSwyXSxbNiwyXSxbOSw0XSxbOSwzXSxbMTEsOV0sWzEyLDExXSxbMTEsMTBdLFsxMiwxM10sWzE2LDE1XSxbMiwxNV0sWzE3LDE2XSxbMTQsMTddLFsyLDBdLFsyLDFdXSwiYmFja2dyb3VuZCI6IiJ9";
         }
         
-        Manager.set(UTILS.initBuildPhase(
+        Manager.set(UTIL.initBuildPhase(
             _defaultLayout,
             scene,
             renderer.domElement,
@@ -210,7 +212,7 @@ function mainloop() {
             //requestIdleCallback(animate)
 
             PhysicsController.update();
-            Manager.Node.update(UTILS.clamp(clock.getDelta(), 0, 1000));
+            Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
             Manager.Overlay.update();
 
             // required if controls.enableDamping or controls.autoRotate are set to true

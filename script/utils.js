@@ -70,6 +70,10 @@ export function deepCopy(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
+export function redrawElement(element) {
+    void(element.offsetWidth);
+}
+
 export function createEvent(eventName, details = {}) { 
     return new CustomEvent(eventName, {
         bubbles: true,
@@ -87,6 +91,14 @@ export function bindProperty(object, target, property) {
             object[property] = value;
         }
     });
+}
+
+export function bindProperties(object, target, ...properties) {
+    properties.forEach(prop => bindProperty(object, target, prop));
+}
+
+export function bindProtoProperties(object, target) {
+    bindProperties(object, target, ...Object.getOwnPropertyNames(Object.getPrototypeOf(object)).filter(prop => prop !== "constructor"));
 }
 
 export function loadVideoTextureSource (videopath, maskpath, speed = 1) {
