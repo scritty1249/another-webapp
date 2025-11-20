@@ -310,16 +310,26 @@ export function OverlayManager(
     this.clear = function () {
         Object.entries(this.element).forEach(([key, element]) => {
             if (!key.startsWith("_") && element != undefined) {
-                this.element._overlay.removeChild(element);
-                this.element[key] = undefined;
+                try {
+                    this.element._overlay.removeChild(element);
+                    this.element[key] = undefined;
+                } catch (err) {
+                    Logger.warn(`[OverlayManager] | Failed to remove element ${key}: `, element);
+                    Logger.error(err);
+                }
             }
         });
         Object.entries(this.sprite).forEach(([key, sprite]) => {
             if (!key.startsWith("_") && sprite != undefined) {
-                this._scene.remove(sprite);
-                sprite.material.dispose();
-                sprite.geometry.dispose();
-                this.sprite[key] = undefined;
+                try {
+                    this._scene.remove(sprite);
+                    sprite.material.dispose();
+                    sprite.geometry.dispose();
+                    this.sprite[key] = undefined;
+                } catch (err) {
+                    Logger.warn(`[OverlayManager] | Failed to remove sprite ${key}: `, sprite);
+                    Logger.error(err);
+                }
             }
         });
         Object.entries(Object.getOwnPropertyDescriptors(this.state))
