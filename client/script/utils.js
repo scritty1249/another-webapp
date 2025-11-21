@@ -225,8 +225,8 @@ export function initAttackPhase(
             attackData.attackTypes
         ),
         Overlay: new AttackOverlayManager(
-            managers.Overlay,
-            attackData.attacks
+            attackData.attacks,
+            ...managers.Overlay._constructorArgs
         ),
         Listener: new ListenerManager(),
     };
@@ -278,7 +278,7 @@ export function initBuildPhase(
     layoutFromJson(layoutData, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new BuildNodeManager(managers.Node),
-        Overlay: new BuildOverlayManager(managers.Overlay),
+        Overlay: new BuildOverlayManager(...managers.Overlay._constructorArgs),
         Listener: new ListenerManager(),
     };
     controllers.Overlay.init(controls, {Mouse: managers.Mouse, Node: controllers.Node});
