@@ -364,10 +364,14 @@ const Nodes = {
 };
 const Attack = {
     Particle: function () {
-        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.55, 3, 3);
+        const particle = Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.55, 3, 3);
+        particle.userData.type = "particle";
+        return particle;
     },
     CubeDefense: function () {
-        return Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.65, 16, 1);
+        const cubeDefense = Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.65, 16, 1);
+        cubeDefense.userData.type = "cubedefense";
+        return cubeDefense;
     }
 };
 
