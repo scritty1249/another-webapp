@@ -107,12 +107,12 @@ export function MenuManager (
                 click: (event) => {
                     self._dispatch("swapphase", { phase: "attack", log: true });
                 }
-            }, 1);
+            }, 5);
             const buildBtn = self.createElement.button(0, undefined, "build", {
                 click: (event) => {
                     self._dispatch("swapphase", { phase: "build", log: true });
                 }
-            }, 1);
+            }, 5);
 
             self._appendElement(central, attackBtn, buildBtn);
             self._appendMenu(central);
