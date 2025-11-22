@@ -338,12 +338,33 @@ export function initBuildPhase(
     return controllers;
 }
 
-export function _trace(reason = false) { // [!] for testing
+export async function getClipboardText() {
     try {
-        throw new Error("Trace point");
-    } catch (e) {
-        Logger.log(`${reason ? `"${reason}"\n` : ""}Trace point:\n${e.stack}`); // Stack trace as a string
+        return await navigator.clipboard.readText();;
+    } catch (err) {
+        // cases where permission is denied or clipboard is empty/non-text
+        Logger.error("Failed to read clipboard contents");
+        Logger.error(err);
     }
+}
+
+export const _DebugTool = { // [!] for testing
+    trace: function (reason = false) {
+        try {
+            throw new Error("Trace point");
+        } catch (e) {
+            Logger.log(`${reason ? `"${reason}"\n` : ""}Trace point:\n${e.stack}`); // Stack trace as a string
+        }
+    },
+    exportLogger: function (scene, nodeManager, logger) {
+        const layoutData = layoutToJson(scene, nodeManager, false);
+        const domData = document.documentElement.outerHTML;
+        Logger.log("Generating debug file for download");
+        download(
+            `CUBE_GAME-${(new Date()).toISOString()}.log`,
+            `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${logger.history}\n`
+        );
+    },
 }
 
 function NodeObject(type, uuid, position, data = {}) {
