@@ -405,9 +405,13 @@ AttackNodeManager.prototype._proxyHandlers = { ...AttackNodeManager.prototype._p
                 attack.halt();
                 this._instance._scene.remove(attack.mesh);
             }
-            const result = Reflect.deleteProperty(target, prop);
-            this._instance._attacklist = [...Object.values(target)]; // [!] may be optimizied, see if performance is impacted by this
-            return result;
+            // [!] may be optimizied, see if performance is impacted by this
+            this._instance._attacklist.splice(
+                this._instance._attacklist.map(a => a.uuid)
+                    .indexOf(attack.uuid),
+                1
+            );
+            return Reflect.deleteProperty(target, prop);
         }
     },
     attacklist: {

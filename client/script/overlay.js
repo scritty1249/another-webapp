@@ -589,7 +589,7 @@ AttackOverlayManager.prototype._loadTilesForNode =  function () {
     )
     attackerTiles.forEach((el, i) => 
         el.addEventListener("click", (e) => {
-            nodeData.attackers.pop(i);
+            nodeData.slots.pop(i);
             this._updateFocusMenu();
         }, {once: true})
     );
