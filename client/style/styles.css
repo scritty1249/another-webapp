@@ -312,6 +312,18 @@ canvas {
                 }
             }
         }
+        &.pickTarget {
+            place-items: center;
+        }
+        &.settings {
+            &.main-settings {
+                > div.center {
+                    display: flex;
+                    flex-direction: column;
+                    flex-wrap: nowrap;
+                }
+            }
+        }
         &.main {
             > div.top-left,
             > div.bottom-left,

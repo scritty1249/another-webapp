@@ -28,13 +28,11 @@ export function NodeManager(
     Object.getOwnPropertyNames(Object.getPrototypeOf(this)).filter(prop => prop !== "constructor" && typeof this[prop] === "function").forEach(prop => {
         this[prop] = this[prop].bind(this);
     });
-    //if (this._proxyHandlers) {
-        Object.values(this._proxyHandlers).forEach(handler => handler._instance = this);
-        this.nodes = new Proxy(this._nodes, this._proxyHandlers.nodes);
-        this.tethers = new Proxy(this._tethers, this._proxyHandlers.tethers);
-        this.nodelist = new Proxy(this._nodelist, this._proxyHandlers.nodelist);
-        this.tetherlist = new Proxy(this._tetherlist, this._proxyHandlers.tetherlist);
-    //}
+    Object.values(this._proxyHandlers).forEach(handler => handler._instance = this);
+    this.nodes = new Proxy(this._nodes, this._proxyHandlers.nodes);
+    this.tethers = new Proxy(this._tethers, this._proxyHandlers.tethers);
+    this.nodelist = new Proxy(this._nodelist, this._proxyHandlers.nodelist);
+    this.tetherlist = new Proxy(this._tetherlist, this._proxyHandlers.tetherlist);
 }
 
 NodeManager.prototype = {
@@ -258,7 +256,7 @@ NodeManager.prototype.clear = function () {
     const tethers = [...this.tetherlist];
     tethers.forEach(t => delete this.tethers[t.uuid]);
     nodes.forEach(n => delete this.nodes[n.uuid]);
-    Logger.log(`[NodeManager] | Cleared ${nodes.length} nodes and ${tethers.length} tethers`);
+    Logger.debug(`[NodeManager] | Cleared ${nodes.length} nodes and ${tethers.length} tethers`);
 };
 NodeManager.prototype._tetherNodes = function (origin, target) {
     if (this.isNeighbor(origin.uuid, target.uuid))
@@ -356,7 +354,7 @@ AttackNodeManager.prototype._proxyHandlers = { ...AttackNodeManager.prototype._p
                 Logger.throw(new Error(`[NodeManager] | Cannot add new node (${val.userData?.type}): A node (${target[prop].userData?.type}) with UUID ${target[prop].uuid} already exists.`));
                 return false;
             } else {
-                this.instance._addNodeData(val);
+                this._instance._addNodeData(val);
             }
             this._instance._nodelist.push(val);
             this._instance._scene.add(val);

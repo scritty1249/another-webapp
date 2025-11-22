@@ -370,62 +370,6 @@ export function BuildOverlayManager(...parentArgs) { // laziness
 }
 BuildOverlayManager.prototype = Object.create(OverlayManager.prototype);
 BuildOverlayManager.prototype.constructor = BuildOverlayManager;
-BuildOverlayManager.prototype._initOverlay =  function () {
-    OverlayManager.prototype._initOverlay.call(this);
-    const el = GenericElement.buttonMenu(
-        GenericElement.hideButton(),
-        GenericElement.textBox(),
-        GenericElement.button("load", () => {
-            const layoutBackup = UTIL.layoutToJson(this._scene, this._nodeManager, false);
-            this._nodeManager.clear();
-            const textBox = document.getElementById("textBox");
-            const result = UTIL.layoutFromJson(textBox.value.trim(), this._scene, this._controls.drag, this._nodeManager);
-            textBox.value = "";
-            if (!result) {
-                this._nodeManager.clear();
-                UTIL.layoutFromJson(layoutBackup, this._scene, this._controls.drag, this._nodeManager);
-                alert("Failed to load layout. Was the wrong format entered?");
-            }
-        }),
-        GenericElement.button("save", () => {
-            const data = UTIL.layoutToJson(this._scene, this._nodeManager);
-            navigator.clipboard.writeText(data);
-            alert("Layout copied to clipboard");
-        }),
-        GenericElement.button("SAVE DEBUG FILE FOR DEV", () => {
-            const layoutData = UTIL.layoutToJson(this._scene, this._nodeManager, false);
-            const domData = document.documentElement.outerHTML;
-            Logger.log("Generating debug file for download");
-            UTIL.download(
-                (new Date()).toISOString() + ".txt",
-                `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${Logger.history}\n`
-            );
-        }),
-        GenericElement.button("clear", () => {
-            this._nodeManager.clear();
-        }),
-        GenericElement.button("Attack phase" , () => {
-            this.element._overlay.dispatchEvent(UTIL.createEvent(
-                "swapphase",
-                {phase: "attack"}
-            ));
-        }),
-        GenericElement.button("Dump Node Info", () => {
-            Logger.log(this._nodeManager);
-        }),
-        GenericElement.button("Dump Overlay Info", () => {
-            Logger.log(this);
-        }),
-        GenericElement.button("Dump Mouse Info", () => {
-            Logger.log(this._mouseManager);
-        }),
-        GenericElement.button("Dump Menu Info", () => {
-            Logger.log(this._menuManager);
-        }),
-    );
-    this.element._overlay.appendChild(el);
-    this.element.buttonMenu = el;
-};
 BuildOverlayManager.prototype._createFocusMenuElement =  function () {
     return BuildFocusMenu.createMenuElement(
         () => { // link button
@@ -511,7 +455,7 @@ BuildOverlayManager.prototype.update =  function () {
 BuildOverlayManager.prototype.init =  function (...args) {
     OverlayManager.prototype.init.call(this, ...args);
     this._menuManager.when("addnode", (detail) => {
-        this._nodeManager.createNode(detail.nodeType);
+        this._nodeManager.createNode(detail.nodeType, Array.from({length: 3}, _ => UTIL.random(0.001, 0.002))); // generate random offset so repulsion forces can take effect
         this._menuManager.close();
     });
     this._initOverlay();
@@ -524,39 +468,7 @@ export function AttackOverlayManager(attackManager, ...parentArgs) {
 AttackOverlayManager.prototype = Object.create(OverlayManager.prototype);
 AttackOverlayManager.prototype.constructor = AttackOverlayManager;
 AttackOverlayManager.prototype._initOverlay =  function () {
-    OverlayManager.prototype._initOverlay.call(this);
-    // create testing menu
-    this.element.buttonMenu = GenericElement.buttonMenu(
-        GenericElement.hideButton(),
-        GenericElement.button("SAVE DEBUG FILE FOR DEV", () => {
-            const layoutData = UTIL.layoutToJson(this._scene, this._nodeManager, false);
-            const domData = document.documentElement.outerHTML;
-            Logger.log("Generating debug file for download");
-            UTIL.download(
-                (new Date()).toISOString() + ".txt",
-                `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${Logger.history}\n`
-            );
-        }),
-        GenericElement.button("Build phase", () => {
-            this.element._overlay.dispatchEvent(UTIL.createEvent(
-                "swapphase",
-                {phase: "build"}
-            ));
-        }),
-        GenericElement.button("Dump Node Info", () => {
-            Logger.log(this._nodeManager);
-        }),
-        GenericElement.button("Dump Overlay Info", () => {
-            Logger.log(this);
-        }),
-        GenericElement.button("Dump Mouse Info", () => {
-            Logger.log(this._mouseManager);
-        }),
-        GenericElement.button("Dump Menu Info", () => {
-            Logger.log(this._menuManager);
-        }),
-    );
-    
+    OverlayManager.prototype._initOverlay.call(this);    
     // create attack bar menu
     const attackTiles = Array.from(this._attackManager.attacks, (attack) => {
         const tile = AttackFocusMenu.createTileElement(attack.type);
@@ -570,7 +482,6 @@ AttackOverlayManager.prototype._initOverlay =  function () {
     });
     this.element.attackBarMenu = AttackBarMenu.createMenuElement(...attackTiles);
 
-    this.element._overlay.appendChild(this.element.buttonMenu);
     this.element._overlay.appendChild(this.element.attackBarMenu);
 };
 AttackOverlayManager.prototype._updateFocusMenu =  function () {
