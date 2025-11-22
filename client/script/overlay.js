@@ -206,7 +206,6 @@ export function OverlayManager(
     menuManager,
     scaleFormula = zoomScaleFormula,
 ) {
-    // const self = this;
     this._scene = scene;
     this._renderer = renderer;
     this._camera = camera;
@@ -220,7 +219,7 @@ export function OverlayManager(
     this._initState();
     if (
         Object.getPrototypeOf(this) === OverlayManager.prototype // don't reinitalize these when subclassing
-        && !this._constructorArgs.some(arg => arg === undefined)
+        && this._constructorArgs.some(arg => arg === undefined)
     ) {
         this._menuManager.init();
         this._initOverlay();
@@ -585,7 +584,7 @@ AttackOverlayManager.prototype._updateFocusMenu =  function () {
 AttackOverlayManager.prototype._loadTilesForNode =  function () {
     const nodeData = this._nodeManager.getNodeData(this.focusedNodeId);
     const attackerTiles = Array.from(
-            nodeData.attackers,
+            nodeData.slots,
             ({type}) => AttackFocusMenu.createTileElement(type)
     )
     attackerTiles.forEach((el, i) => 
@@ -626,7 +625,7 @@ AttackOverlayManager.prototype.update =  function () {
     OverlayManager.prototype.update.call(this);
     if (
         this.state.focusedNode &&
-        String(this._nodeManager.getNodeData(this.focusedNodeId).attackers[0].type) != this.element.focusMenu.children[0].dataset.attackType
+        String(this._nodeManager.getNodeData(this.focusedNodeId).slots[0].type) != this.element.focusMenu.children[0].dataset.attackType
     )
         this._updateFocusMenu();
 };

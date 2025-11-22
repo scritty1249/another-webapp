@@ -220,9 +220,9 @@ export function initAttackPhase(
     layoutFromJson(attackData.layout, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new AttackNodeManager(
-            managers.Node,
             attackData.nodeTypes,
-            attackData.attackTypes
+            attackData.attackTypes,
+            ...managers.Node._constructorArgs
         ),
         Overlay: new AttackOverlayManager(
             attackData.attacks,
@@ -277,7 +277,7 @@ export function initBuildPhase(
     managers.Listener?.clear();
     layoutFromJson(layoutData, scene, controls.drag, managers.Node);
     const controllers = {
-        Node: new BuildNodeManager(managers.Node),
+        Node: new BuildNodeManager(...managers.Node._constructorArgs),
         Overlay: new BuildOverlayManager(...managers.Overlay._constructorArgs),
         Listener: new ListenerManager(),
     };

@@ -14,486 +14,596 @@ export function NodeManager(
     raycaster,
     nodeMeshData = {}
 ) {
-    const self = this;
     this._scene = scene;
     this._camera = camera;
     this._renderer = renderer;
     this._raycaster = raycaster;
     this._meshData = nodeMeshData;
-    Object.defineProperty(self, "lowPerformanceMode", {
-        get: function() {
-            return self._lowPerformance;
-        },
-        set: function(value) {
-            self._lowPerformance = value;
-            self._setLowPerformanceMode(value);
-        }
+    if (
+        Object.getPrototypeOf(this) === NodeManager.prototype // don't reinitalize these when subclassing
+        && this._constructorArgs.some(arg => arg === undefined)
+    ) {
+        
+    }
+    Object.getOwnPropertyNames(Object.getPrototypeOf(this)).filter(prop => prop !== "constructor" && typeof this[prop] === "function").forEach(prop => {
+        this[prop] = this[prop].bind(this);
     });
-    this.centerNodes = function () {
-        // get mean node location
-        const mean = new Vector3();
-        self.nodelist.forEach(node => mean.add(node.position));
-        mean.divideScalar(self.nodelist.length);
-        self.nodelist.forEach(node => node.position.sub(mean));
-        self._updateTethers();
-    }
-    this._popNode = function (node) {
-        // remove tethers
-        if (node.userData.tetherlist.length)
-            node.userData.tetherlist.forEach(tether => this._popTether(tether));
-        this._scene.remove(node);
-        delete this.nodes[node.uuid];
-        this.nodelist = [...Object.values(this.nodes)];
-    }
-    this._pushNode = function (node) {
-        this.nodes[node.uuid] = node;
-        this.nodelist.push(this.nodes[node.uuid]);
-    }
-    this._popTether = function (tether) { // does not pop tether reference from attached nodes
-        this._scene.remove(tether);
-        // tether.userData.origin = undefined;
-        // tether.userData.target = undefined;
-        delete this.tethers[tether.uuid];
-        this.tetherlist = [...Object.values(this.tethers)]; // [!] may be optimizied, see if performance is impacted by this
-    }
-    this._pushTether = function (tether) {
-        this.tethers[tether.uuid] = tether;
-        this.tetherlist.push(this.tethers[tether.uuid]);
-    }
-    this._getTetherFromNodes = function (originid, targetid) {
-        // there should only be one tether between each node
-        const tether = this.tetherlist.filter(t => 
-            t.userData.origin.uuid === originid &&
-            t.userData.target.uuid === targetid
-        );
-        if (!tether.length)
-            throw new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`);
-        return tether[0]; // there should only be one
-    }
-    this.isNeighbor = function (originid, targetid) { // order does not matter, returns the tether uuid if true
-        // there should only be one tether between each node
-        const tether = this.tetherlist.filter(t => 
-            (
-                t.userData.origin.uuid === originid &&
-                t.userData.target.uuid === targetid
-            ) || (
-                t.userData.origin.uuid === targetid &&
-                t.userData.target.uuid === originid
-            )
-        );
-        if (tether.length > 0)
-            return tether[0].uuid;
-        return false;
-    }
-    this.getOtherNode = function (tetherid, nodeid) {
-        const tether = this.getTether(tetherid);
-        const originid = tether.userData.origin.uuid;
-        const targetid = tether.userData.target.uuid;
-        return (originid == nodeid) ? targetid : originid;
-    }
-    this.getNeighbors = function (nodeid) {
-        const node = this.getNode(nodeid);
-        return [
-            ...Object.values(node.userData.tethers.origin).map(t => t.userData.target),
-            ...Object.values(node.userData.tethers.target).map(t => t.userData.origin)
-        ];
-    }
-    this.getNodes = function (...nodeids) {
-        return nodeids.map(nodeid => this.getNode(nodeid));
-    }
-    this._removeTether = function (tether) {
-        const [origin, target] = this._getNodesFromTether(tether);
-        // [!] hoping this just removes the reference and not the actual object
-        delete origin.userData.tethers.origin[tether.uuid];
-        delete target.userData.tethers.target[tether.uuid];
-        this._popTether(tether);
-    }
-    this._getNodesFromTether = function (tether) {
-        return [
-            tether.userData.origin,
-            tether.userData.target
-        ];
-    }
-    this._updateAnimations = function (timedelta) {
-        this.nodelist.forEach(node => {
-            if (node.userData.updateAnimations)
-                node.userData.updateAnimations(timedelta);
-        });
-    }
-    this.getNode = function (nodeid) {
-        const node = this.nodes[nodeid];
-        if (!node)
-            Logger.throw(new Error(`[NodeManager] | Node with UUID "${nodeid}" does not exist.`));
-        return node;
-    }
-    this.createNode = function (nodeType, position = [0, 0, 0]) {
-        const newNode = this._getMesh(nodeType);
-        if (position.x)
-            newNode.position.set(position.x, position.y, position.z);
-        else
-            newNode.position.set(...position);
-        this._pushNode(newNode);
-        this._scene.add(newNode);
-        Logger.debug(`[NodeManager] | Created new Node (${nodeType}): ${newNode.uuid}`);
-        return newNode.uuid;
-    }
-    this._getMesh = function (meshName, ...args) {
-        if (!Object.keys(self._meshData).includes(meshName))
-            Logger.throw(new Error(`[NodeManager] | Could load mesh of type "${nodeType}": No mesh data found.`));
-        return self._meshData[meshName](...args);
-    }
-    this.addMeshData = function (meshData) {
-        Object.keys(meshData).forEach(nodeType => this._meshData[nodeType] = meshData[nodeType]);
-    }
-    this.update = function (timedelta) {
-        this._updateAnimations(timedelta);
-    }
-    this.getFlatCoordinateFromNode = function (nodeid) {
-        const worldPosition = new Vector3();
-        self.getNode(nodeid).getWorldPosition(worldPosition); // Get world position (not local!)
-        worldPosition.project(self._camera); // Project to NDC
-    
-        const rect = self._renderer.domElement.getBoundingClientRect();
-    
-        const screenX = (worldPosition.x * 0.5 + 0.5) * rect.width + rect.left;
-        const screenY = (-worldPosition.y * 0.5 + 0.5) * rect.height + rect.top;
-    
-        return { x: screenX, y: screenY, distance: camera.position.distanceTo(worldPosition) };
-    }
-    this.getNodeFromFlatCoordinate = function (coordinate) { // [!] this modifies the raycaster
-        self._raycaster.setFromCamera(coordinate, self._camera);
-        const intersects = self._raycaster.intersectObjects(self.nodelist, true);
-        return intersects.length > 0
-            ? intersects[0].object.userData.nodeid ?
-                intersects[0].object.userData.nodeid
-                : intersects[0].object.userData.uuid
-            : undefined;
-    }
-    this._setLowPerformanceMode = function (low) {
-        if (low)
-            self.nodelist.forEach(node => node.userData.state.setLowPerformance());
-        else
-            self.nodelist.forEach(node => node.userData.state.setHighPerformance());
-    }
-    this.clear = function () {
-        const nodeCount = self.nodelist.length;
-        const tetherCount = self.tetherlist.length;
-        self.nodelist.forEach(n => self._popNode(n));
-        self.tetherlist.forEach(t => self._popTether(t));
-        Logger.log(`[NodeManager] | Cleared ${nodeCount} nodes and ${tetherCount} tethers`);
-    }
-    this._tetherNodes = function (origin, target) {
-        if (this.isNeighbor(origin.uuid, target.uuid))
-            throw new Error(
-                `[NodeManager] | Tether already exists between Nodes ${originid} and ${targetid}`
-            );
-        else if (origin.uuid == target.uuid)
-            throw new Error(
-                `[NodeManager] | Cannot tether a Node to itself`
-            );
-        const tether = this._getMesh("tether", origin, target);
-        this._pushTether(tether);
-        this._scene.add(tether);
-        return tether;
-    }
-    this.tetherNodes = function (originid, targetid) {
-        const [origin, target] = this.getNodes(originid, targetid);
-        const tether = this._tetherNodes(origin, target);
-        return tether.uuid;
-    }
-    this.removeTether = function (tetherid) {
-        const tether = this.getTether(tetherid);
-        this._removeTether(tether);
-    }
-    this.getTether = function (tetherid) {
-        const tether = this.tethers[tetherid];
-        if (!tether)
-            Logger.throw(new Error(`[NodeManager] | Tether with UUID "${tetherid}" does not exist.`));
-        return tether;
-    }
-    this.getDistance = function (originid, targetid) {
-        const [origin, target] = this.getNodes(originid, targetid);
-        return origin.position.distanceTo(target.position);
-    }
-    this.getDirection = function (originid, targetid) {
-        const [origin, target] = this.getNodes(originid, targetid);
-        return new THREE.Vector3().subVectors(
-            origin.position,
-            target.position
-        );
-    }
-    this.getCameraDirection = function (nodeid) { // [!] needs a concise, but DESCRIPTIVE name. come back to this later and do better
-        const node = this.getNode(nodeid);
-        const nodeWorldPos = new Vector3();
-        const cameraWorldPos = new Vector3();
-        const direction = new Vector3();
-        node.getWorldPosition(nodeWorldPos);
-        this._camera.getWorldPosition(cameraWorldPos);
-        direction.subVectors(cameraWorldPos, nodeWorldPos);
-        direction.normalize();
-        return direction;
-    }
-    this.getCameraDistance = function (nodeid) {
-        const node = this.getNode(nodeid);
-        const distance = this._camera.position.distanceTo(node.position);
-        return distance;
-    }
-    this.getAngle = function (originid, targetid) { // returns in RADIANS
-        const [origin, target] = this.getNodes(originid, targetid);
-        return origin.position.angleTo(target.position);
-    }
-    this._updateTethers = function () {
-        this.tetherlist.forEach(tether => {
-            if (
-                tether.userData.origin.position != tether.userData.vectors.origin ||
-                tether.userData.target.position != tether.userData.vectors.target
-            ) {
-                tether.userData.update();
-            }
-        });
-    }
-    return this;
+    //if (this._proxyHandlers) {
+        Object.values(this._proxyHandlers).forEach(handler => handler._instance = this);
+        this.nodes = new Proxy(this._nodes, this._proxyHandlers.nodes);
+        this.tethers = new Proxy(this._tethers, this._proxyHandlers.tethers);
+        this.nodelist = new Proxy(this._nodelist, this._proxyHandlers.nodelist);
+        this.tetherlist = new Proxy(this._tetherlist, this._proxyHandlers.tetherlist);
+    //}
 }
 
 NodeManager.prototype = {
+    _proxyHandlers: {
+        nodes: {
+            set (target, prop, val, receiver) {
+                if (Reflect.has(target, prop)) {
+                    Logger.throw(new Error(`[NodeManager] | Cannot add new node (${val.userData?.type}): A node (${target[prop].userData?.type}) with UUID ${target[prop].uuid} already exists.`));
+                    return false;
+                }
+                this._instance._nodelist.push(val);
+                this._instance._scene.add(val);
+                return Reflect.set(target, prop, val, receiver);
+            },
+            deleteProperty (target, prop) {
+                const node = target[prop];
+                // remove connected tethers
+                if (node.userData?.tetherlist?.length)
+                    node.userData.tetherlist.forEach(tether => delete this._instance.tethers[tether.uuid]);
+                this._instance._scene.remove(node);
+                // [!] may be optimizied, see if performance is impacted by this
+                this._instance._nodelist.splice(
+                    this._instance._nodelist.map(n => n.uuid)
+                        .indexOf(node.uuid),
+                    1
+                );
+                return Reflect.deleteProperty(target, prop);
+            }
+        },
+        tethers: {
+            set (target, prop, val, receiver) {
+                if (Reflect.has(target, prop)) {
+                    Logger.throw(new Error(`[NodeManager] | Cannot add new tether: A tether with UUID ${target[prop].uuid} already exists.`));
+                    return false;
+                }
+                this._instance._tetherlist.push(val);
+                this._instance._scene.add(val)
+                return Reflect.set(target, prop, val, receiver);
+            },
+            deleteProperty (target, prop) {
+                const tether = target[prop];
+                {
+                    const [origin, target] = this._instance._getNodesFromTether(tether);
+                    // [!] hoping this just removes the reference and not the actual object
+                    delete origin.userData.tethers.origin[prop];
+                    delete target.userData.tethers.target[prop];
+                }
+                this._instance._scene.remove(tether);
+                // [!] may be optimizied, see if performance is impacted by this
+                this._instance._tetherlist.splice(
+                    this._instance._tetherlist.map(t => t.uuid)
+                        .indexOf(tether.uuid),
+                    1
+                );
+                return Reflect.deleteProperty(target, prop);
+            }
+        },
+        nodelist: {
+            set (target, prop, val, receiver) {
+                if (typeof property === "number") {
+                    Logger.throw(new Error(`[NodeManager] | Setting specific index of read-only nodelist is forbidden.`));
+                    return false;
+                }
+                return Reflect.set(target, prop, val, receiver);
+            }
+        },
+        tetherlist: {
+            set (target, prop, val, receiver) {
+                if (typeof property === "number") {
+                    Logger.throw(new Error(`[NodeManager] | Setting specific index of read-only tetherlist is forbidden.`));
+                    return false;
+                }
+                return Reflect.set(target, prop, val, receiver);
+            }
+        },
+    },
+    _nodes: {},
+    _nodelist: [],
+    _tethers: {},
+    _tetherlist: [],
+    nodes: undefined,
+    tethers: undefined,
+    nodelist: undefined,
+    tetherlist: undefined,
     _lowPerformance: false,
-    nodes: {},
-    nodelist: [], // read only
-    tethers: {},
-    tetherlist: [], // read only
-}
+    get lowPerformanceMode () {
+        return this._lowPerformance;
+    },
+    set lowPerformanceMode (bool) {
+        if (this._lowPerformance != bool)
+            this._setLowPerformanceMode(bool);
+        this._lowPerformance = bool;
+    },
+    get _constructorArgs () {
+        return [
+            this._scene,
+            this._renderer,
+            this._camera,
+            this._raycaster,
+            this._meshData,
+        ];
+    },
+};
+NodeManager.prototype.centerNodes = function () {
+    // get mean node location
+    const mean = new Vector3();
+    this.nodelist.forEach(node => mean.add(node.position));
+    mean.divideScalar(this.nodelist.length);
+    this.nodelist.forEach(node => node.position.sub(mean));
+    this._updateTethers();
+};
+NodeManager.prototype._getTetherFromNodes = function (originid, targetid) {
+    // there should only be one tether between each node
+    const tether = this.tetherlist.filter(t => 
+        t.userData.origin.uuid === originid &&
+        t.userData.target.uuid === targetid
+    );
+    if (!tether.length)
+        throw new Error(`[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`);
+    return tether[0]; // there should only be one
+};
+NodeManager.prototype.isNeighbor = function (originid, targetid) { // order does not matter, returns the tether uuid if true
+    // there should only be one tether between each node
+    const tether = this.tetherlist.filter(t => 
+        (
+            t.userData.origin.uuid === originid &&
+            t.userData.target.uuid === targetid
+        ) || (
+            t.userData.origin.uuid === targetid &&
+            t.userData.target.uuid === originid
+        )
+    );
+    if (tether.length > 0)
+        return tether[0].uuid;
+    return false;
+};
+NodeManager.prototype.getOtherNode = function (tetherid, nodeid) {
+    const tether = this.getTether(tetherid);
+    const originid = tether.userData.origin.uuid;
+    const targetid = tether.userData.target.uuid;
+    return (originid == nodeid) ? targetid : originid;
+};
+NodeManager.prototype.getNeighbors = function (nodeid) {
+    const node = this.getNode(nodeid);
+    return [
+        ...Object.values(node.userData.tethers.origin).map(t => t.userData.target),
+        ...Object.values(node.userData.tethers.target).map(t => t.userData.origin)
+    ];
+};
+NodeManager.prototype.getNodes = function (...nodeids) {
+    return nodeids.map(nodeid => this.getNode(nodeid));
+};
+NodeManager.prototype._getNodesFromTether = function (tether) {
+    return [
+        tether.userData.origin,
+        tether.userData.target
+    ];
+};
+NodeManager.prototype._updateAnimations = function (timedelta) {
+    this.nodelist.forEach(node => {
+        if (node.userData.updateAnimations)
+            node.userData.updateAnimations(timedelta);
+    });
+};
+NodeManager.prototype.getNode = function (nodeid) {
+    const node = this.nodes[nodeid];
+    if (!node)
+        Logger.throw(new Error(`[NodeManager] | Node with UUID "${nodeid}" does not exist.`));
+    return node;
+};
+NodeManager.prototype.createNode = function (nodeType, position = [0, 0, 0]) {
+    const newNode = this._getMesh(nodeType);
+    if (position.x)
+        newNode.position.set(position.x, position.y, position.z);
+    else
+        newNode.position.set(...position);
+    this.nodes[newNode.uuid] = newNode;
+    Logger.debug(`[NodeManager] | Created new Node (${nodeType}): ${newNode.uuid}`);
+    return newNode.uuid;
+};
+NodeManager.prototype._getMesh = function (meshName, ...args) {
+    if (!Object.keys(this._meshData).includes(meshName))
+        Logger.throw(new Error(`[NodeManager] | Could load mesh of type "${nodeType}": No mesh data found.`));
+    return this._meshData[meshName](...args);
+};
+NodeManager.prototype.addMeshData = function (meshData) {
+    Object.keys(meshData).forEach(nodeType => this._meshData[nodeType] = meshData[nodeType]);
+};
+NodeManager.prototype.update = function (timedelta) {
+    this._updateAnimations(timedelta);
+};
+NodeManager.prototype.getFlatCoordinateFromNode = function (nodeid) {
+    const worldPosition = new Vector3();
+    this.getNode(nodeid).getWorldPosition(worldPosition); // Get world position (not local!)
+    worldPosition.project(this._camera); // Project to NDC
+
+    const rect = this._renderer.domElement.getBoundingClientRect();
+
+    const screenX = (worldPosition.x * 0.5 + 0.5) * rect.width + rect.left;
+    const screenY = (-worldPosition.y * 0.5 + 0.5) * rect.height + rect.top;
+
+    return { x: screenX, y: screenY, distance: this._camera.position.distanceTo(worldPosition) };
+};
+NodeManager.prototype.getNodeFromFlatCoordinate = function (coordinate) { // [!] this modifies the raycaster
+    this._raycaster.setFromCamera(coordinate, this._camera);
+    const intersects = this._raycaster.intersectObjects(this.nodelist, true);
+    return intersects.length > 0
+        ? intersects[0].object.userData.nodeid ?
+            intersects[0].object.userData.nodeid
+            : intersects[0].object.userData.uuid
+        : undefined;
+};
+NodeManager.prototype._setLowPerformanceMode = function (low) {
+    if (low)
+        this.nodelist.forEach(node => node.userData.state.setLowPerformance());
+    else
+        this.nodelist.forEach(node => node.userData.state.setHighPerformance());
+};
+NodeManager.prototype.clear = function () {
+    const nodes = [...this.nodelist];
+    const tethers = [...this.tetherlist];
+    tethers.forEach(t => delete this.tethers[t.uuid]);
+    nodes.forEach(n => delete this.nodes[n.uuid]);
+    Logger.log(`[NodeManager] | Cleared ${nodes.length} nodes and ${tethers.length} tethers`);
+};
+NodeManager.prototype._tetherNodes = function (origin, target) {
+    if (this.isNeighbor(origin.uuid, target.uuid))
+        throw new Error(
+            `[NodeManager] | Tether already exists between Nodes ${originid} and ${targetid}`
+        );
+    else if (origin.uuid == target.uuid)
+        throw new Error(
+            `[NodeManager] | Cannot tether a Node to itself`
+        );
+    const tether = this._getMesh("tether", origin, target);
+    this.tethers[tether.uuid] = tether;
+    return tether;
+};
+NodeManager.prototype.tetherNodes = function (originid, targetid) {
+    const [origin, target] = this.getNodes(originid, targetid);
+    const tether = this._tetherNodes(origin, target);
+    return tether.uuid;
+};
+NodeManager.prototype.removeTether = function (tetherid) {
+    delete this.tethers[tetherid];
+};
+NodeManager.prototype.getTether = function (tetherid) {
+    const tether = this.tethers[tetherid];
+    if (!tether)
+        Logger.throw(new Error(`[NodeManager] | Tether with UUID "${tetherid}" does not exist.`));
+    return tether;
+};
+NodeManager.prototype.getDistance = function (originid, targetid) {
+    const [origin, target] = this.getNodes(originid, targetid);
+    return origin.position.distanceTo(target.position);
+};
+NodeManager.prototype.getDirection = function (originid, targetid) {
+    const [origin, target] = this.getNodes(originid, targetid);
+    return new THREE.Vector3().subVectors(
+        origin.position,
+        target.position
+    );
+};
+NodeManager.prototype.getCameraDirection = function (nodeid) { // [!] needs a concise, but DESCRIPTIVE name. come back to this later and do better
+    const node = this.getNode(nodeid);
+    const nodeWorldPos = new Vector3();
+    const cameraWorldPos = new Vector3();
+    const direction = new Vector3();
+    node.getWorldPosition(nodeWorldPos);
+    this._camera.getWorldPosition(cameraWorldPos);
+    direction.subVectors(cameraWorldPos, nodeWorldPos);
+    direction.normalize();
+    return direction;
+};
+NodeManager.prototype.getCameraDistance = function (nodeid) {
+    const node = this.getNode(nodeid);
+    const distance = this._camera.position.distanceTo(node.position);
+    return distance;
+};
+NodeManager.prototype.getAngle = function (originid, targetid) { // returns in RADIANS
+    const [origin, target] = this.getNodes(originid, targetid);
+    return origin.position.angleTo(target.position);
+};
+NodeManager.prototype._updateTethers = function () {
+    this.tetherlist.forEach(tether => {
+        if (
+            tether.userData.origin.position != tether.userData.vectors.origin ||
+            tether.userData.target.position != tether.userData.vectors.target
+        ) {
+            tether.userData.update();
+        }
+    });
+};
 
 export function AttackNodeManager (
-    nodeManager,
     nodeTypeData = {},
-    attackTypeData = {}
+    attackTypeData = {},
+    ...parentArgs
 ) {
-    const self = {...nodeManager};
-    self.tick = {
+    NodeManager.call(this, ...parentArgs);
+    this._nodeTypeData = nodeTypeData;
+    this._attackTypeData = attackTypeData;
+    this.nodedata = new Proxy(this._nodedata, this._proxyHandlers.nodedata);
+    this.attacks = new Proxy(this._attacks, this._proxyHandlers.attacks);
+    this.attacklist = new Proxy(this._attacklist, this._proxyHandlers.attacklist);
+    this.tick = {
         delta: 0,
         interval: 0.1 // seconds, configurable
     };
-    self._nodeTypeData = nodeTypeData;
-    self._attackTypeData = attackTypeData;
-    self.nodedata = {};
-    self.attacks = {};
-    self.attacklist = []; // read only
-    UTIL.bindProperty(nodeManager, self, "nodelist");
-    UTIL.bindProperty(nodeManager, self, "tethers");
-    UTIL.bindProperty(nodeManager, self, "tetherlist");
-    self.nodes = new Proxy(nodeManager.nodes, {
-        set(target, key, value, receiver) {
-            Logger.log(key, value);
-            if (!self._nodeTypeData[value.userData.type])
-                Logger.throw(`[AttackNodeManager] | Error while adding node ${key}: No data found for Node type "${value.userData.type}"`);
-            self.nodedata[key] = self._addNodeData(node.uuid);
-            return Reflect.set(target, key, value, receiver); // default behavior, equal to "self._nodes[key] = value"
-        },
-        deleteProperty(target, key) {
-            const res = Reflect.deleteProperty(target, key); // default behavior, equal to "delete self._nodes[key]"
-            self.nodelist = [...Object.values(self._nodes)];
-            return res;
-        }
-    });
-    self._addNodeData = function (node) {
-        try {
-            self.nodedata[node.uuid] = NodeDataFactory(node.uuid, self);
-            if (!self.nodedata[node.uuid].isFriendly) {
-                //self.nodedata[node.uuid].slots = 99;
-                if (node.userData.type == "cube")
-                    self.addAttackToNode("cubedefense", node.uuid);
-            }
-        } catch (err) {
-            Logger.error(`[AttackNodeManager] | Error while creating node data for type: ${node.userData.type}`);
-            Logger.throw(err);
-        }   
-    }
-    self.getNodeData = function (nodeid) {
-        const nodeData = self.nodedata[nodeid];
-        if (!nodeData)
-            Logger.throw(new Error(`[AttackNodeManager] | Error getting data: Node with UUID "${nodeid}" does not exist.`));
-        return nodeData;
-    }
-    self._getNodeTypeData = function (nodeType) {
-        if (!Object.keys(self._nodeTypeData).includes(nodeType))
-            Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`));
-        return self._nodeTypeData[nodeType];
-    }
-    self._getAttackTypeData = function (attackType) {
-        if (!Object.keys(this._attackTypeData).includes(attackType))
-            Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve attack data for type "${attackType}"`));
-        return this._attackTypeData[attackType];
-    }
-    self.addAttackData = function (attackData) {
-        Object.keys(attackData).forEach(attackType => this._attackTypeData[attackType] = attackData[attackType]);
-    }
-    self.setNodeFriendly = function (nodeid) {
-        const node = this.getNode(nodeid);
-        const nodeData = this.getNodeData(nodeid);
-        const nodeTypeData = this._getNodeTypeData(node.userData.type);
-        nodeData.attackers.clear();
-        if (node.userData.type != "globe") {
-            nodeData.friendly = true;
-            nodeData.hp.set(nodeTypeData.health / 2);
-            node.userData.traverseMesh(function (mesh) {
-                if (mesh.material.emissive && !mesh.material.emissive.equals(colorValue)) {
-                    mesh.userData.oldEmissive = mesh.material.color.clone();
-                    mesh.material.emissive.set(colorValue); 
-                }
-            });
-        }
-    }
-    self.setNodeEnemy = function (nodeid) {
-        const node = this.getNode(nodeid);
-        const nodeData = this.getNodeData(nodeid);
-        const nodeTypeData = this._getNodeTypeData(node.userData.type);
-        nodeData.attackers.clear();
-        if (node.userData.type == "cube")
-            self.addAttackToNode("cubedefense", node.uuid);
-        if (node.userData.type != "globe") {
-            nodeData.friendly = false;
-            nodeData.hp.set(nodeTypeData.health);
-            node.userData.traverseMesh(function (mesh) {
-                if (mesh.material.emissive && mesh.userData.oldEmissive)
-                    mesh.material.emissive.set(mesh.userData.oldEmissive);
-            });
-        }
-    }
-    self._pushAttack = function (attack) {
-        this.attacks[attack.uuid] = attack;
-        this.attacklist.push(this.attacks[attack.uuid]);
-    }
-    self._popAttack = function (attack) {
-        attack.halt();
-        this._scene.remove(attack.mesh);
-        delete this.attacks[attack.uuid];
-        this.attacklist = [...Object.values(this.attacks)]; // [!] may be optimizied, see if performance is impacted by this
-    }
-    self.getAttack = function (attackid) {
-        const attack = this.attacks[attackid];
-        if (!attack)
-            Logger.throw(new Error(`[AttackNodeManager] | Attack with UUID "${attackid}" does not exist.`));
-        return attack;
-    }
-    self.createAttack = function (originid, attackType) {
-        const attack = AttackFactory(attackType, originid, self);
-        this._pushAttack(attack);
-        attack.update();
-        this._scene.add(attack.mesh);
-        Logger.debug(`[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}`);
-        return attack.uuid;
-    }
-    self.getAllAttacksFrom = function (nodeid) {
-        return this.attacklist.filter(attack => attack.origin == nodeid);
-    }
-    self.getAllAttacksTo = function (nodeid) {
-        return this.attacklist.filter(attack => attack.target == nodeid);
-    }
-    self.addAttackToNode = function (attackType, nodeid) {
-        const nodeData = this.getNodeData(nodeid);
-        if (nodeData.attackers.space >= 1)
-            nodeData.attackers.push({
-                uuid: this.createAttack(nodeid, attackType),
-                type: attackType
-            });
-        else
-            Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.attackers.length} slots.`);
-    }
-    self._updateAnimations = function (timedelta) {
-        this.nodelist.forEach(node => {
-            if (node.userData.updateAnimations) {
-                const data = this.getNodeData(node.uuid);
-                node.userData.updateAnimations((data.isFriendly && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
-            }
-        });
-    }
-    self._updateAttacks = function () {
-        this.attacklist.forEach(attack => attack.update());
-    }
-    self._updateTick = function (timedelta) {
-        this.tick.delta += timedelta;
-        if (this.tick.delta < this.tick.interval)
-            return;
-        // deal damage and whatnot here
-
-        this.tick.delta = this.tick.delta % this.tick.interval;
-    }
-    self.update = function (timedelta) {
-        this._updateTick(timedelta);
-        this._updateAnimations(timedelta);
-        this._updateAttacks();
-    }
-    self.clear = function () {
-        const nodeCount = this.nodelist.length;
-        const tetherCount = this.tetherlist.length;
-        const attackCount = this.attacklist.length;
-        this.tetherlist.forEach(t => this._popTether(t));
-        this.attacklist.forEach(a => this._popAttack(a));
-
-        Object.entries(this.nodes).forEach(([id, n]) => {
-            this._popNode(n);
-            delete this.nodedata[id];
-        });
-        delete this._nodeTypeData;
-        this._nodeTypeData = {};
-        delete this._attackTypeData;
-        this._attackTypeData = {};
-        Logger.log(`[AttackNodeManager] | Cleared ${nodeCount} nodes, ${attackCount} attacks, and ${tetherCount} tethers`);
-    }
     // init data for existing nodes
-    Object.values(self.nodes).forEach(node => self._addNodeData(node));
-
-    return self;
+    Object.values(this.nodes).forEach(node => this._addNodeData(node));
 }
+AttackNodeManager.prototype = Object.create(NodeManager.prototype);
+AttackNodeManager.prototype.constructor = AttackNodeManager;
+AttackNodeManager.prototype._proxyHandlers = { ...AttackNodeManager.prototype._proxyHandlers,
+    nodes: {
+        set (target, prop, val, receiver) {
+            if (Reflect.has(target, prop)) {
+                Logger.throw(new Error(`[NodeManager] | Cannot add new node (${val.userData?.type}): A node (${target[prop].userData?.type}) with UUID ${target[prop].uuid} already exists.`));
+                return false;
+            } else {
+                this.instance._addNodeData(val);
+            }
+            this._instance._nodelist.push(val);
+            this._instance._scene.add(val);
+            return Reflect.set(target, prop, val, receiver);
+        },
+        deleteProperty (target, prop) {
+            const node = target[prop];
+            // remove connected tethers
+            if (node.userData?.tetherlist?.length)
+                node.userData.tetherlist.forEach(tether => delete this._instance.tethers[tether.uuid]);
+            this._instance._scene.remove(node);
+            // [!] may be optimizied, see if performance is impacted by this
+            this._instance._nodelist.splice(
+                this._instance._nodelist.map(n => n.uuid)
+                    .indexOf(node.uuid),
+                1
+            );
+            delete this._instance._nodedata[prop];
+            return Reflect.deleteProperty(target, prop);
+        }
+    },
+    nodedata: {
+        set (target, prop, val, receiver) {
+            Logger.throw(new Error(`[AttackNodeManager] | Overwriting node entries in read-only nodedata is forbidden.`));
+            return false;
+        },
+        deleteProperty (target, prop) {
+            Logger.throw(new Error(`[AttackNodeManager] | Delete node entries in read-only nodedata is forbidden.`));
+            return false;
+        }
+    },
+    attacks: {
+        set (target, prop, val, receiver) {
+            if (Reflect.has(target, prop)) {
+                Logger.throw(new Error(`[AttackNodeManager] | Cannot add new attack (${val.type}): An attack (${target[prop].type}) with UUID ${target[prop].uuid} already exists.`));
+                return false;
+            }
+            this._instance._attacklist.push(val);
+            val.update();
+            this._instance._scene.add(val.mesh);
+            return Reflect.set(target, prop, val, receiver);
+        },
+        deleteProperty (target, prop) {
+            const attack = target[prop];
+            if (attack) {
+                attack.halt();
+                this._instance._scene.remove(attack.mesh);
+            }
+            const result = Reflect.deleteProperty(target, prop);
+            this._instance._attacklist = [...Object.values(target)]; // [!] may be optimizied, see if performance is impacted by this
+            return result;
+        }
+    },
+    attacklist: {
+        set (target, prop, val, receiver) {
+            if (typeof property === "number") {
+                Logger.throw(new Error(`[AttackNodeManager] | Setting specific index of read-only attacklist is forbidden.`));
+                return false;
+            }
+            return Reflect.set(target, prop, val, receiver);
+        }
+    },
+};
+AttackNodeManager.prototype.tick = {
+    delta: undefined,
+    interval: undefined // seconds, configurable
+};
+AttackNodeManager.prototype._nodeTypeData = {};
+AttackNodeManager.prototype._attackTypeData = {};
 
-export function BuildNodeManager (
-    nodeManager
-) {
-    const self = {...nodeManager};
-    UTIL.bindProperty(nodeManager, self, "nodes");
-    UTIL.bindProperty(nodeManager, self, "nodelist");
-    UTIL.bindProperty(nodeManager, self, "tethers");
-    UTIL.bindProperty(nodeManager, self, "tetherlist");
-    self.untetherNodes = function (originid, targetid) {
-        const tether = this._getTetherFromNodes(originid, targetid);
-        this._removeTether(tether); // a bit inefficient
+AttackNodeManager.prototype._nodedata = {};
+AttackNodeManager.prototype._attacks = {};
+AttackNodeManager.prototype._attacklist = [];
+AttackNodeManager.prototype.nodedata = undefined;
+AttackNodeManager.prototype.attacks = undefined;
+AttackNodeManager.prototype.attacklist = undefined;
+
+AttackNodeManager.prototype._addNodeData = function (node) { // [!] never call this outside of proxy handler and constructor
+    try {
+        this._nodedata[node.uuid] = NodeDataFactory(node.uuid, this);
+        if (!this.nodedata[node.uuid].isFriendly) {
+            if (node.userData.type == "cube")
+                this.addAttackToNode("cubedefense", node.uuid);
+        }
+    } catch (err) {
+        Logger.error(`[AttackNodeManager] | Error while creating node data for type: ${node.userData.type}`);
+        Logger.throw(err);
+    }   
+};
+AttackNodeManager.prototype.addAttackData = function (attackData) {
+    Object.keys(attackData).forEach(attackType => this._attackTypeData[attackType] = attackData[attackType]);
+};
+AttackNodeManager.prototype.getAttack = function (attackid) {
+    const attack = this.attacks[attackid];
+    if (!attack)
+        Logger.throw(new Error(`[AttackNodeManager] | Attack with UUID "${attackid}" does not exist.`));
+    return attack;
+};
+AttackNodeManager.prototype.createAttack = function (originid, attackType) {
+    const attack = AttackFactory(attackType, originid, this);
+    this.attacks[attack.uuid] = attack;
+    Logger.debug(`[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}`);
+    return attack.uuid;
+};
+AttackNodeManager.prototype.getNodeData = function (nodeid) {
+    const nodeData = this.nodedata[nodeid];
+    if (!nodeData) {
+        if (this.nodes[nodeid])
+            Logger.warn(`[AttackNodeManager] | Node with UUID ${nodeid} exists, but has no node data!`);
+        Logger.throw(new Error(`[AttackNodeManager] | Data for node with UUID ${nodeid} does not exist.`));
     }
-    self.untetherNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        node.userData.tetherlist.forEach(tether => this._removeTether(tether));
-    }
-    self.removeNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        this._popNode(node);
-    }
-    self._setNodeEmissive = function (node, emissive) {
+    return nodeData;
+};
+AttackNodeManager.prototype._getNodeTypeData = function (nodeType) {
+    if (!Object.keys(this._nodeTypeData).includes(nodeType))
+        Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`));
+    return this._nodeTypeData[nodeType];
+};
+AttackNodeManager.prototype._getAttackTypeData = function (attackType) {
+    if (!Object.keys(this._attackTypeData).includes(attackType))
+        Logger.throw(new Error(`[AttackNodeManager] | Could not retrieve attack data for type "${attackType}"`));
+    return this._attackTypeData[attackType];
+};
+AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
+    const node = this.getNode(nodeid);
+    const nodeData = this.getNodeData(nodeid);
+    const nodeTypeData = this._getNodeTypeData(node.userData.type);
+    nodeData.slots.clear();
+    if (node.userData.type != "globe") {
+        nodeData.friendly = true;
+        nodeData.hp.set(nodeTypeData.health / 2);
         node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive)
-                mesh.material.emissive.set(emissive);
-        });
-    }
-    self.highlightNode = function (nodeid) {
-        const node = this.getNode(nodeid);
-        node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive && !mesh.material.emissive.equals(emissiveValue)) {
-                mesh.userData.oldEmissive = mesh.material.emissive.clone();
-                mesh.material.emissive.set(emissiveValue);
+            if (mesh.material.emissive && !mesh.material.emissive.equals(colorValue)) {
+                mesh.userData.oldEmissive = mesh.material.color.clone();
+                mesh.material.emissive.set(colorValue); 
             }
         });
     }
-    self.unhighlightNode = function (nodeid) {
-        const node = this.getNode(nodeid);
+};
+AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
+    const node = this.getNode(nodeid);
+    const nodeData = this.getNodeData(nodeid);
+    const nodeTypeData = this._getNodeTypeData(node.userData.type);
+    nodeData.slots.clear();
+    if (node.userData.type == "cube")
+        this.addAttackToNode("cubedefense", node.uuid);
+    if (node.userData.type != "globe") {
+        nodeData.friendly = false;
+        nodeData.hp.set(nodeTypeData.health);
         node.userData.traverseMesh(function (mesh) {
             if (mesh.material.emissive && mesh.userData.oldEmissive)
                 mesh.material.emissive.set(mesh.userData.oldEmissive);
         });
     }
-    self.update = function (timedelta) {
-        this._updateAnimations(timedelta);
-        this._updateTethers();
-    }
-    return self;
+};
+AttackNodeManager.prototype.getAllAttacksFrom = function (nodeid) {
+    return this.attacklist.filter(attack => attack.origin == nodeid);
+};
+AttackNodeManager.prototype.getAllAttacksTo = function (nodeid) {
+    return this.attacklist.filter(attack => attack.target == nodeid);
+};
+AttackNodeManager.prototype.addAttackToNode = function (attackType, nodeid) {
+    const nodeData = this.getNodeData(nodeid);
+    if (nodeData.slots.empty >= 1)
+        nodeData.slots.push({
+            uuid: this.createAttack(nodeid, attackType),
+            type: attackType
+        });
+    else
+        Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.slots.length} slots.`);
+};
+AttackNodeManager.prototype._updateAnimations = function (timedelta) {
+    this.nodelist.forEach(node => {
+        if (node.userData.updateAnimations) {
+            const data = this.getNodeData(node.uuid);
+            node.userData.updateAnimations((data.isFriendly && node.userData.type != "globe" ? 0.4 : 1) * timedelta);
+        }
+    });
+};
+AttackNodeManager.prototype._updateAttacks = function () {
+    this.attacklist.forEach(attack => attack.update());
+};
+AttackNodeManager.prototype._updateTick = function (timedelta) {
+    this.tick.delta += timedelta;
+    if (this.tick.delta < this.tick.interval)
+        return;
+    // deal damage and whatnot here
+
+    this.tick.delta = this.tick.delta % this.tick.interval;
+};
+AttackNodeManager.prototype.update = function (timedelta) {
+    this._updateTick(timedelta);
+    NodeManager.prototype.update.call(this, timedelta);
+    this._updateAttacks();
+};
+AttackNodeManager.prototype.clear = function () {
+    NodeManager.prototype.clear.call(this);
+    this.attacklist.forEach(a => delete this.attacks[a.uuid]);
+    delete this._nodeTypeData;
+    this._nodeTypeData = {};
+    delete this._attackTypeData;
+    this._attackTypeData = {};
+};
+
+export function BuildNodeManager (...parentArgs) {
+    NodeManager.call(this, ...parentArgs);
 }
+BuildNodeManager.prototype = Object.create(NodeManager.prototype);
+BuildNodeManager.prototype.constructor = BuildNodeManager;
+BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
+    const tether = this._getTetherFromNodes(originid, targetid);
+    delete this.tethers[tether.uuid];
+}
+BuildNodeManager.prototype.untetherNode = function (nodeid) {
+    const node = this.getNode(nodeid);
+    node.userData.tetherlist.forEach(t => delete this.tethers[t.uuid]);
+}
+BuildNodeManager.prototype.removeNode = function (nodeid) {
+    delete this.nodes[nodeid];
+}
+BuildNodeManager.prototype._setNodeEmissive = function (node, emissive) {
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.emissive)
+            mesh.material.emissive.set(emissive);
+    });
+}
+BuildNodeManager.prototype.highlightNode = function (nodeid) {
+    const node = this.getNode(nodeid);
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.emissive && !mesh.material.emissive.equals(emissiveValue)) {
+            mesh.userData.oldEmissive = mesh.material.emissive.clone();
+            mesh.material.emissive.set(emissiveValue);
+        }
+    });
+}
+BuildNodeManager.prototype.unhighlightNode = function (nodeid) {
+    const node = this.getNode(nodeid);
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.emissive && mesh.userData.oldEmissive)
+            mesh.material.emissive.set(mesh.userData.oldEmissive);
+    });
+}
+BuildNodeManager.prototype.update = function (timedelta) {
+    NodeManager.prototype.update.call(this, timedelta);
+    this._updateTethers();
+}
+
 
 function AttackFactory (attackType, originid, manager) {
     const typeData = manager._getAttackTypeData(attackType);
@@ -505,7 +615,7 @@ function AttackFactory (attackType, originid, manager) {
         _target: undefined,
         origin: originid,
         friendly: nodeData.isFriendly,
-        type: attackType,
+        type: mesh.userData.type,
         uuid: mesh.uuid,
         damage: typeData.damage,
         logic: typeData.logic(),
@@ -559,7 +669,7 @@ function NodeDataFactory (nodeid, manager) {
     const obj = Object.create({
         get neighbors () { // gets nodedata only
             try {
-                const neighbors = manager.getNeighbors(this.uuid)?.map(n => manager.getNodeData(n.uuid));
+                const neighbors = manager.getNeighbors(obj.uuid)?.map(n => manager.getNodeData(n.uuid));
                 return neighbors ? neighbors : [];
             } catch (err) {
                 Logger.warn(err.message);
@@ -567,10 +677,10 @@ function NodeDataFactory (nodeid, manager) {
             }
         },
         get isDead () {
-            return this.hp.total <= 0;
+            return obj.hp.total <= 0;
         },
         get isFriendly() {
-            return this.friendly;
+            return obj.friendly;
         },
         get isAttackable() {
             return this.neighbors.some(nd => nd.isFriendly) && !this.isFriendly;
@@ -598,60 +708,63 @@ function NodeDataFactory (nodeid, manager) {
         uuid: nodeid,
         friendly: node.userData.type == "globe",
         hp: NodeHealthFactory(typeData?.health),
-        _slots: typeData?.slots,
-        get slots () {
-            return this._slots;
+        _numSlots: typeData?.slots,
+        get numSlots () {
+            return this._numSlots;
         },
-        set slots (length) {
-            const oldlength = this._slots;
-            this._slots = length;
-            if (oldlength > this._slots)
-                this.attackers.splice(this._slots, oldlength - this._slots);
-            else if (oldlength < this._slots)
-                this.attackers.fillempty();
+        set numSlots (length) {
+            const oldlength = this._numSlots;
+            this._numSlots = length;
+            if (oldlength > this._numSlots)
+                this.slots.splice(this._numSlots, oldlength - this._numSlots);
+            else if (oldlength < this._numSlots)
+                this.slots.fillempty();
         },
-        attackers: Array.from({length: typeData?.slots}, () => {return {uuid: undefined, type: undefined}}),
+        get attackers() {
+            return this.slots.filter(a => a.uuid != undefined);
+        },
+        slots: Array.from({length: typeData?.slots}, () => {return {uuid: undefined, type: undefined}}),
     });
-    Object.defineProperty(obj.attackers, "space", {
+    Object.defineProperty(obj.slots, "empty", {
         get: function() {
-            return obj.attackers.filter(a => a.uuid == undefined).length;
+            return obj.slots.filter(a => a.uuid == undefined).length;
         },
     });
-    Object.defineProperty(obj.attackers, "filled", {
+    Object.defineProperty(obj.slots, "filled", {
         get: function() {
-            return obj.attackers.filter(a => a.uuid != undefined).length;
+            return obj.slots.filter(a => a.uuid != undefined).length;
         },
     });
-    obj.attackers.pop = function (index) {
+    obj.slots.pop = function (index) {
         const idx = Number(index);
-        if (isNaN(idx) || idx < 0 || idx >= obj.attackers.length) {
+        if (isNaN(idx) || idx < 0 || idx >= obj.slots.length) {
             Logger.warn(`Invalid index for deletion: ${idx}`);
             return false;
         }
         // stop that attack
-        manager._popAttack(manager.getAttack(obj.attackers[idx].uuid));
+        delete manager.attacks[obj.slots[idx].uuid];
         // shift everything down
-        obj.attackers.splice(idx, 1);
-        obj.attackers[obj.attackers.length] = {uuid: undefined, type: undefined};
+        obj.slots.splice(idx, 1);
+        obj.slots[obj.slots.length] = {uuid: undefined, type: undefined};
         return true;
     }
-    obj.attackers.push = function (...args) {
-        if (args.length + obj.attackers.filled <= obj.slots)
-            args.forEach((arg, i) => obj.attackers[obj.attackers.filled + i] = arg);
+    obj.slots.push = function (...args) {
+        if (args.length + obj.slots.filled <= obj.numSlots)
+            args.forEach((arg, i) => obj.slots[obj.slots.filled + i] = arg);
         else {
-            args.forEach(arg => manager._popAttack(manager.getAttack(arg.uuid)));
-            Logger.error(`Cannot add attacker(s): Node is limited to ${obj.slots} slots.`);
+            args.forEach(arg => delete manager.attacks[arg.uuid]);
+            Logger.error(`Cannot add attacker(s): Node is limited to ${obj.numSlots} slots.`);
             return false;
         }
         return true;
     }
-    obj.attackers.fillempty = function () {
-        for (let i = Math.max(0, obj.attackers.filled - 1); i < obj._slots; i++)
-            obj.attackers[i] = {uuid: undefined, type: undefined};
+    obj.slots.fillempty = function () {
+        for (let i = Math.max(0, obj.slots.filled - 1); i < obj._slots; i++)
+            obj.slots[i] = {uuid: undefined, type: undefined};
     }
-    obj.attackers.clear = function () {
-        while (obj.attackers.filled > 0) {
-            obj.attackers.pop(0);
+    obj.slots.clear = function () {
+        while (obj.slots.filled > 0) {
+            obj.slots.pop(0);
         }
     }
     
