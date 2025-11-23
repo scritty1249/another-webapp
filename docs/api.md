@@ -69,6 +69,14 @@ POST
     "password": str (hash)
 }
 ```
+#### Returns
+**Content**
+```json
+{
+    "token": Token,
+}
+```
+- [Token](#token)
 
 ## Login
 >/api/login

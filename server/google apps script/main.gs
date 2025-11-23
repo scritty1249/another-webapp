@@ -24,6 +24,9 @@ function processCookies(e) { // since we don't get real cookies...
 
 // API handlers
 const Handlers = {
+    _debug: function (e) {
+      return Server.createResponse(e);
+    },
     newUser: function (conn, username, password) {
         if (Server.userExists(conn, username)) {
             console.error("Error while processing new user request");
@@ -87,7 +90,7 @@ const Server = {
         conn.insertEntry(TABLES.gamedata,
             userid
         );
-        return this.createToken(conn, userid);
+        return this.createResponse(this.createToken(conn, userid));
     },
     updateGameData: function (conn, userid, gamedata) {
         conn._selectTable(TABLES.gamedata);
@@ -271,6 +274,9 @@ function doGet(e) {
         let response;
         const conn = new DatabaseConnection(SSID);
         switch (path) {
+            case ".api.debug":
+                response = Handlers._debug(e);
+                break;
             case ".api.login":
                 response = Handlers.login(conn, params);
                 break;
@@ -286,7 +292,7 @@ function doGet(e) {
         return response;
     } catch (err) {
         console.error(err);
-        return Server.createErrorResponse(4, err.message);
+        return Server.createErrorResponse(4, err.message + "\n" + JSON.stringify(e));
     }
 }
 
@@ -300,6 +306,9 @@ function doPost(e) {
         let response;
         const conn = new DatabaseConnection(SSID);
         switch (path) {
+            case ".api.debug":
+                response = Handlers._debug(e);
+                break;
             case ".api.newlogin":
                 response = Handlers.newUser(conn, payload.username, payload.password);
                 break;
@@ -315,6 +324,6 @@ function doPost(e) {
         return response;
     } catch (err) {
         console.error(err);
-        return Server.createErrorResponse(4, err.message);
+        return Server.createErrorResponse(4, err.message + "\n" + JSON.stringify(e));
     }
 }
