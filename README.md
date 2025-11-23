@@ -8,6 +8,12 @@ The app this project is based on is still available today. Please give it a shot
 ### Frontend
 Three.js for rendering
 
+### Backend
+- Google App Script webapp (process requests)
+- Google sheets (database)
+
+> While worth noting both of these are free, remaining within the usage quota means putting an unsafe amount of trust in clients to minimize server-side read/write calls. Because of this, there is a purposeful lack of verification when receiving data from game clients by design.
+
 # Preview pre-alpha build
 https://scritty1249.github.io/another-webapp
 
