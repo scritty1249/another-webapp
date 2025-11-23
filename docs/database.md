@@ -6,13 +6,13 @@
 
 Should store the following tables:
 
-> Login data
+> Account
 
-| userid | username | password hash |
+| userid | username | password |
 | :-- | :-- | :-: |
-|  arbitrary | could be email | sha256 or somethiing |
+|  arbitrary | str | hash |
 
-> Account info
+> AccountInfo
 
 *... TBD*
 
@@ -20,7 +20,7 @@ Should store the following tables:
 |:--|:-:|:-:|
 | arbitrary | ... | ... |
 
-> Account game data
+> Game
 
 *intentionally keep currencies separate, so if a transaction fails it doesn't corrupt all currency data*
 
