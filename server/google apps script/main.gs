@@ -72,8 +72,16 @@ const Handlers = {
                 }
             });
         }
-        return Server.createErrorResponse(0, "Invalid session token");
+        return Server.createErrorResponse(0, "Invalid or expired session token");
     },
+    refreshSession: function (conn, cookies) {
+        return (
+            cookies.session
+            && Server.verifyRefreshToken(conn, cookies.session)
+        )
+        ? Server.createResponse(Server.getToken(conn, cookies.session))
+        : Server.createErrorResponse(0, "Invalid or expired session token");
+    }
 }
 
 // Backend compute
@@ -285,6 +293,8 @@ function doGet(e) {
             case ".attack.start":
                 response = Server.createSuccessResponse();
                 break;
+            case ".api.refresh":
+                response = Handlers.refreshSession(conn, cookies);
             default:
                 response = Server.createErrorResponse(2, "Unknown GET endpoint");
         };

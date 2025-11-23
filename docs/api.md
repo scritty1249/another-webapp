@@ -95,7 +95,24 @@ GET
 ```
 - [Token](#token)
 
-## Get Owner Base
+## Refresh session token *
+
+*To minimize api calls, session tokens are automatically refreshed on any successful one that includes a session token*
+
+>/api/refresh
+#### Expects
+**Method**\
+GET
+#### Returns
+**Content**\
+```json
+{
+    "token": Token,
+}
+```
+- [Token](#token)
+
+## Get Owner Base *
 >/game/load
 #### Expects
 **Method**\
@@ -111,7 +128,7 @@ GET
 - [GameData](#gamedata)
 - [Currency](#currency)
 
-## Start Attack
+## Start Attack *
 >/attack/start
 #### Expects
 **Method**\
@@ -130,7 +147,7 @@ GET
 - [Token](#token)
 - [GameData](#gamedata)
 
-## Finish Attack
+## Finish Attack *
 >/attack/result
 #### Expects
 **Method**\
@@ -149,7 +166,7 @@ POST
 - instance id taken from the `token` portion of previously given [Token](#token)
 - [AttackResult](#attackresult)
 
-## Save Owner Base
+## Save Owner Base *
 >/game/save
 #### Expects
 **Method**\
@@ -164,3 +181,6 @@ POST
 ```
 - [GameData](#gamedata)
 - [Currency](#currency)
+
+## Note
+**\*** *Endpoint requires a `session` with a valid session token to be included in the request cookie*
