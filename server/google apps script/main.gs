@@ -1,6 +1,5 @@
 // main.gs - Google Apps Script file
 
-const SSID = "1dScjbRzVtmmeVtWL5SD4Oa4Zjj1UWGJkN5B90-i70Js";
 const MAX_COOKIE_DAYS = 400; // Chrome limit
 const TABLES = {
     users: "Account",
