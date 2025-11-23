@@ -1,4 +1,4 @@
-# Server Docs
+# Database Docs
 
 ## Database Architecture
 **Table design restrictions**
