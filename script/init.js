@@ -92,94 +92,6 @@ function mainloop() {
     // release right click
     controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
     controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
-    
-    { // persistent listeners
-        MenuController.when("swapphase", function (detail) {
-            MenuController.close();
-            const phaseType = detail.phase;
-            try {
-                if (phaseType == "build") {
-                    Manager.set(UTIL.initBuildPhase(
-                        UTIL.layoutToJson(scene, NodeController, false),
-                        scene,
-                        renderer.domElement,
-                        controls,
-                        {
-                            Node: NodeController,
-                            Overlay: OverlayController,
-                            Physics: PhysicsController,
-                            Mouse: MouseController,
-                            Listener: Manager.Listener
-                        }
-                    ));
-                    Manager.phase = "build";
-                } else if (phaseType == "attack") {
-                    Manager.set(UTIL.initAttackPhase(
-                        {
-                            layout: UTIL.layoutToJson(scene, NodeController, false),
-                            nodeTypes: ATTACKERDATA.NodeTypeData,
-                            attackTypes: ATTACKERDATA.AttackTypeData,
-                            attacks: ATTACKERDATA.AttackerData
-                        },
-                        scene,
-                        renderer.domElement,
-                        controls,
-                        {
-                            Node: NodeController,
-                            Overlay: OverlayController,
-                            Physics: PhysicsController,
-                            Mouse: MouseController,
-                            Listener: Manager.Listener
-                        }
-                    ));
-                    Manager.phase = "attack";
-                } else {
-                    Logger.error(`Unrecognized phase "${phaseType}"`);
-                }
-            } catch (err) {
-                Logger.error(`Failed to swap phase to "${phaseType}"`);
-                Logger.throw(err);
-            }
-        }, true);
-        MenuController.when("lowperformance", function (detail) {
-            const toggleTo = detail.set;
-            NodeController.lowPerformanceMode = toggleTo;
-            MenuController.close();
-        }, true);
-        MenuController.when("_loadlayout", function (_) {
-            if (Manager.phase == "build")
-                UTIL.getClipboardText().then(text => {
-                    const layoutBackup = UTIL.layoutToJson(scene, Manager.Node, false);
-                    const result = text?.trim()?.length > 0 ? UTIL.layoutFromJson(text.trim(), scene, controls.drag, Manager.Node) : false;
-                    if (!result) {
-                        Manager.Node.clear();
-                        UTIL.layoutFromJson(layoutBackup, scene, controls.drag, Manager.Node);
-                        Logger.alert("Failed to load layout- backup restored. Was the wrong format entered?");
-                    } else {
-                        MenuController.close();
-                    }
-                });
-            else
-                Logger.alert("Cannot load layout outside of build phase!");
-        }, true);
-        MenuController.when("_savelayout", function (_) {
-            if (Manager.phase == "build") {
-                const data = UTIL.layoutToJson(scene, NodeController, true);
-                navigator.clipboard.writeText(data);
-                MenuController.close();
-                Logger.alert("Layout copied to clipboard.");
-            } else
-                Logger.alert("Cannot save layout outside of build phase!");
-        }, true);
-        MenuController.when("_savelog", function (_) {
-            UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
-        }, true);
-        MenuController.when("save", function (_) {
-            API.saveGame(
-
-            );
-        }, true);
-    }
 
     const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
     scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
@@ -233,6 +145,92 @@ function mainloop() {
         .then(res => Logger.info(res))
         .then(_ => Session.getsave())
         .then(res => {
+            { // persistent listeners
+                MenuController.when("swapphase", function (detail) {
+                    MenuController.close();
+                    const phaseType = detail.phase;
+                    try {
+                        if (phaseType == "build") {
+                            Manager.set(UTIL.initBuildPhase(
+                                UTIL.layoutToJson(scene, NodeController, false),
+                                scene,
+                                renderer.domElement,
+                                controls,
+                                {
+                                    Node: NodeController,
+                                    Overlay: OverlayController,
+                                    Physics: PhysicsController,
+                                    Mouse: MouseController,
+                                    Listener: Manager.Listener
+                                }
+                            ));
+                            Manager.phase = "build";
+                        } else if (phaseType == "attack") {
+                            Manager.set(UTIL.initAttackPhase(
+                                {
+                                    layout: UTIL.layoutToJson(scene, NodeController, false),
+                                    nodeTypes: ATTACKERDATA.NodeTypeData,
+                                    attackTypes: ATTACKERDATA.AttackTypeData,
+                                    attacks: ATTACKERDATA.AttackerData
+                                },
+                                scene,
+                                renderer.domElement,
+                                controls,
+                                {
+                                    Node: NodeController,
+                                    Overlay: OverlayController,
+                                    Physics: PhysicsController,
+                                    Mouse: MouseController,
+                                    Listener: Manager.Listener
+                                }
+                            ));
+                            Manager.phase = "attack";
+                        } else {
+                            Logger.error(`Unrecognized phase "${phaseType}"`);
+                        }
+                    } catch (err) {
+                        Logger.error(`Failed to swap phase to "${phaseType}"`);
+                        Logger.throw(err);
+                    }
+                }, true);
+                MenuController.when("lowperformance", function (detail) {
+                    const toggleTo = detail.set;
+                    NodeController.lowPerformanceMode = toggleTo;
+                    MenuController.close();
+                }, true);
+                MenuController.when("_loadlayout", function (_) {
+                    if (Manager.phase == "build")
+                        UTIL.getClipboardText().then(text => {
+                            const layoutBackup = UTIL.layoutToJson(scene, Manager.Node, false);
+                            const result = text?.trim()?.length > 0 ? UTIL.layoutFromJson(text.trim(), scene, controls.drag, Manager.Node) : false;
+                            if (!result) {
+                                Manager.Node.clear();
+                                UTIL.layoutFromJson(layoutBackup, scene, controls.drag, Manager.Node);
+                                Logger.alert("Failed to load layout- backup restored. Was the wrong format entered?");
+                            } else {
+                                MenuController.close();
+                            }
+                        });
+                    else
+                        Logger.alert("Cannot load layout outside of build phase!");
+                }, true);
+                MenuController.when("_savelayout", function (_) {
+                    if (Manager.phase == "build") {
+                        const data = UTIL.layoutToJson(scene, NodeController, true);
+                        navigator.clipboard.writeText(data);
+                        MenuController.close();
+                        Logger.alert("Layout copied to clipboard.");
+                    } else
+                        Logger.alert("Cannot save layout outside of build phase!");
+                }, true);
+                MenuController.when("_savelog", function (_) {
+                    UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
+                }, true);
+                MenuController.when("save", function (_) {
+                    Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
+                        .then(res => Logger.log(res));
+                }, true);
+            }
             let _defaultLayout = UTIL.BLANK_LAYOUT;
             { // [!] testing only
                 const queryString = window.location.search;
