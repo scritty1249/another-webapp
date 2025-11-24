@@ -85,16 +85,18 @@ const Handlers = {
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
             const token = Server.getToken(conn, cookies.session);
-            return (
+            if (
                 payload?.game &&
-                payload?.game.backdrop &&
-                payload?.game.layout &&
+                payload?.game.hasOwnProperty("backdrop") &&
+                payload?.game.hasOwnProperty("layout") &&
                 payload?.bank &&
-                payload?.bank.cash &&
-                payload?.bank.crypto
-            )
-            ? Server.updateGameData(conn, token.id, payload) // [!] may be unsafe, verify and revise later
-            : Server.createErrorResponse(1, "Invalid request gamedata payload");
+                payload?.bank.hasOwnProperty("cash") &&
+                payload?.bank.hasOwnProperty("crypto")
+            ) {
+                Server.updateGameData(conn, token.id, payload) // [!] may be unsafe, verify and revise later
+                return Server.createSuccessResponse();
+            }
+            return Server.createErrorResponse(1, "Invalid gamedata payload:\n" + JSON.stringify(payload));
         }
         return Server.createErrorResponse(0, "Invalid or expired session token");
     },
@@ -125,9 +127,8 @@ const Server = {
     },
     updateGameData: function (conn, userid, gamedata) {
         conn._selectTable(TABLES.gamedata);
-        const columns = conn._getHeaders();
         const backdrop = gamedata.game.backdrop;
-        const layout = gamedata.game.layout;
+        const layout = JSON.stringify(gamedata.game.layout);
         const cash = gamedata.bank.cash;
         const crypto = gamedata.bank.crypto;
         conn.updateEntry(TABLES.gamedata,

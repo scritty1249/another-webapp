@@ -118,7 +118,7 @@ export function loadVideoTextureSource (videopath, maskpath, speed = 1) {
     };
 }
 
-export function layoutToJson(scene, nodeManager, obfuscate = true) {
+export function layoutToJsonObj(scene, nodeManager) {
     const data = {
         background: "", // [!] disabled for now
         layout: {
@@ -144,6 +144,11 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
             newIds[tether.userData.origin.uuid],
         ])
     );
+    return data;
+}
+
+export function layoutToJson(scene, nodeManager, obfuscate = true) {
+    const data = layoutToJsonObj(scene, nodeManager);
     let dataStr = JSON.stringify(data);
     Logger.debug("Exported layout: ", data);
     return obfuscate ? btoa(dataStr) : dataStr;

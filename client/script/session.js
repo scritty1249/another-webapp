@@ -55,8 +55,17 @@ export function getsave () {
             const { game, bank } = data; // [!] currency data not implemented yet
             return {
                 background: game.backdrop,
-                layout: JSON.parse(game.layout),
-            }
+                layout: JSON.parse(game.layout), // still not sure if i want to store layout data raw or obfuscated, when I decide we'll parse this server-side before sending to client...
+            };
         }
     });
+}
+
+export function savegame (layoutObj) { // [!] currency data not implemented yet
+    if (!CookieJar.has("session")) {
+        Logger.error("[Session] | Cannot load game data: No session token found!");
+        return Promise.resolve(undefined);
+    }
+    const sessionToken = CookieJar.get("session");
+    return API.saveGame(sessionToken, layoutObj.background, layoutObj.layout, 1, 1);
 }
