@@ -63,9 +63,16 @@ canvas {
 .pointer-events {
     pointer-events: auto;
 }
-    .button {
-        background-size: contain;
+.button {
+    background-size: contain;
+}
+.hide-scroll {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    &::-webkit-scrollbar {
+        display: none !important;
     }
+}
 #overlay {
     pointer-events: none;
     z-index: 2;
@@ -73,6 +80,44 @@ canvas {
     height: calc(var(--vh) * 100);
     margin: 0;
     overflow: hidden;
+
+    div.textbox {
+        &:not(.naked) {
+            background-image: url("../source/textbox-background.png") !important;
+            background-position: center center !important;
+            background-size: cover !important;
+            background-repeat: no-repeat !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+        }
+        > textarea {
+            all: unset;
+            --highlight-bg: #fff;
+            --highlight-fg: #000;
+            text-align: center;
+            white-space: wrap;
+            display: flex;
+            margin: 0 auto;
+            align-content: center;
+            justify-content: center;
+            padding: calc(var(--unit) * 3);
+            font-size: calc(var(--unit) * 2);
+            box-sizing: border-box !important;
+            width: 80% !important;
+            height: 100% !important;
+            &::selection,
+            &::-moz-selection,
+            &::-webkit-selection {
+                background: var(--highlight-bg) !important;
+                text-shadow: none;
+                color: var(--highlight-fg) !important;
+            }
+        }
+    }
+
+    .textbox {
+        
+    }
 
     > .nodeMenu {
         --x-side: -50%;
@@ -255,6 +300,8 @@ canvas {
                 display: flex;
                 flex-direction: column;
                 flex-wrap: nowrap;
+                justify-items: center;
+                align-items: center;
             }
         }
 
@@ -329,6 +376,8 @@ canvas {
                     display: flex;
                     flex-direction: column;
                     flex-wrap: nowrap;
+                    justify-items: center;
+                    align-items: center;
                 }
             }
         }
@@ -337,6 +386,8 @@ canvas {
                 display: flex;
                 flex-direction: column;
                 flex-wrap: nowrap;
+                justify-items: center;
+                align-items: center;
             }
         }
         &.main {
