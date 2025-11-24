@@ -44,7 +44,7 @@ if (WebGL.isWebGL2Available()) {
     const queryString = window.location.search;
     const urlParams = new URLSearchParams(queryString);
     const MenuController = new MenuManager(document.getElementById("overlay"));
-    if (!CookieJar.has("session") || urlParams.has("preset")) {
+    if (!CookieJar.has("session") || urlParams.has("debug")) {
         MenuController.loginScreen();
         MenuController.when("login", ({username, password, elements}) => {
             elements.forEach(el => el.classList.remove("pointer-events"));
