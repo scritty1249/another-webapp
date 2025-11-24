@@ -79,6 +79,25 @@ const Handlers = {
         }
         return Server.createErrorResponse(0, "Invalid or expired session token");
     },
+    saveGameData: function (conn, payload, cookies) {
+        if (
+            cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+        ) {
+            const token = Server.getToken(conn, cookies.session);
+            return (
+                payload?.game &&
+                payload?.game.backdrop &&
+                payload?.game.layout &&
+                payload?.bank &&
+                payload?.bank.cash &&
+                payload?.bank.crypto
+            )
+            ? Server.updateGameData(conn, token.id, payload) // [!] may be unsafe, verify and revise later
+            : Server.createErrorResponse(1, "Invalid request gamedata payload");
+        }
+        return Server.createErrorResponse(0, "Invalid or expired session token");
+    },
     refreshSession: function (conn, cookies) {
         return (
             cookies.session
@@ -329,7 +348,7 @@ function doPost(e) {
                 response = Server.createSuccessResponse();
                 break;
             case ".game.save":
-                response = Server.createSuccessResponse();
+                response = Handlers.saveGameData(conn, payload, cookies);
                 break;
             default:
                 response = Server.createErrorResponse(2, "Unknown POST endpoint");
