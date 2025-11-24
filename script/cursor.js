@@ -84,7 +84,7 @@ export function Mouse(
                 );
         });
         this.canvasElement.addEventListener("contextmenu", function(event) {
-            self.updatePosition(event);s
+            self.updatePosition(event);
             event.preventDefault();
         });
     }
