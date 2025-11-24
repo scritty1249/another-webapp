@@ -16,7 +16,9 @@
         </script>
         <script type="module"> 
             import { LogManager } from "./script/logger.js";
+            import { CookieJar } from "./script/cookies.js";
             window.Logger = new LogManager();
+            window.CookieJar = new CookieJar();
         </script>
         <script type="module" src="./script/init.js"></script>
         <script src="./script/main.js"></script>
