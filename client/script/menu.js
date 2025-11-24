@@ -41,6 +41,23 @@ export function MenuManager (
             self.element.wrapper.className = self.state.open ? "" : "close";
             self._dispatch("clear");
         },
+        login: function () {
+            self.loadMenu.clear();
+            self.element.wrapper.classList.add("login");
+            const central = document.createElement("div");
+            central.classList.add("center", "absolutely-center");
+            const buttons = [ // placeholders
+                self.createElement.button(90, undefined, "Sign in", { // placeholder
+                    click: () => self._dispatch("login", {}),
+                }, 4),
+                self.createElement.button(90, undefined, "Create account", {
+                    click: () => self._dispatch("newlogin", {}),
+                }, 4),
+            ];
+            self._appendElement(central, ...buttons);
+            self._appendMenu(central);
+            self._dispatch("loadmenu", { history: ["login"] });
+        },
         main: function () {
             self.loadMenu.clear();
             self.element.wrapper.classList.add("main");
@@ -429,6 +446,10 @@ export function MenuManager (
             });
             return el;
         },
+    };
+    this.loginScreen = function () {
+        self.open(["login"]);
+        
     };
     this.open = function (menuPath = ["main"]) {
         self.state.open = true;

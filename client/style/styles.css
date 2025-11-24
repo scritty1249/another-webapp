@@ -250,6 +250,14 @@ canvas {
         background-blend-mode: difference;
         background-repeat: repeat;
 
+        &:not([class]) {
+            > div.center {
+                display: flex;
+                flex-direction: column;
+                flex-wrap: nowrap;
+            }
+        }
+
         &.close {
             display: none;
         }
@@ -322,6 +330,13 @@ canvas {
                     flex-direction: column;
                     flex-wrap: nowrap;
                 }
+            }
+        }
+        &.login {
+            > div.center {
+                display: flex;
+                flex-direction: column;
+                flex-wrap: nowrap;
             }
         }
         &.main {

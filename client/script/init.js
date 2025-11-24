@@ -41,14 +41,17 @@ renderer.toneMapping = THREE.LinearToneMapping;
 
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
-    mainloop();
+    const MenuController = new MenuManager(document.getElementById("overlay"));
+    MenuController.loginScreen();
+    MenuController.when("login", _ => {
+        mainloop(MenuController);
+    })
 } else {
     const warning = WebGL.getWebGL2ErrorMessage();
     document.getElementById("container").appendChild(warning);
 }
 
-function mainloop() {
-    const MenuController = new MenuManager(document.getElementById("overlay"));
+function mainloop(MenuController) {
     const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
     const NodeController = new NodeManager(scene, renderer, camera, raycaster);
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
@@ -142,135 +145,135 @@ function mainloop() {
             }
         );
         Session.login("hello", "world")
-        .then(res => Logger.info(res))
-        .then(_ => Session.getsave())
-        .then(res => {
-            { // persistent listeners
-                MenuController.when("swapphase", function (detail) {
-                    MenuController.close();
-                    const phaseType = detail.phase;
-                    try {
-                        if (phaseType == "build") {
-                            Manager.set(UTIL.initBuildPhase(
-                                UTIL.layoutToJson(scene, NodeController, false),
-                                scene,
-                                renderer.domElement,
-                                controls,
-                                {
-                                    Node: NodeController,
-                                    Overlay: OverlayController,
-                                    Physics: PhysicsController,
-                                    Mouse: MouseController,
-                                    Listener: Manager.Listener
-                                }
-                            ));
-                            Manager.phase = "build";
-                        } else if (phaseType == "attack") {
-                            Manager.set(UTIL.initAttackPhase(
-                                {
-                                    layout: UTIL.layoutToJson(scene, NodeController, false),
-                                    nodeTypes: ATTACKERDATA.NodeTypeData,
-                                    attackTypes: ATTACKERDATA.AttackTypeData,
-                                    attacks: ATTACKERDATA.AttackerData
-                                },
-                                scene,
-                                renderer.domElement,
-                                controls,
-                                {
-                                    Node: NodeController,
-                                    Overlay: OverlayController,
-                                    Physics: PhysicsController,
-                                    Mouse: MouseController,
-                                    Listener: Manager.Listener
-                                }
-                            ));
-                            Manager.phase = "attack";
-                        } else {
-                            Logger.error(`Unrecognized phase "${phaseType}"`);
-                        }
-                    } catch (err) {
-                        Logger.error(`Failed to swap phase to "${phaseType}"`);
-                        Logger.throw(err);
-                    }
-                }, true);
-                MenuController.when("lowperformance", function (detail) {
-                    const toggleTo = detail.set;
-                    NodeController.lowPerformanceMode = toggleTo;
-                    MenuController.close();
-                }, true);
-                MenuController.when("_loadlayout", function (_) {
-                    if (Manager.phase == "build")
-                        UTIL.getClipboardText().then(text => {
-                            const layoutBackup = UTIL.layoutToJson(scene, Manager.Node, false);
-                            const result = text?.trim()?.length > 0 ? UTIL.layoutFromJson(text.trim(), scene, controls.drag, Manager.Node) : false;
-                            if (!result) {
-                                Manager.Node.clear();
-                                UTIL.layoutFromJson(layoutBackup, scene, controls.drag, Manager.Node);
-                                Logger.alert("Failed to load layout- backup restored. Was the wrong format entered?");
-                            } else {
-                                MenuController.close();
-                            }
-                        });
-                    else
-                        Logger.alert("Cannot load layout outside of build phase!");
-                }, true);
-                MenuController.when("_savelayout", function (_) {
-                    if (Manager.phase == "build") {
-                        const data = UTIL.layoutToJson(scene, NodeController, true);
-                        navigator.clipboard.writeText(data);
+            .then(res => Logger.info(res))
+            .then(_ => Session.getsave())
+            .then(res => {
+                { // persistent listeners
+                    MenuController.when("swapphase", function (detail) {
                         MenuController.close();
-                        Logger.alert("Layout copied to clipboard.");
-                    } else
-                        Logger.alert("Cannot save layout outside of build phase!");
-                }, true);
-                MenuController.when("_savelog", function (_) {
-                    UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
-                }, true);
-                MenuController.when("save", function (_) {
-                    Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
-                        .then(res => Logger.log(res));
-                }, true);
-            }
-            let _defaultLayout = UTIL.BLANK_LAYOUT;
-            { // [!] testing only
-                const queryString = window.location.search;
-                const urlParams = new URLSearchParams(queryString);
-                if (urlParams.has("preset"))
-                    _defaultLayout = "eyJsYXlvdXQiOnsibm9kZXMiOlt7InV1aWQiOiIwIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstMiwyLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbLTQsLTEsNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsyLC0xLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy05LDAsLTRdLCJfZGF0YSI6e319LHsidXVpZCI6IjQiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy02LDAsLTFdLCJfZGF0YSI6e319LHsidXVpZCI6IjUiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDAsLTJdLCJfZGF0YSI6e319LHsidXVpZCI6IjYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzAsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstNSwwLDldLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy00LDAsMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsLTVdLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstNSwwLC05XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLC02XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbNCwwLC0xMF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEsMCwtMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE0IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlsxMCwwLC0zXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOls0LDAsNl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzgsMCw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNyIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOSwwLDBdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzQsMF0sWzUsMF0sWzYsMF0sWzUsMV0sWzYsMV0sWzAsMV0sWzcsNl0sWzgsN10sWzUsMl0sWzYsMl0sWzksNF0sWzksM10sWzExLDldLFsxMiwxMV0sWzExLDEwXSxbMTIsMTNdLFsxNiwxNV0sWzIsMTVdLFsxNywxNl0sWzE0LDE3XSxbMiwwXSxbMiwxXV19LCJiYWNrZ3JvdW5kIjoiIn0=";
-            }
-            Manager.set(UTIL.initBuildPhase(
-                JSON.stringify(res),
-                scene,
-                renderer.domElement,
-                controls,
-                {
-                    Node: NodeController,
-                    Overlay: OverlayController,
-                    Physics: PhysicsController,
-                    Mouse: MouseController
+                        const phaseType = detail.phase;
+                        try {
+                            if (phaseType == "build") {
+                                Manager.set(UTIL.initBuildPhase(
+                                    UTIL.layoutToJson(scene, NodeController, false),
+                                    scene,
+                                    renderer.domElement,
+                                    controls,
+                                    {
+                                        Node: NodeController,
+                                        Overlay: OverlayController,
+                                        Physics: PhysicsController,
+                                        Mouse: MouseController,
+                                        Listener: Manager.Listener
+                                    }
+                                ));
+                                Manager.phase = "build";
+                            } else if (phaseType == "attack") {
+                                Manager.set(UTIL.initAttackPhase(
+                                    {
+                                        layout: UTIL.layoutToJson(scene, NodeController, false),
+                                        nodeTypes: ATTACKERDATA.NodeTypeData,
+                                        attackTypes: ATTACKERDATA.AttackTypeData,
+                                        attacks: ATTACKERDATA.AttackerData
+                                    },
+                                    scene,
+                                    renderer.domElement,
+                                    controls,
+                                    {
+                                        Node: NodeController,
+                                        Overlay: OverlayController,
+                                        Physics: PhysicsController,
+                                        Mouse: MouseController,
+                                        Listener: Manager.Listener
+                                    }
+                                ));
+                                Manager.phase = "attack";
+                            } else {
+                                Logger.error(`Unrecognized phase "${phaseType}"`);
+                            }
+                        } catch (err) {
+                            Logger.error(`Failed to swap phase to "${phaseType}"`);
+                            Logger.throw(err);
+                        }
+                    }, true);
+                    MenuController.when("lowperformance", function (detail) {
+                        const toggleTo = detail.set;
+                        NodeController.lowPerformanceMode = toggleTo;
+                        MenuController.close();
+                    }, true);
+                    MenuController.when("_loadlayout", function (_) {
+                        if (Manager.phase == "build")
+                            UTIL.getClipboardText().then(text => {
+                                const layoutBackup = UTIL.layoutToJson(scene, Manager.Node, false);
+                                const result = text?.trim()?.length > 0 ? UTIL.layoutFromJson(text.trim(), scene, controls.drag, Manager.Node) : false;
+                                if (!result) {
+                                    Manager.Node.clear();
+                                    UTIL.layoutFromJson(layoutBackup, scene, controls.drag, Manager.Node);
+                                    Logger.alert("Failed to load layout- backup restored. Was the wrong format entered?");
+                                } else {
+                                    MenuController.close();
+                                }
+                            });
+                        else
+                            Logger.alert("Cannot load layout outside of build phase!");
+                    }, true);
+                    MenuController.when("_savelayout", function (_) {
+                        if (Manager.phase == "build") {
+                            const data = UTIL.layoutToJson(scene, NodeController, true);
+                            navigator.clipboard.writeText(data);
+                            MenuController.close();
+                            Logger.alert("Layout copied to clipboard.");
+                        } else
+                            Logger.alert("Cannot save layout outside of build phase!");
+                    }, true);
+                    MenuController.when("_savelog", function (_) {
+                        UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
+                    }, true);
+                    MenuController.when("save", function (_) {
+                        Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
+                            .then(res => Logger.log(res));
+                    }, true);
                 }
-            ));
-            Manager.phase = "build";
-            // render the stuff
-            function animate() {
-                //requestIdleCallback(animate)
+                // { // [!] testing only
+                //     const queryString = window.location.search;
+                //     const urlParams = new URLSearchParams(queryString);
+                //     if (urlParams.has("preset"))
+                //         _defaultLayout = "eyJsYXlvdXQiOnsibm9kZXMiOlt7InV1aWQiOiIwIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstMiwyLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbLTQsLTEsNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsyLC0xLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy05LDAsLTRdLCJfZGF0YSI6e319LHsidXVpZCI6IjQiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy02LDAsLTFdLCJfZGF0YSI6e319LHsidXVpZCI6IjUiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDAsLTJdLCJfZGF0YSI6e319LHsidXVpZCI6IjYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzAsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstNSwwLDldLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy00LDAsMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsLTVdLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstNSwwLC05XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLC02XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbNCwwLC0xMF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEsMCwtMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE0IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlsxMCwwLC0zXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOls0LDAsNl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzgsMCw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNyIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOSwwLDBdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzQsMF0sWzUsMF0sWzYsMF0sWzUsMV0sWzYsMV0sWzAsMV0sWzcsNl0sWzgsN10sWzUsMl0sWzYsMl0sWzksNF0sWzksM10sWzExLDldLFsxMiwxMV0sWzExLDEwXSxbMTIsMTNdLFsxNiwxNV0sWzIsMTVdLFsxNywxNl0sWzE0LDE3XSxbMiwwXSxbMiwxXV19LCJiYWNrZ3JvdW5kIjoiIn0=";
+                // }
+                Manager.set(UTIL.initBuildPhase(
+                    !res || res === {} ? UTIL.BLANK_LAYOUT : JSON.stringify(res),
+                    scene,
+                    renderer.domElement,
+                    controls,
+                    {
+                        Node: NodeController,
+                        Overlay: OverlayController,
+                        Physics: PhysicsController,
+                        Mouse: MouseController
+                    }
+                ));
+                Manager.phase = "build";
+                MenuController.close();
+                // render the stuff
+                function animate() {
+                    //requestIdleCallback(animate)
 
-                PhysicsController.update();
-                Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
-                Manager.Overlay.update();
+                    PhysicsController.update();
+                    Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
+                    Manager.Overlay.update();
 
-                // required if controls.enableDamping or controls.autoRotate are set to true
-                controls.camera.update(); // must be called after any manual changes to the camera"s transform
+                    // required if controls.enableDamping or controls.autoRotate are set to true
+                    controls.camera.update(); // must be called after any manual changes to the camera"s transform
 
-                FPSCounter.update();
-                renderer.render(scene, camera);
-            }
-            FPSCounter.reset();
-            renderer.setAnimationLoop(animate);
-            setTimeout(() => {
-                trackLowPerformace = true;
-            }, 2500); // time before we start checking if we need to turn on low performance mode
-        });
+                    FPSCounter.update();
+                    renderer.render(scene, camera);
+                }
+                FPSCounter.reset();
+                renderer.setAnimationLoop(animate);
+                setTimeout(() => {
+                    trackLowPerformace = true;
+                }, 2500); // time before we start checking if we need to turn on low performance mode
+            });
     });
 }
 
