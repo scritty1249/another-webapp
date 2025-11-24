@@ -382,7 +382,7 @@ AttackNodeManager.prototype._proxyHandlers = { ...AttackNodeManager.prototype._p
             return false;
         },
         deleteProperty (target, prop) {
-            Logger.throw(new Error(`[AttackNodeManager] | Delete node entries in read-only nodedata is forbidden.`));
+            Logger.throw(new Error(`[AttackNodeManager] | Deleting node entries in read-only nodedata is forbidden.`));
             return false;
         }
     },
