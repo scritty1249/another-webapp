@@ -60,6 +60,13 @@ export function download(filename, text) {
     document.body.removeChild(el);
 }
 
+export function unfocusDom() {
+    const tmp = document.createElement("input");
+    document.body.appendChild(tmp);
+    tmp.focus();
+    document.body.removeChild(tmp);
+}
+
 export function clamp(num, min, max) {
     return Math.min(Math.max(num, min), max);
 }

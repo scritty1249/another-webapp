@@ -46,18 +46,26 @@ if (WebGL.isWebGL2Available()) {
     const MenuController = new MenuManager(document.getElementById("overlay"));
     if (!CookieJar.has("session") || urlParams.has("preset")) {
         MenuController.loginScreen();
-        MenuController.when("login", ({username, password}) => {
+        MenuController.when("login", ({username, password, elements}) => {
+            elements.forEach(el => el.classList.remove("pointer-events"));
+            UTIL.unfocusDom();
             Session.login(username, password)
                 .then(res => {
                     if (res)
                         mainloop(MenuController);
+                    else
+                        elements.forEach(el => el.classList.add("pointer-events"));
                 });
         });
-        MenuController.when("newlogin", ({username, password}) => {
+        MenuController.when("newlogin", ({username, password, elements}) => {
+            elements.forEach(el => el.classList.remove("pointer-events"));
+            UTIL.unfocusDom();
             Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, {cash: 0, crypto: 0})
                 .then(res => {
                     if (res)
                         mainloop(MenuController);
+                    else
+                        elements.forEach(el => el.classList.add("pointer-events"));
                 });
         });
     } else { // auto login
@@ -69,6 +77,7 @@ if (WebGL.isWebGL2Available()) {
 }
 
 function mainloop(MenuController) {
+    MenuController.open(["loading"]);
     const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
     const NodeController = new NodeManager(scene, renderer, camera, raycaster);
     const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
@@ -217,35 +226,16 @@ function mainloop(MenuController) {
                         NodeController.lowPerformanceMode = toggleTo;
                         MenuController.close();
                     }, true);
-                    MenuController.when("_loadlayout", function (_) {
-                        if (Manager.phase == "build")
-                            UTIL.getClipboardText().then(text => {
-                                const layoutBackup = UTIL.layoutToJson(scene, Manager.Node, false);
-                                const result = text?.trim()?.length > 0 ? UTIL.layoutFromJson(text.trim(), scene, controls.drag, Manager.Node) : false;
-                                if (!result) {
-                                    Manager.Node.clear();
-                                    UTIL.layoutFromJson(layoutBackup, scene, controls.drag, Manager.Node);
-                                    Logger.alert("Failed to load layout- backup restored. Was the wrong format entered?");
-                                } else {
-                                    MenuController.close();
-                                }
-                            });
-                        else
-                            Logger.alert("Cannot load layout outside of build phase!");
-                    }, true);
-                    MenuController.when("_savelayout", function (_) {
-                        if (Manager.phase == "build") {
-                            const data = UTIL.layoutToJson(scene, NodeController, true);
-                            navigator.clipboard.writeText(data);
-                            MenuController.close();
-                            Logger.alert("Layout copied to clipboard.");
-                        } else
-                            Logger.alert("Cannot save layout outside of build phase!");
+                    MenuController.when("logout", function (_) {
+                        CookieJar.remove("session");
+                        window.location.reload();
                     }, true);
                     MenuController.when("_savelog", function (_) {
                         UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
+                        MenuController.close();
                     }, true);
                     MenuController.when("save", function (_) {
+                        MenuController.close();
                         Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
                             .then(res => Logger.alert(res ? "Saved successfully" : "Failed to save"));
                     }, true);
