@@ -65,7 +65,7 @@ const Handlers = {
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
             const token = Server.getToken(conn, cookies.session);
-            const gamedata = conn.lookupEntry(token.id, TABLES.gamedata);
+            const gamedata = Server.entryToJson(...conn.lookupEntry(token.id, TABLES.gamedata));
             return Server.createResponse({
                 game: {
                     backdrop: gamedata.backdrop,
@@ -229,7 +229,6 @@ const Server = {
     },
     entryToJson: function (headers, row) {
         const jsonObj = {};
-        console.log(headers, row)
         headers.forEach((header, idx) => jsonObj[header] = row[idx]);
         return jsonObj;
     },

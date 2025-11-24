@@ -140,6 +140,9 @@ export function MenuManager (
                     self.createElement.button(90, "cpu", "Save debug file", {
                         click: () => self._dispatch("_savelog"),
                     }, 4),
+                    self.createElement.button(90, "gear", "Save layout", {
+                        click: () => self._dispatch("save"),
+                    }, 4),
                 ];
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);

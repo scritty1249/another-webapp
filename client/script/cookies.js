@@ -9,7 +9,12 @@ export function CookieJar () { // we use the lame name here so we can call it "c
         return cookies.indexOf(name + "=") !== -1;
     }
     this.bake = function (name, value, expiresInSeconds) {
-        document.cookie =  `${name}=${value}; path=/; max-age=${this._getMaxSeconds(expiresInSeconds)}`;
+        try {
+            document.cookie = `${name}=${value}; path=/; max-age=${this._getMaxSeconds(expiresInSeconds)}`;
+        } catch (err) {
+            // Chromium based browsers don't allow local pages to set cookies.
+            Logger.warn(`[CookieJar] | Failed to set cookie "${name}". Are you using a chromium browser?`);
+        }
     }
     this.get = function (name) {
         const crumbs = `; ${document.cookie}`.split(`; ${name}=`);
