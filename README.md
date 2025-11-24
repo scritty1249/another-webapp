@@ -17,9 +17,6 @@ Three.js for rendering
 # Preview pre-alpha build
 https://scritty1249.github.io/another-webapp
 
-*example layout*
-> https://scritty1249.github.io/another-webapp?preset
-
 - LClick/Touch Drag any node to move it
 - LClick/Touch Tap any node to show extra node actions
 - LClick/Touch canvas area without a node to rotate camera
