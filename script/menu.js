@@ -46,15 +46,37 @@ export function MenuManager (
             self.element.wrapper.classList.add("login");
             const central = document.createElement("div");
             central.classList.add("center", "absolutely-center");
-            const buttons = [ // placeholders
-                self.createElement.button(90, undefined, "Sign in", { // placeholder
-                    click: () => self._dispatch("login", {}),
-                }, 4),
-                self.createElement.button(90, undefined, "Create account", {
-                    click: () => self._dispatch("newlogin", {}),
-                }, 4),
-            ];
-            self._appendElement(central, ...buttons);
+            const loginLabel = self.createElement.textBox("Login", false, false);
+            const usernameLabel = self.createElement.textBox("Username", false, false);
+            const passwordLabel = self.createElement.textBox("Password", false, false);
+            const usernameField = self.createElement.textBox("");
+            const passwordField = self.createElement.textBox("");
+            const loginButton = self.createElement.button(90, undefined, "Sign in", { // placeholder
+                click: () => {
+                    self._dispatch("login", {username: usernameField.firstChild.value.trim(), password: passwordField.firstChild.value.trim()})
+                },
+            }, 1.25);
+            const createButton = self.createElement.button(90, undefined, "Create account", {
+                click: () => {
+                    self._dispatch("newlogin", {username: usernameField.firstChild.value.trim(), password: passwordField.firstChild.value.trim()})
+                },
+            }, 1.25);
+            usernameField.style.width = "calc(var(--vw) * 50)";
+            usernameField.id = "loginpage-username";
+            passwordField.style.width = "calc(var(--vw) * 50)";
+            passwordField.id = "loginpage-password";
+
+            
+
+            self._appendElement(central,
+                loginLabel,
+                usernameLabel,
+                usernameField,
+                passwordLabel,
+                passwordField,
+                loginButton,
+                createButton
+            );
             self._appendMenu(central);
             self._dispatch("loadmenu", { history: ["login"] });
         },
@@ -418,7 +440,7 @@ export function MenuManager (
         },
         svgImage: function (imgPath) {
             // original dimensions should be 500x500 px
-            var el = document.createElementNS(SVG_NS,"image");
+            const el = document.createElementNS(SVG_NS,"image");
             el.setAttributeNS(null,"height","100%");
             el.setAttributeNS(null,"width","100%");
             el.setAttributeNS("http://www.w3.org/1999/xlink","href", imgPath);
@@ -428,7 +450,7 @@ export function MenuManager (
             return el;
         },
         svgText: function (textlines, scale = 0.75, fontColor = "#ff5757", fontPath = undefined) {
-            var el = document.createElementNS(SVG_NS,"text");
+            const el = document.createElementNS(SVG_NS,"text");
             el.setAttributeNS(null,"height","100%");
             el.setAttributeNS(null,"width","100%");
             el.setAttributeNS(null,"y","-50%");
@@ -446,10 +468,28 @@ export function MenuManager (
             });
             return el;
         },
+        textBox: function (text, background = true, interactive = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") {
+            const wrapper = document.createElement("div");
+            const el = document.createElement("textarea");
+            wrapper.classList.add("textbox");
+            wrapper.classList.add("hide-scroll");
+            el.classList.add("hide-scroll");
+            if (interactive)
+                el.classList.add("pointer-events");
+            if (!background)
+                wrapper.classList.add("naked");
+            el.style.color = fontColor;
+            el.style.setProperty("--highlight-bg", highlightBg);
+            el.style.setProperty("--highlight-fg", highlightFg);
+            el.spellcheck = false;
+            el.innerHTML = text;
+            wrapper.appendChild(el);
+            return wrapper;
+        },
     };
     this.loginScreen = function () {
         self.open(["login"]);
-        
+
     };
     this.open = function (menuPath = ["main"]) {
         self.state.open = true;

@@ -41,11 +41,28 @@ renderer.toneMapping = THREE.LinearToneMapping;
 
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
+    const queryString = window.location.search;
+    const urlParams = new URLSearchParams(queryString);
     const MenuController = new MenuManager(document.getElementById("overlay"));
-    MenuController.loginScreen();
-    MenuController.when("login", _ => {
+    if (!CookieJar.has("session") || urlParams.has("preset")) {
+        MenuController.loginScreen();
+        MenuController.when("login", ({username, password}) => {
+            Session.login(username, password)
+                .then(res => {
+                    if (res)
+                        mainloop(MenuController);
+                });
+        });
+        MenuController.when("newlogin", ({username, password}) => {
+            Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, {cash: 0, crypto: 0})
+                .then(res => {
+                    if (res)
+                        mainloop(MenuController);
+                });
+        });
+    } else { // auto login
         mainloop(MenuController);
-    })
+    }
 } else {
     const warning = WebGL.getWebGL2ErrorMessage();
     document.getElementById("container").appendChild(warning);
@@ -144,9 +161,7 @@ function mainloop(MenuController) {
                 }
             }
         );
-        Session.login("hello", "world")
-            .then(res => Logger.info(res))
-            .then(_ => Session.getsave())
+        Session.getsave()
             .then(res => {
                 { // persistent listeners
                     MenuController.when("swapphase", function (detail) {

@@ -46,12 +46,12 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
 
 export function login (username, password) {
     return sendRequest("/api/login", {login: btoa(username + ":" + password)})
-        .then(data => data?.token);
+        .then(data => data);
 }
 
 export function createAccount (username, password) {
     return sendRequest("/api/newlogin", undefined, "POST", {username: username, password: password})
-        .then(data => data?.token);
+        .then(data => data);
 }
 
 export function getOwnBase (sessionToken) {
