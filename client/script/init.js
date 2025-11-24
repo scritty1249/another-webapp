@@ -168,9 +168,10 @@ function mainloop(MenuController) {
                         MenuController.close();
                         const phaseType = detail.phase;
                         try {
+                            const layout = UTIL.layoutToJsonObj(scene, NodeController, false);
                             if (phaseType == "build") {
                                 Manager.set(UTIL.initBuildPhase(
-                                    UTIL.layoutToJson(scene, NodeController, false),
+                                    layout,
                                     scene,
                                     renderer.domElement,
                                     controls,
@@ -186,7 +187,7 @@ function mainloop(MenuController) {
                             } else if (phaseType == "attack") {
                                 Manager.set(UTIL.initAttackPhase(
                                     {
-                                        layout: UTIL.layoutToJson(scene, NodeController, false),
+                                        layout: layout,
                                         nodeTypes: ATTACKERDATA.NodeTypeData,
                                         attackTypes: ATTACKERDATA.AttackTypeData,
                                         attacks: ATTACKERDATA.AttackerData
@@ -246,17 +247,11 @@ function mainloop(MenuController) {
                     }, true);
                     MenuController.when("save", function (_) {
                         Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
-                            .then(res => Logger.log(res));
+                            .then(res => Logger.alert(res ? "Saved successfully" : "Failed to save"));
                     }, true);
                 }
-                // { // [!] testing only
-                //     const queryString = window.location.search;
-                //     const urlParams = new URLSearchParams(queryString);
-                //     if (urlParams.has("preset"))
-                //         _defaultLayout = "eyJsYXlvdXQiOnsibm9kZXMiOlt7InV1aWQiOiIwIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstMiwyLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbLTQsLTEsNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsyLC0xLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy05LDAsLTRdLCJfZGF0YSI6e319LHsidXVpZCI6IjQiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy02LDAsLTFdLCJfZGF0YSI6e319LHsidXVpZCI6IjUiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDAsLTJdLCJfZGF0YSI6e319LHsidXVpZCI6IjYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzAsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstNSwwLDldLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy00LDAsMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsLTVdLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstNSwwLC05XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLC02XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbNCwwLC0xMF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEsMCwtMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE0IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlsxMCwwLC0zXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOls0LDAsNl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzgsMCw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNyIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOSwwLDBdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzQsMF0sWzUsMF0sWzYsMF0sWzUsMV0sWzYsMV0sWzAsMV0sWzcsNl0sWzgsN10sWzUsMl0sWzYsMl0sWzksNF0sWzksM10sWzExLDldLFsxMiwxMV0sWzExLDEwXSxbMTIsMTNdLFsxNiwxNV0sWzIsMTVdLFsxNywxNl0sWzE0LDE3XSxbMiwwXSxbMiwxXV19LCJiYWNrZ3JvdW5kIjoiIn0=";
-                // }
                 Manager.set(UTIL.initBuildPhase(
-                    !res || res === {} ? UTIL.BLANK_LAYOUT : JSON.stringify(res),
+                    !res || res === {} ? UTIL.BLANK_LAYOUT_OBJ : res,
                     scene,
                     renderer.domElement,
                     controls,
