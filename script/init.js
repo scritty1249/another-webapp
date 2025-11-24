@@ -11,7 +11,7 @@ import { PhysicsManager } from "./physics.js";
 import { MenuManager } from "./menu.js";
 import * as UTIL from "./utils.js";
 import * as ATTACKERDATA from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
-import * as API from "./api.js";
+import * as Session from "./session.js";
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -41,7 +41,6 @@ renderer.toneMapping = THREE.LinearToneMapping;
 
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
-
     mainloop();
 } else {
     const warning = WebGL.getWebGL2ErrorMessage();
@@ -175,6 +174,11 @@ function mainloop() {
         MenuController.when("_savelog", function (_) {
             UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
         }, true);
+        MenuController.when("save", function (_) {
+            API.saveGame(
+
+            );
+        }, true);
     }
 
     const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
@@ -225,49 +229,50 @@ function mainloop() {
                 }
             }
         );
-
-        let _defaultLayout = "eyJsYXlvdXQ6eyJub2RlcyI6W3sidXVpZCI6IjAiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzMsMCwzXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxIiwidHlwZSI6ImN1YmUiLCJwb3NpdGlvbiI6Wy0zLDAsM10sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlszLDAsLTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy0zLDAsLTNdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbXX0sImJhY2tncm91bmQiOiIifQ==";
-
-        { // [!] testing only
-            const queryString = window.location.search;
-            const urlParams = new URLSearchParams(queryString);
-            if (urlParams.has("preset"))
-                _defaultLayout = "eyJsYXlvdXQiOnsibm9kZXMiOlt7InV1aWQiOiIwIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstMiwyLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbLTQsLTEsNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsyLC0xLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy05LDAsLTRdLCJfZGF0YSI6e319LHsidXVpZCI6IjQiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy02LDAsLTFdLCJfZGF0YSI6e319LHsidXVpZCI6IjUiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDAsLTJdLCJfZGF0YSI6e319LHsidXVpZCI6IjYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzAsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstNSwwLDldLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy00LDAsMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsLTVdLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstNSwwLC05XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLC02XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbNCwwLC0xMF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEsMCwtMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE0IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlsxMCwwLC0zXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOls0LDAsNl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzgsMCw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNyIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOSwwLDBdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzQsMF0sWzUsMF0sWzYsMF0sWzUsMV0sWzYsMV0sWzAsMV0sWzcsNl0sWzgsN10sWzUsMl0sWzYsMl0sWzksNF0sWzksM10sWzExLDldLFsxMiwxMV0sWzExLDEwXSxbMTIsMTNdLFsxNiwxNV0sWzIsMTVdLFsxNywxNl0sWzE0LDE3XSxbMiwwXSxbMiwxXV19LCJiYWNrZ3JvdW5kIjoiIn0=";
-        }
-        
-        Manager.set(UTIL.initBuildPhase(
-            _defaultLayout,
-            scene,
-            renderer.domElement,
-            controls,
-            {
-                Node: NodeController,
-                Overlay: OverlayController,
-                Physics: PhysicsController,
-                Mouse: MouseController
+        Session.login("hello", "world")
+        .then(res => Logger.info(res))
+        .then(_ => Session.getsave())
+        .then(res => {
+            let _defaultLayout = UTIL.BLANK_LAYOUT;
+            { // [!] testing only
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+                if (urlParams.has("preset"))
+                    _defaultLayout = "eyJsYXlvdXQiOnsibm9kZXMiOlt7InV1aWQiOiIwIiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstMiwyLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjEiLCJ0eXBlIjoiY3ViZSIsInBvc2l0aW9uIjpbLTQsLTEsNF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMiIsInR5cGUiOiJzY2FubmVyIiwicG9zaXRpb24iOlsyLC0xLDJdLCJfZGF0YSI6e319LHsidXVpZCI6IjMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6Wy05LDAsLTRdLCJfZGF0YSI6e319LHsidXVpZCI6IjQiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy02LDAsLTFdLCJfZGF0YSI6e319LHsidXVpZCI6IjUiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy0yLDAsLTJdLCJfZGF0YSI6e319LHsidXVpZCI6IjYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzAsMCw2XSwiX2RhdGEiOnt9fSx7InV1aWQiOiI3IiwidHlwZSI6InBsYWNlaG9sZGVyIiwicG9zaXRpb24iOlstNSwwLDldLCJfZGF0YSI6e319LHsidXVpZCI6IjgiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy00LDAsMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjkiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6Wy01LDAsLTVdLCJfZGF0YSI6e319LHsidXVpZCI6IjEwIiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlstNSwwLC05XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMSIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbMCwwLC02XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxMiIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbNCwwLC0xMF0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTMiLCJ0eXBlIjoiZ2xvYmUiLCJwb3NpdGlvbiI6WzEsMCwtMTNdLCJfZGF0YSI6e319LHsidXVpZCI6IjE0IiwidHlwZSI6Imdsb2JlIiwicG9zaXRpb24iOlsxMCwwLC0zXSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNSIsInR5cGUiOiJjdWJlIiwicG9zaXRpb24iOls0LDAsNl0sIl9kYXRhIjp7fX0seyJ1dWlkIjoiMTYiLCJ0eXBlIjoicGxhY2Vob2xkZXIiLCJwb3NpdGlvbiI6WzgsMCw0XSwiX2RhdGEiOnt9fSx7InV1aWQiOiIxNyIsInR5cGUiOiJwbGFjZWhvbGRlciIsInBvc2l0aW9uIjpbOSwwLDBdLCJfZGF0YSI6e319XSwibmVpZ2hib3JzIjpbWzQsMF0sWzUsMF0sWzYsMF0sWzUsMV0sWzYsMV0sWzAsMV0sWzcsNl0sWzgsN10sWzUsMl0sWzYsMl0sWzksNF0sWzksM10sWzExLDldLFsxMiwxMV0sWzExLDEwXSxbMTIsMTNdLFsxNiwxNV0sWzIsMTVdLFsxNywxNl0sWzE0LDE3XSxbMiwwXSxbMiwxXV19LCJiYWNrZ3JvdW5kIjoiIn0=";
             }
-        ));
-        Manager.phase = "build";
+            Manager.set(UTIL.initBuildPhase(
+                JSON.stringify(res),
+                scene,
+                renderer.domElement,
+                controls,
+                {
+                    Node: NodeController,
+                    Overlay: OverlayController,
+                    Physics: PhysicsController,
+                    Mouse: MouseController
+                }
+            ));
+            Manager.phase = "build";
+            // render the stuff
+            function animate() {
+                //requestIdleCallback(animate)
 
-        // render the stuff
-        function animate() {
-            //requestIdleCallback(animate)
+                PhysicsController.update();
+                Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
+                Manager.Overlay.update();
 
-            PhysicsController.update();
-            Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
-            Manager.Overlay.update();
+                // required if controls.enableDamping or controls.autoRotate are set to true
+                controls.camera.update(); // must be called after any manual changes to the camera"s transform
 
-            // required if controls.enableDamping or controls.autoRotate are set to true
-            controls.camera.update(); // must be called after any manual changes to the camera"s transform
-
-            FPSCounter.update();
-            renderer.render(scene, camera);
-        }
-        FPSCounter.reset();
-        renderer.setAnimationLoop(animate);
-        setTimeout(() => {
-            trackLowPerformace = true;
-        }, 2500); // time before we start checking if we need to turn on low performance mode
+                FPSCounter.update();
+                renderer.render(scene, camera);
+            }
+            FPSCounter.reset();
+            renderer.setAnimationLoop(animate);
+            setTimeout(() => {
+                trackLowPerformace = true;
+            }, 2500); // time before we start checking if we need to turn on low performance mode
+        });
     });
 }
 

@@ -6,6 +6,8 @@ import { ListenerManager } from "./listeners.js";
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 
+export const BLANK_LAYOUT = "eyJiYWNrZ3JvdW5kOiIiLCJsYXlvdXQiOnsibm9kZXMiOltdLCJuZWlnaGJvcnMiOltdfX0=";
+
 export function createVideoElement (videopath, speed = 1) {
     const videoEl = document.createElement("video");
     videoEl.src = videopath;
@@ -146,32 +148,46 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
     Logger.debug("Exported layout: ", data);
     return obfuscate ? btoa(dataStr) : dataStr;
 }
-export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
-    const isEncoded = b64RegPattern.test(jsonStr);
+
+export function layoutFromJsonObj(jsonObj, scene, dragControls, nodeManager) {
     try {
-        const data = JSON.parse(isEncoded ? atob(jsonStr) : jsonStr);
         const newIds = {};
-        if (data.background)
+        if (jsonObj.background)
             try {
-                scene.background = loadTextureCube(data.background);
+                scene.background = loadTextureCube(jsonObj.background);
             } catch (error) {
                 Logger.error(
-                    `Failed to load background from source: ${data.background}`
+                    `Failed to load background from source: ${jsonObj.background}`
                 );
                 Logger.error(error);
             }
-        data.layout.nodes.forEach((node) => {
+        jsonObj.layout.nodes.forEach((node) => {
             const newId = nodeManager.createNode(node.type, node.position);
             newIds[node.uuid] = newId;
         });
-        data.layout.neighbors.forEach((tether) =>
+        jsonObj.layout.neighbors.forEach((tether) =>
             nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]])
         );
         // update references
         dragControls.objects = nodeManager.nodelist;
         nodeManager.centerNodes();
-        Logger.debug("Loaded layout: ", data);
+        Logger.debug("Loaded layout: ", jsonObj);
         return true;
+    } catch (error) {
+        Logger.error(
+            `Error loading layout: `,
+            jsonObj
+        );
+        Logger.error(error);
+        return false;
+    }
+}
+
+export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
+    const isEncoded = b64RegPattern.test(jsonStr);
+    let data;
+    try {
+        data = JSON.parse(isEncoded ? atob(jsonStr) : jsonStr);
     } catch (error) {
         Logger.error(
             `Error loading ${isEncoded ? "encoded " : ""}layout: `,
@@ -180,6 +196,7 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
         Logger.error(error);
         return false;
     }
+    return layoutFromJsonObj(data, scene, dragControls, nodeManager);
 }
 
 export function initAttackPhase(

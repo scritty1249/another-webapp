@@ -27,7 +27,7 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
         // [!] Google Apps Script does not expose the request body for GET requests. Use POST if sending a request body!
         data.body = JSON.stringify(body);
     }
-    Logger.debug(`[API] | ${method.toUpperCase()} Request to "${path}"`);
+    Logger.debug(`[API] | ${method.toUpperCase()} Request to "${path}"\n\t${url}`);
     return fetch(url, data)
         .then(resp => {
             if (!resp.ok)
@@ -50,22 +50,22 @@ export function login (username, password) {
 }
 
 export function createAccount (username, password) {
-    return sendRequest("/api/newlogin", {}, "POST", {username: username, password: password})
+    return sendRequest("/api/newlogin", undefined, "POST", {username: username, password: password})
         .then(data => data?.token);
 }
 
 export function getOwnBase (sessionToken) {
-    return sendRequest("/game/load", {}, "GET", {}, {session: sessionToken})
+    return sendRequest("/game/load", undefined, "GET", undefined, {session: sessionToken})
         .then(data => data);
 }
 
 export function refreshSession (sessionToken) {
-    return sendRequest("/api/refresh", {}, "GET", {}, {session: sessionToken})
+    return sendRequest("/api/refresh", undefined, "GET", undefined, {session: sessionToken})
         .then(data => data?.token.expires);
 }
 
 export function saveGame (sessionToken, backdrop, layout, ...currency) {
-    return sendRequest("/game/save", {}, "POST", {
+    return sendRequest("/game/save", undefined, "POST", {
         game: {
             backdrop: backdrop,
             layout: layout
