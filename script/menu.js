@@ -46,29 +46,87 @@ export function MenuManager (
             self.element.wrapper.classList.add("login");
             const central = document.createElement("div");
             central.classList.add("center", "absolutely-center");
+
+            let elements = [];
+
             const loginLabel = self.createElement.textBox("Login", false, false);
             const usernameLabel = self.createElement.textBox("Username", false, false);
             const passwordLabel = self.createElement.textBox("Password", false, false);
             const usernameField = self.createElement.textBox("");
             const passwordField = self.createElement.textBox("");
+
+            const getLoginData = () => {
+                const values = {
+                    username: usernameField.firstChild.value.trim(),
+                    password: passwordField.firstChild.value.trim(),
+                    elements: elements
+                };
+                usernameField.firstChild.value = "";
+                passwordField.firstChild.value = "";
+                return values;
+            };
+
             const loginButton = self.createElement.button(90, undefined, "Sign in", { // placeholder
                 click: () => {
-                    self._dispatch("login", {username: usernameField.firstChild.value.trim(), password: passwordField.firstChild.value.trim()})
+                    const loginData = getLoginData();
+                    if (loginData.username && loginData.password)
+                        self._dispatch("login", loginData);
+                    else
+                        Logger.alert("Field(s) are still blank!");
                 },
             }, 1.25);
             const createButton = self.createElement.button(90, undefined, "Create account", {
                 click: () => {
-                    self._dispatch("newlogin", {username: usernameField.firstChild.value.trim(), password: passwordField.firstChild.value.trim()})
+                    const loginData = getLoginData();
+                    if (loginData.username && loginData.password)
+                        self._dispatch("newlogin", loginData);
+                    else
+                        Logger.alert("Field(s) are still blank!");
                 },
             }, 1.25);
             usernameField.style.width = "calc(var(--vw) * 50)";
             usernameField.id = "loginpage-username";
+            usernameField.rows = 1;
+            usernameField.cols = 50;
             passwordField.style.width = "calc(var(--vw) * 50)";
             passwordField.id = "loginpage-password";
+            passwordField.rows = 1;
+            passwordField.cols = 50;
 
+            usernameField.addEventListener("keypress", (e) => {
+                if (e.which === 13 && !e.shiftKey) { // enter key
+                    const loginData = getLoginData();
+                    if (loginData.username && loginData.password)
+                        self._dispatch("login", loginData);
+                    else
+                        Logger.alert("Field(s) are still blank!");
+                    e.preventDefault();
+                }
+            });
+            usernameField.addEventListener("keydown", (e) => {
+                if (e.keyCode === 9) { // tab key
+                    passwordField.firstChild.focus();
+                    e.preventDefault();
+                }
+            });
+            passwordField.addEventListener("keypress", (e) => {
+                if (e.which === 13 && !e.shiftKey) {
+                    const loginData = getLoginData();
+                    if (loginData.username && loginData.password)
+                        self._dispatch("login", loginData);
+                    else
+                        Logger.alert("Field(s) are still blank!");
+                    e.preventDefault();
+                }
+            });
+            passwordField.addEventListener("keydown", (e) => {
+                if (e.keyCode === 9) { // tab key
+                    usernameField.firstChild.focus();
+                    e.preventDefault();
+                }
+            });
             
-
-            self._appendElement(central,
+            elements = [
                 loginLabel,
                 usernameLabel,
                 usernameField,
@@ -76,7 +134,8 @@ export function MenuManager (
                 passwordField,
                 loginButton,
                 createButton
-            );
+            ];
+            self._appendElement(central, ...elements);
             self._appendMenu(central);
             self._dispatch("loadmenu", { history: ["login"] });
         },
@@ -136,6 +195,16 @@ export function MenuManager (
             self._appendMenu(...Object.values(section));
             self._dispatch("loadmenu", {history: []});
         },
+        loading: function () {
+            self.loadMenu.clear();
+            self.element.wrapper.classList.add("loading");
+            const central = document.createElement("div");
+            central.classList.add("center", "absolutely-center");
+            const loading = self.createElement.textBox("Loading...", false, false);
+            self._appendElement(central, loading);
+            self._appendMenu(central);
+            self._dispatch("loadmenu", { history: ["loading"] });
+        },
         pickTarget: function () { // [!] For now swaps between build and attack phases, but in prod should actually be used for selecting a target
             self.loadMenu.clear();
             self.element.wrapper.classList.add("pickTarget");
@@ -170,11 +239,8 @@ export function MenuManager (
                     self.createElement.button(90, "gear", "Low performance off", {
                         click: () => self._dispatch("lowperformance", {set: false}),
                     }, 4),
-                    self.createElement.button(90, "add-node", "Load layout\nfrom clipboard", {
-                        click: () => self._dispatch("_loadlayout"),
-                    }, 4),
-                    self.createElement.button(90, "gear", "Copy layout\nto clipboard", {
-                        click: () => self._dispatch("_savelayout"),
+                    self.createElement.button(90, "gear", "Sign out", {
+                        click: () => self._dispatch("logout"),
                     }, 4),
                     self.createElement.button(90, "cpu", "Save debug file", {
                         click: () => self._dispatch("_savelog"),

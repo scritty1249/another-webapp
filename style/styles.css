@@ -115,10 +115,6 @@ canvas {
         }
     }
 
-    .textbox {
-        
-    }
-
     > .nodeMenu {
         --x-side: -50%;
         --y-side: -50%;

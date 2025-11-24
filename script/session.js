@@ -27,8 +27,12 @@ export function login (username, password) {
     return hash(password)
         .then(passhash =>
             API.login(username, passhash))
-        .then(tokenObj =>
-            setSession(throwFalse(tokenObj)))
+        .then(tokenObj => {
+            if (!tokenObj)
+                Logger.alert(`Wrong username or password!`);
+            else
+                return setSession(throwFalse(tokenObj));
+        })
         .catch(err => false);
 }
 
@@ -37,8 +41,12 @@ export function newlogin (username, password, gamedata, bankdata) {
     return hash(password)
         .then(passhash =>
             API.createAccount(username, passhash))
-        .then(tokenObj =>
-            setSession(throwFalse(tokenObj)))
+        .then(tokenObj => {
+            if (!tokenObj)
+                Logger.alert(`Failed to create new account. Username ${username} already exists.`);
+            else
+                return setSession(throwFalse(tokenObj));
+        })
         .then(sessionToken =>
             API.saveGame(sessionToken, gamedata.background, gamedata.layout, bankdata.cash, bankdata.crypto))
         .catch(err => false);
