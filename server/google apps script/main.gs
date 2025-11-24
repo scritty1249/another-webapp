@@ -17,7 +17,7 @@ function btoa(str) {
 }
 
 function processCookies(e) { // since we don't get real cookies...
-    const params = e.parameters;
+    const params = e.parameter;
     const cookies = Object.keys(e.parameter).filter(key => key.startsWith("cookie-"));
     const cookieJar = {};
     cookies.forEach(cookie => {
@@ -30,7 +30,7 @@ function processCookies(e) { // since we don't get real cookies...
 // API handlers
 const Handlers = {
     _debug: function (e) {
-      return Server.createResponse(e);
+      return Server.createResponse({...e, cookies: processCookies(e)});
     },
     newUser: function (conn, username, password) {
         if (Server.userExists(conn, username)) {
@@ -65,7 +65,7 @@ const Handlers = {
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
             const token = Server.getToken(conn, cookies.session);
-            const gamedata = conn.lookupEntry(TABLES.gamedata, token.id);
+            const gamedata = conn.lookupEntry(token.id, TABLES.gamedata);
             return Server.createResponse({
                 game: {
                     backdrop: gamedata.backdrop,
@@ -174,9 +174,9 @@ const Server = {
     refreshToken: function (conn, token) {
         const tokenData = this.getToken(conn, token);
         if (!this.tokenExpired(conn, tokenData)) {
-            const { t: token, id } = tokenData;
+            const { token: t, id } = tokenData;
             const expires = this.maxExpirationUTC();
-            conn.updateEntry(TABLES.token, t, id, expires);
+            conn.updateEntry(TABLES.tokens, t, id, expires);
             return true;
         }
         return false;
@@ -248,18 +248,20 @@ DatabaseConnection.prototype = {
     activeTable: undefined,
 };
 DatabaseConnection.prototype._findRow = function (value, columnIdx = 1) {
-    return this.activeTable
+    const idx = this.activeTable
         .getRange(2, columnIdx, this.activeTable.getLastRow())
         .getValues()
         .map(row => row[0])
-        .indexOf(value) + 2; // 1 offset for header row, another offset becase GayAppsScript doesn't zero-index their spreadsheets
+        .indexOf(value);
+    return idx === -1 ? idx : idx + 2; // 1 offset for header row, another offset becase GayAppsScript doesn't zero-index their spreadsheets
 }
 DatabaseConnection.prototype._findBlankRow = function () {
-    return this.activeTable
+    const idx = this.activeTable
         .getRange(2, 1, this.activeTable.getLastRow())
         .getValues()
         .filter(c=>c)
-        .length + 2; // 1 offset for header row, another offset becase GayAppsScript doesn't zero-index their spreadsheets
+        .length;
+    return idx === -1 ? idx : idx + 1; // need to get the next row
 }
 DatabaseConnection.prototype._getEntryAt = function (idx) {
     return this.activeTable.getRange(idx, 1, 1, this.activeTable.getLastColumn()).getValues()?.[0];
@@ -324,7 +326,7 @@ function doGet(e) {
         return response;
     } catch (err) {
         console.error(err);
-        return Server.createErrorResponse(4, err.message + "\n" + JSON.stringify(e));
+        return Server.createErrorResponse(4, err.message + "\nDump:\n" + JSON.stringify(e) + "\nTrace:\n" + err.stack);
     }
 }
 
@@ -356,6 +358,6 @@ function doPost(e) {
         return response;
     } catch (err) {
         console.error(err);
-        return Server.createErrorResponse(4, err.message + "\n" + JSON.stringify(e));
+        return Server.createErrorResponse(4, err.message + "\nDump:\n" + JSON.stringify(e) + "\nTrace:\n" + err.stack);
     }
 }
