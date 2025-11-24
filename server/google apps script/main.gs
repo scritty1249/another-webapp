@@ -8,7 +8,13 @@ const TABLES = {
     tokens: "LiveTokens"
 };
 
-
+function atob(b64str) {
+    const bytes = Utilities.base64Decode(b64str);
+    return Utilities.newBlob(bytes).getDataAsString("UTF-8");
+}
+function btoa(str) {
+    return Utilities.base64Encode(str);
+}
 
 function processCookies(e) { // since we don't get real cookies...
     const params = e.parameters;
@@ -38,10 +44,9 @@ const Handlers = {
     login: function (conn, params) {
         const loginData = params.login;
         try {
-            const [username, password] = Utilities.base64Dencode(loginData[0]).split(":", 2);
-            const passhash = Server.hash(password);
+            const [username, password] = atob(loginData?.[0]).split(":", 2);
             if (!Server.userExists(conn, username))
-                return Server.createErrorResponse(1, "Username does not exist");
+                return Server.createErrorResponse(1, `Username "${username}" does not exist`);
             else if (!Server.checkPassword(conn, username, password))
                 return Server.createErrorResponse(1, "Wrong password entered");
             else
@@ -88,7 +93,7 @@ const Handlers = {
 const Server = {
     createNewUser: function (conn, username, password) {
         const passhash = this.hash(password);
-        const userid = this.hash(Utilities.base64Encode(username));
+        const userid = this.hash(btoa(username));
         conn.insertEntry(TABLES.users,
             userid,
             username,
@@ -121,7 +126,7 @@ const Server = {
     },
     checkPassword: function (conn, username, password) {
         const userid = this.getUserId(conn, username);
-        return this.entryToJson(conn.lookupEntry(userid, TABLES.users))?.password == this.hash(password);
+        return this.entryToJson(...conn.lookupEntry(userid, TABLES.users))?.password == this.hash(password);
     },
     // token management
     verifyRefreshToken: function (conn, token) {
@@ -205,10 +210,8 @@ const Server = {
     },
     entryToJson: function (headers, row) {
         const jsonObj = {};
-        headers.forEach((header, idx) => {
-            jsonObj[header] =
-                typeof row[idx] === "undefined" ? undefined : row[0][idx];
-        });
+        console.log(headers, row)
+        headers.forEach((header, idx) => jsonObj[header] = row[idx]);
         return jsonObj;
     },
     userExists: function (conn, username) {
@@ -229,26 +232,27 @@ DatabaseConnection.prototype._findRow = function (value, columnIdx = 1) {
     return this.activeTable
         .getRange(2, columnIdx, this.activeTable.getLastRow())
         .getValues()
-        .indexOf(value);
+        .map(row => row[0])
+        .indexOf(value) + 2; // 1 offset for header row, another offset becase GayAppsScript doesn't zero-index their spreadsheets
 }
 DatabaseConnection.prototype._findBlankRow = function () {
     return this.activeTable
         .getRange(2, 1, this.activeTable.getLastRow())
         .getValues()
         .filter(c=>c)
-        .length + 1;
+        .length + 2; // 1 offset for header row, another offset becase GayAppsScript doesn't zero-index their spreadsheets
 }
 DatabaseConnection.prototype._getEntryAt = function (idx) {
-    return this.activeTable.getRange(idx, 1, 1, this.activeTable.getLastColumn())?.[0];
+    return this.activeTable.getRange(idx, 1, 1, this.activeTable.getLastColumn()).getValues()?.[0];
 }
 DatabaseConnection.prototype._getEntry = function (id) {
     const entryIdx = this._findRow(id);
     return entryIdx != -1
-        ? this._getEntryAt(entryIdx).slice(1)
+        ? this._getEntryAt(entryIdx)
         : undefined;
 }
 DatabaseConnection.prototype._getHeaders = function () {
-    return this.activeTable.getRange(1, 1, 1, this.activeTable.getLastColumn())?.[0];
+    return this.activeTable.getRange(1, 1, 1, this.activeTable.getLastColumn()).getValues()?.[0];
 }
 DatabaseConnection.prototype._selectTable = function (tableName) {
     this.activeTable = this.database.getSheetByName(tableName);
@@ -311,7 +315,7 @@ function doPost(e) {
         const params = e.parameters;
         const cookies = processCookies(e);
         const path = params.path?.[0];
-        const payload = (e.postData.type == "application/json") ? JSON.parse(e.postData.contents) : {content: e.postData.contents} ;
+        const payload = JSON.parse(e.postData.contents);
         let response;
         const conn = new DatabaseConnection(SSID);
         switch (path) {
