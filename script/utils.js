@@ -118,14 +118,16 @@ export function loadVideoTextureSource (videopath, maskpath, speed = 1) {
 
 export function layoutToJson(scene, nodeManager, obfuscate = true) {
     const data = {
-        nodes: [],
-        neighbors: [],
         background: "", // [!] disabled for now
+        layout: {
+            nodes: [],
+            neighbors: [],
+        },
     };
     const newIds = {};
     nodeManager.nodelist.forEach((node, i) => {
         const posData = node.position.clone().round();
-        data.nodes.push(
+        data.layout.nodes.push(
             new NodeObject(node.userData.type, `${i}`, [
                 posData.x,
                 posData.y,
@@ -135,7 +137,7 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
         newIds[node.uuid] = i;
     });
     nodeManager.tetherlist.forEach((tether) =>
-        data.neighbors.push([
+        data.layout.neighbors.push([
             newIds[tether.userData.target.uuid],
             newIds[tether.userData.origin.uuid],
         ])
@@ -158,11 +160,11 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
                 );
                 Logger.error(error);
             }
-        data.nodes.forEach((node) => {
+        data.layout.nodes.forEach((node) => {
             const newId = nodeManager.createNode(node.type, node.position);
             newIds[node.uuid] = newId;
         });
-        data.neighbors.forEach((tether) =>
+        data.layout.neighbors.forEach((tether) =>
             nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]])
         );
         // update references
