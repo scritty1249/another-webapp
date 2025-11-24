@@ -242,7 +242,7 @@ export function initAttackPhase(
     managers.Node.clear();
     managers.Overlay.clear();
     managers.Listener?.clear();
-    layoutFromJson(attackData.layout, scene, controls.drag, managers.Node);
+    layoutFromJsonObj(attackData.layout, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new AttackNodeManager(
             attackData.nodeTypes,
@@ -300,7 +300,7 @@ export function initBuildPhase(
     managers.Node.clear();
     managers.Overlay.clear();
     managers.Listener?.clear();
-    layoutFromJson(layoutData, scene, controls.drag, managers.Node);
+    layoutFromJsonObj(layoutData, scene, controls.drag, managers.Node);
     const controllers = {
         Node: new BuildNodeManager(...managers.Node._constructorArgs),
         Overlay: new BuildOverlayManager(...managers.Overlay._constructorArgs),

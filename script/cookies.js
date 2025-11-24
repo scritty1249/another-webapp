@@ -22,7 +22,7 @@ export function CookieJar () { // we use the lame name here so we can call it "c
             return crumbs.pop().split(";").shift();
     }
     this.remove = function (name) {
-        document.cookie = `${name}=; expires=Fri, 31 Dec 2025 23:59:59 GMT; path=/";`
+        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/";`
     }
     return this;
 }
