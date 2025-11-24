@@ -123,7 +123,7 @@ const Server = {
         conn.insertEntry(TABLES.gamedata,
             userid
         );
-        return this.createResponse(this.createToken(conn, userid));
+        return this.createResponse({token: this.createToken(conn, userid)});
     },
     updateGameData: function (conn, userid, gamedata) {
         conn._selectTable(TABLES.gamedata);
