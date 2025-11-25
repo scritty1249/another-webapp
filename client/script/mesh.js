@@ -364,12 +364,12 @@ const Nodes = {
 };
 const Attack = {
     Particle: function () {
-        const particle = Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.55, 3, 3);
+        const particle = Beam("./source/attacks/particle/attack.mp4", "./source/attacks/particle/attack-mask.mp4", 0.55, 16, 3);
         particle.userData.type = "particle";
         return particle;
     },
     CubeDefense: function () {
-        const cubeDefense = Beam("./source/attack.mp4", "./source/attack-mask.mp4", 0.65, 16, 1);
+        const cubeDefense = Beam("./source/attacks/particle/attack.mp4", "./source/attacks/particle/attack-mask.mp4", 0.65, 16, 1);
         cubeDefense.userData.type = "cubedefense";
         return cubeDefense;
     }
