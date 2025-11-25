@@ -49,25 +49,38 @@ if (WebGL.isWebGL2Available()) {
         MenuController.loginScreen();
         MenuController.when("login", ({username, password, elements}) => {
             elements.forEach(el => el.classList.remove("pointer-events"));
-            UTIL.unfocusDom();
-            Session.login(username, password)
-                .then(res => {
-                    if (res)
-                        mainloop(MenuController);
-                    else
-                        elements.forEach(el => el.classList.add("pointer-events"));
-                });
+            MenuController.when("loadmenu", detail => {
+                const statusEl = detail.statusElement;
+                statusEl.text = "Logging in...";
+                Session.login(username, password)
+                    .then(res => {
+                        if (res)
+                            mainloop(MenuController);
+                        else {
+                            elements.forEach(el => el.classList.add("pointer-events"));
+                            MenuController.loginScreen();
+                        }
+                    });
+            }, false, true);
+            MenuController.open(["loading"]);
         });
         MenuController.when("newlogin", ({username, password, elements}) => {
             elements.forEach(el => el.classList.remove("pointer-events"));
-            UTIL.unfocusDom();
-            Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, {cash: 0, crypto: 0})
-                .then(res => {
-                    if (res)
-                        mainloop(MenuController);
-                    else
-                        elements.forEach(el => el.classList.add("pointer-events"));
-                });
+            MenuController.when("loadmenu", detail => {
+                const statusEl = detail.statusElement;
+                statusEl.text = "Contacting server";
+                Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, {cash: 0, crypto: 0})
+                    .then(res => {
+                        if (res)
+                            mainloop(MenuController);
+                        else {
+                            elements.forEach(el => el.classList.add("pointer-events"));
+                            MenuController.loginScreen();
+                        }
+                    });
+            }, false, true);
+            MenuController.open(["loading"]);
+            
         });
     } else { // auto login
         mainloop(MenuController);
@@ -78,101 +91,71 @@ if (WebGL.isWebGL2Available()) {
 }
 
 function mainloop(MenuController) {
-    MenuController.open(["loading"]);
-    const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
-    const NodeController = new NodeManager(scene, renderer, camera, raycaster);
-    const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
-        document.getElementById("overlay"), MenuController
-    );
-    const PhysicsController = new PhysicsManager(NodeController,
-        shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
-    );
-    const Manager = {
-        phase: undefined,
-        Node: undefined,
-        Overlay: undefined,
-        Listener: undefined,
-        set: function (managers) {
-            ({Node: this.Node, Overlay: this.Overlay, Listener: this.Listener} = managers);
-        }
-    };
-    const clock = new THREE.Clock();
-    document.getElementById("container").appendChild(renderer.domElement);
+    MenuController.when("loadmenu", d => {
+        const statusEl = d.statusElement;
 
-    // start loading everything
-    const gtlfData = Promise.all([
-        THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
-        THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
-        THREEUTILS.loadGLTFShape("./source/globe.glb"),
-        THREEUTILS.loadGLTFShape("./source/scanner.glb")
-    ]);
+        statusEl.text = "Loading scene";
 
-    // Setup external (yawn) library controls
-    const controls = {
-        drag: new DragControls(NodeController.nodelist, camera, renderer.domElement), // drag n" drop
-        camera: new OrbitControls(camera, renderer.domElement), // camera
-    };
-    controls.camera.enablePan = false;
-    controls.camera.maxDistance = 25;
-    controls.camera.enableDamping = true;
-    controls.camera.dampingFactor = 0.12;
-    controls.drag.transformGroup = true;
-    controls.drag.rotateSpeed = 0;
-
-    // release right click
-    controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
-    controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
-
-    const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
-    scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
-
-    // Control shadows
-    const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
-    scene.add(ambientLight);
-
-    // render a light
-    const light = new THREE.PointLight(0xffffff, 3500);
-    light.position.set(-10, 20, 10);
-    scene.add(light);
-    light.castShadow = true;
-    light.shadow.camera.top = 2;
-    light.shadow.camera.bottom = -2;
-    light.shadow.camera.left = -2;
-    light.shadow.camera.right = 2;
-    light.shadow.camera.near = 1;
-    light.shadow.camera.far = 10;
-
-    gtlfData.then(data => {
-        const [ placeholderData, cubeData, globeData, eyeData, ..._] = data;
-        Logger.info("Finished loading shape data:", data);        
-
-        NodeController.addMeshData({
-            placeholder: () => MESH.Nodes.Placeholder(placeholderData),
-            cube: () => MESH.Nodes.Cube(cubeData),
-            globe: () => MESH.Nodes.Globe(globeData),
-            scanner: () => MESH.Nodes.Scanner(eyeData),
-            tether: (o, t) => MESH.Tether(o, t)
-        });
-        
-        let trackLowPerformace = false;
-        document.getElementById("performance").textContent = "Low Performance mode: OFF";
-        const FPSCounter = new Framerate(
-            (fps) => {
-                document.getElementById("framerate").textContent = `FPS: ${fps}`;
-                document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
-                if (
-                    trackLowPerformace &&
-                    !NodeController.lowPerformanceMode &&
-                    FPSCounter.started &&
-                    FPSCounter.fps < 30
-                ) {
-                    NodeController.lowPerformanceMode = true;
-                    Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
-                }
-            }
+        // Loading sequence
+        const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
+        const NodeController = new NodeManager(scene, renderer, camera, raycaster);
+        const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
+            document.getElementById("overlay"), MenuController
         );
+        const PhysicsController = new PhysicsManager(NodeController,
+            shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
+        );
+        const Manager = {
+            phase: undefined,
+            Node: undefined,
+            Overlay: undefined,
+            Listener: undefined,
+            set: function (managers) {
+                ({Node: this.Node, Overlay: this.Overlay, Listener: this.Listener} = managers);
+            }
+        };
+        const clock = new THREE.Clock();
+        document.getElementById("container").appendChild(renderer.domElement);
+
+        // Setup external (yawn) library controls
+        const controls = {
+            drag: new DragControls(NodeController.nodelist, camera, renderer.domElement), // drag n" drop
+            camera: new OrbitControls(camera, renderer.domElement), // camera
+        };
+        controls.camera.enablePan = false;
+        controls.camera.maxDistance = 25;
+        controls.camera.enableDamping = true;
+        controls.camera.dampingFactor = 0.12;
+        controls.drag.transformGroup = true;
+        controls.drag.rotateSpeed = 0;
+
+        // release right click
+        controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
+        controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
+
+        const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
+        scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
+
+        // Control shadows
+        const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
+        scene.add(ambientLight);
+
+        // render a light
+        const light = new THREE.PointLight(0xffffff, 3500);
+        light.position.set(-10, 20, 10);
+        scene.add(light);
+        light.castShadow = true;
+        light.shadow.camera.top = 2;
+        light.shadow.camera.bottom = -2;
+        light.shadow.camera.left = -2;
+        light.shadow.camera.right = 2;
+        light.shadow.camera.near = 1;
+        light.shadow.camera.far = 10;
+
+        statusEl.text = "Contacting server";
         Session.getsave()
             .then(res => {
+                statusEl.text = "Loading profile";
                 { // persistent listeners
                     MenuController.when("swapphase", function (detail) {
                         MenuController.close();
@@ -237,48 +220,93 @@ function mainloop(MenuController) {
                     }, true);
                     MenuController.when("save", function (_) {
                         MenuController.close();
-                        if (Manager.Node.validateLayout(maxStepsFromGlobe))
-                            Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
-                                .then(res => Logger.alert(res ? "Saved successfully" : "Failed to save"));
-                        else
+                        if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                            MenuController.when("loadmenu", detail => {
+                                detail.statusElement.text = "Uploading to server";
+                                Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
+                                    .then(res => {
+                                        MenuController.close();
+                                        Logger.alert(res ? "Saved successfully" : "Failed to save");
+                                });
+                            }, false, true);
+                            MenuController.open(["loading"]);
+                        } else
                             Logger.alert(`Cannot save layout: All nodes must be connected and within ${maxStepsFromGlobe} steps of a Globe!`);
                     }, true);
                 }
-                Manager.set(UTIL.initBuildPhase(
-                    !res || res === {} ? UTIL.BLANK_LAYOUT_OBJ : res,
-                    scene,
-                    renderer.domElement,
-                    controls,
-                    {
-                        Node: NodeController,
-                        Overlay: OverlayController,
-                        Physics: PhysicsController,
-                        Mouse: MouseController
+                statusEl.text = "Loading mesh data";
+                const gtlfData = Promise.all([
+                    THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
+                    THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
+                    THREEUTILS.loadGLTFShape("./source/globe.glb"),
+                    THREEUTILS.loadGLTFShape("./source/scanner.glb")
+                ]);
+                gtlfData.then(data => {
+                    const [ placeholderData, cubeData, globeData, eyeData, ..._] = data;
+                    Logger.info("Finished loading shape data:", data);        
+
+                    NodeController.addMeshData({
+                        placeholder: () => MESH.Nodes.Placeholder(placeholderData),
+                        cube: () => MESH.Nodes.Cube(cubeData),
+                        globe: () => MESH.Nodes.Globe(globeData),
+                        scanner: () => MESH.Nodes.Scanner(eyeData),
+                        tether: (o, t) => MESH.Tether(o, t)
+                    });
+                    
+                    let trackLowPerformace = false;
+                    document.getElementById("performance").textContent = "Low Performance mode: OFF";
+                    const FPSCounter = new Framerate(
+                        (fps) => {
+                            document.getElementById("framerate").textContent = `FPS: ${fps}`;
+                            document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
+                            if (
+                                trackLowPerformace &&
+                                !NodeController.lowPerformanceMode &&
+                                FPSCounter.started &&
+                                FPSCounter.fps < 30
+                            ) {
+                                NodeController.lowPerformanceMode = true;
+                                Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
+                            }
+                        }
+                    );
+                    Manager.set(UTIL.initBuildPhase(
+                        !res || res === {} ? UTIL.BLANK_LAYOUT_OBJ : res,
+                        scene,
+                        renderer.domElement,
+                        controls,
+                        {
+                            Node: NodeController,
+                            Overlay: OverlayController,
+                            Physics: PhysicsController,
+                            Mouse: MouseController
+                        }
+                    ));
+                    Manager.phase = "build";
+                    MenuController.close();
+                    // render the stuff
+                    function animate() {
+                        //requestIdleCallback(animate)
+
+                        PhysicsController.update();
+                        Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
+                        Manager.Overlay.update();
+
+                        // required if controls.enableDamping or controls.autoRotate are set to true
+                        controls.camera.update(); // must be called after any manual changes to the camera"s transform
+
+                        FPSCounter.update();
+                        renderer.render(scene, camera);
                     }
-                ));
-                Manager.phase = "build";
-                MenuController.close();
-                // render the stuff
-                function animate() {
-                    //requestIdleCallback(animate)
-
-                    PhysicsController.update();
-                    Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
-                    Manager.Overlay.update();
-
-                    // required if controls.enableDamping or controls.autoRotate are set to true
-                    controls.camera.update(); // must be called after any manual changes to the camera"s transform
-
-                    FPSCounter.update();
-                    renderer.render(scene, camera);
-                }
-                FPSCounter.reset();
-                renderer.setAnimationLoop(animate);
-                setTimeout(() => {
-                    trackLowPerformace = true;
-                }, 2500); // time before we start checking if we need to turn on low performance mode
-            });
-    });
+                    FPSCounter.reset();
+                    renderer.setAnimationLoop(animate);
+                    setTimeout(() => {
+                        trackLowPerformace = true;
+                    }, 2500); // time before we start checking if we need to turn on low performance mode
+                });
+        });
+    }, false, true);
+    MenuController.open(["loading"]);
 }
 
 function Framerate (

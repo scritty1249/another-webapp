@@ -200,10 +200,10 @@ export function MenuManager (
             self.element.wrapper.classList.add("loading");
             const central = document.createElement("div");
             central.classList.add("center", "absolutely-center");
-            const loading = self.createElement.textBox("Loading...", false, false);
-            self._appendElement(central, loading);
+            const loading = self.createElement.statusTextBox(true, false);
+            self._appendElement(central, loading.element);
             self._appendMenu(central);
-            self._dispatch("loadmenu", { history: ["loading"] });
+            self._dispatch("loadmenu", { history: ["loading"], statusElement: loading});
         },
         pickTarget: function () { // [!] For now swaps between build and attack phases, but in prod should actually be used for selecting a target
             self.loadMenu.clear();
@@ -534,6 +534,26 @@ export function MenuManager (
             });
             return el;
         },
+        statusTextBox: function (background = true, interactive = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") { // wraps textbox, comes with functions to update the value
+            const el = self.createElement.textBox("", background, interactive, fontColor, highlightBg, highlightFg);
+            const wrapper = {
+                _display: el.style.display,
+                element: el,
+                set text (value) {
+                    this.element.firstChild.value = value;
+                },
+                get text () {
+                    return this.element.firstChild.value;
+                },
+                hide: () => {
+                    this.element.style.display = "none";
+                },
+                show: () => {
+                    this.element.style.display = this._display;
+                },
+            };
+            return wrapper;
+        },
         textBox: function (text, background = true, interactive = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") {
             const wrapper = document.createElement("div");
             const el = document.createElement("textarea");
@@ -555,7 +575,6 @@ export function MenuManager (
     };
     this.loginScreen = function () {
         self.open(["login"]);
-
     };
     this.open = function (menuPath = ["main"]) {
         self.state.open = true;
@@ -568,8 +587,8 @@ export function MenuManager (
             self.loadMenu.clear();
         self.state.open = false;
     }
-    this.when = function (eventName, handler, persist = false) {
-        self.element.eventTarget.addEventListener(eventName, (e) => { handler(e.detail) });
+    this.when = function (eventName, handler, persist = false, once = false) {
+        self.element.eventTarget.addEventListener(eventName, (e) => { handler(e.detail) }, {once: once});
         if (persist)
             self.persistentListeners.push({name: eventName, handler: handler});
     }
@@ -600,7 +619,7 @@ export function MenuManager (
         const clickedSomething = event.target !== self.element.wrapper;
         self._dispatch("click", {target: clickedSomething ? undefined: event.target});
         // [!] may remove later
-        if (!clickedSomething)
+        if (!clickedSomething && self.backPath != ["loading"])
             if (self.backPath?.length > 0)
                 self.open(self.backPath);
             else
