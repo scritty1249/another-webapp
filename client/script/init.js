@@ -18,6 +18,7 @@ const passiveForce = 0.003; // used for elements gravitating towards y=0
 const shapeMinProximity = 5.5;
 const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
+const maxStepsFromGlobe = 9; // max number of steps from a Globe each node is allowed to be
 
 // Setup
 // MouseController functionality
@@ -236,8 +237,11 @@ function mainloop(MenuController) {
                     }, true);
                     MenuController.when("save", function (_) {
                         MenuController.close();
-                        Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
-                            .then(res => Logger.alert(res ? "Saved successfully" : "Failed to save"));
+                        if (Manager.Node.validateLayout(maxStepsFromGlobe))
+                            Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
+                                .then(res => Logger.alert(res ? "Saved successfully" : "Failed to save"));
+                        else
+                            Logger.alert(`Cannot save layout: All nodes must be connected and within ${maxStepsFromGlobe} steps of a Globe!`);
                     }, true);
                 }
                 Manager.set(UTIL.initBuildPhase(

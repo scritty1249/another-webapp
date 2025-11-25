@@ -6,8 +6,7 @@ import { ListenerManager } from "./listeners.js";
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 
-export const BLANK_LAYOUT_OBJ = {background: "", layout: {neighbors: [], nodes: []}};
-export const BLANK_LAYOUT = "eyJiYWNrZ3JvdW5kOiIiLCJsYXlvdXQiOnsibm9kZXMiOltdLCJuZWlnaGJvcnMiOltdfX0=";
+export const BLANK_LAYOUT_OBJ = {background: "", layout: {neighbors: [], nodes: [{"uuid":"0","type":"globe","position":[0,0,0],"_data":{}}]}};
 
 export function createVideoElement (videopath, speed = 1) {
     const videoEl = document.createElement("video");

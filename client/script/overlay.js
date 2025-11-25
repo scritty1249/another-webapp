@@ -12,7 +12,7 @@ const zoomScaleFormula = (zoom, maxZoom) => {
 };
 
 const BuildFocusMenu = {
-    createMenuElement: function(linkButtonAction, infoButtonAction) {
+    createMenuElement: function(linkButtonAction, infoButtonAction, removeButtonAction) {
         const el = document.createElement("div");
         el.classList.add("nodeMenu", "right", "reveal");
         // hard coded- needs to be updated if file changes.
@@ -28,6 +28,8 @@ const BuildFocusMenu = {
         el.appendChild(linkButton);
         const infoButton = this.createInfoButton(infoButtonAction);
         el.appendChild(infoButton);
+        const removeButton = this.createRemoveButton(removeButtonAction);
+        el.appendChild(removeButton);
 
         return el;
     },
@@ -61,6 +63,21 @@ const BuildFocusMenu = {
         
         return el;
     },
+    createRemoveButton: function(removeButtonAction) {
+        const el = document.createElement("div");
+        el.classList.add("button", "pointer-events");
+        el.dataset.buttonType = "remove";
+        el.style.backgroundImage = `url("./source/remove-button.png")`;
+        el.style.width = "121px";
+        el.style.height = "125px";
+        el.style.setProperty("--left", "343px");
+        el.style.setProperty("--top", "155px");
+        el.addEventListener("click", function (event) {
+            removeButtonAction();
+        });
+        
+        return el;
+    }
 }
 
 const AttackFocusMenu = {
@@ -408,6 +425,10 @@ BuildOverlayManager.prototype._createFocusMenuElement =  function () {
         () => { // info button
             const node = this._nodeManager.getNode(this.focusedNodeId);
             Logger.log(node);
+        },
+        () => { // remove button
+            this._nodeManager.removeNode(this.focusedNodeId);
+            this.unfocusNode();
         }
     );
 };
