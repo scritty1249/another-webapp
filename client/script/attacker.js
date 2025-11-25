@@ -40,7 +40,7 @@ export const AttackerData = {
 export const AttackTypeData = {
     particle: {
         mesh: MESH.Attack.Particle,
-        damage: 15,
+        damage: 5,
         logic: AttackLogic.ParticleLogicFactory // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
     },
     cubedefense: {
