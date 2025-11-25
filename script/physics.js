@@ -29,11 +29,13 @@ export function PhysicsManager (
             axisZero
         );
         direction.normalize();
-        forceVector.sub(direction.multiplyScalar(magnitude));
+        forceVector.sub(
+            direction.multiplyScalar(magnitude)
+                .multiplyScalar(0.6 ** (this._nodeManager.getNeighbors(node.uuid).length - 1)) // significantly scale down physics force based on number of neighbors
+        );
         if (
             !node.userData.dragged && 
-            distance >= Number.EPSILON &&
-            this._nodeManager.getNeighbors(node.uuid).length < 3
+            distance >= Number.EPSILON
         ) {
             node.position.add(forceVector);
         }

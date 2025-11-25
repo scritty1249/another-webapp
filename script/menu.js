@@ -522,13 +522,16 @@ export function MenuManager (
             el.setAttributeNS(null,"y","-50%");
             el.setAttributeNS(null, "fill", fontColor);
             el.setAttributeNS(null, "visibility", "visible");
-            el.setAttributeNS(null, "dominant-baseline", "middle");
+            el.setAttributeNS(null, "dominant-baseline", "central");
             el.setAttributeNS(null, "text-anchor", "middle");
-            textlines.forEach(textline => {
+            textlines.forEach((textline, i) => {
                 const line = document.createElementNS(SVG_NS, "tspan");
                 line.setAttributeNS(null, "x", "0");
-                if (el.firstChild)
-                    line.setAttributeNS(null, "dy", "1.2rem");
+                if (textlines.length > 1)
+                    if (i)
+                        line.setAttributeNS(null, "dy", "1.2em");
+                    else
+                        line.setAttributeNS(null, "dy", "-.6em");
                 line.textContent = textline;
                 el.appendChild(line);
             });
@@ -619,7 +622,7 @@ export function MenuManager (
         const clickedSomething = event.target !== self.element.wrapper;
         self._dispatch("click", {target: clickedSomething ? undefined: event.target});
         // [!] may remove later
-        if (!clickedSomething && self.backPath != ["loading"])
+        if (!clickedSomething && self.backPath?.[0] != "loading")
             if (self.backPath?.length > 0)
                 self.open(self.backPath);
             else
