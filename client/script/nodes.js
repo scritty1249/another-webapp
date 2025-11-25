@@ -210,7 +210,7 @@ NodeManager.prototype.getNeighbors = function (nodeid) {
         ...Object.values(node.userData.tethers.target).map(
             (t) => t.userData.origin
         ),
-    ];
+    ].filter(n => n);
 };
 NodeManager.prototype.getNodes = function (...nodeids) {
     return nodeids.map((nodeid) => this.getNode(nodeid));
@@ -385,10 +385,11 @@ NodeManager.prototype._BFSNode = function (nodeid) {
         const curr = queue.shift();
         for (const neighbor of this.getNeighbors(curr).map(node => node.uuid))
             if (!visited.has(neighbor)) {
-                distances[curr] = dist;
+                distances[neighbor] = dist;
                 visited.add(neighbor);
                 queue.push(neighbor);
             }
+        dist += 1;
     }
     return distances;
 };
