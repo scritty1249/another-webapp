@@ -32,7 +32,8 @@ export function PhysicsManager (
         forceVector.sub(direction.multiplyScalar(magnitude));
         if (
             !node.userData.dragged && 
-            distance >= Number.EPSILON
+            distance >= Number.EPSILON &&
+            this._nodeManager.getNeighbors(node.uuid).length < 3
         ) {
             node.position.add(forceVector);
         }
