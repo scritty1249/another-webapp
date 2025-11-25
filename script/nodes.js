@@ -770,10 +770,11 @@ function AttackFactory(attackType, originid, manager) {
         uuid: mesh.uuid,
         damage: typeData.damage,
         logic: typeData.logic(),
-        get active() {
+        active: false,
+        get visible() {
             return this.mesh.visible;
         },
-        set active(value) {
+        set visible(value) {
             // boolean
             this.mesh.visible = value;
         },
@@ -788,18 +789,32 @@ function AttackFactory(attackType, originid, manager) {
                 this.mesh.userData.callback = function () {
                     if (attack.active) {
                         try {
+                            attack.visible = false;
                             manager
                                 .getNodeData(attack.target)
                                 .damage(attack.damage);
                             attack.update();
-                            if (attack.active) attack.mesh.userData.start();
+                            if (attack.active) {
+                                const siblings = manager.getNodeData(attack.origin).slots.filter(a => a.type == attack.type);
+                                const offset = siblings.map(a => a.uuid).indexOf(attack.uuid) * 650;
+                                setTimeout(
+                                    () => {
+                                        attack.visible = true;
+                                        attack.mesh.userData.start()
+                                    },
+                                    offset
+                                );
+                            }
                         } catch (err) {
                             Logger.warn(err.message);
                         }
                     }
                 };
                 this.mesh.userData.start();
-            } else this.active = false;
+            } else {
+                this.active = false;
+                this.visible = false;
+            }
         },
         update: function () {
             // assumes enabled
@@ -815,6 +830,7 @@ function AttackFactory(attackType, originid, manager) {
         },
         halt: function () {
             this.active = false;
+            this.visible = false;
             this.mesh.userData.video.pause();
         },
     });
@@ -888,7 +904,7 @@ function NodeDataFactory(nodeid, manager) {
             else if (oldlength < this._numSlots) this.slots.fillempty();
         },
         get attackers() {
-            return this.slots.filter((a) => a.uuid != undefined);
+            return this.slots.filter(a => a.uuid != undefined);
         },
         slots: Array.from({ length: typeData?.slots }, () => {
             return { uuid: undefined, type: undefined };
@@ -896,12 +912,12 @@ function NodeDataFactory(nodeid, manager) {
     });
     Object.defineProperty(obj.slots, "empty", {
         get: function () {
-            return obj.slots.filter((a) => a.uuid == undefined).length;
+            return obj.slots.filter(a => a.uuid == undefined).length;
         },
     });
     Object.defineProperty(obj.slots, "filled", {
         get: function () {
-            return obj.slots.filter((a) => a.uuid != undefined).length;
+            return obj.slots.filter(a => a.uuid != undefined).length;
         },
     });
     obj.slots.pop = function (index) {
@@ -921,7 +937,7 @@ function NodeDataFactory(nodeid, manager) {
         if (args.length + obj.slots.filled <= obj.numSlots)
             args.forEach((arg, i) => (obj.slots[obj.slots.filled + i] = arg));
         else {
-            args.forEach((arg) => delete manager.attacks[arg.uuid]);
+            args.forEach(arg => delete manager.attacks[arg.uuid]);
             Logger.error(
                 `Cannot add attacker(s): Node is limited to ${obj.numSlots} slots.`
             );
