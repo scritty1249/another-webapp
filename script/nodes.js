@@ -9,6 +9,7 @@ export function NodeManager(
     renderer,
     camera,
     raycaster,
+    tickspeed,
     nodeMeshData = {}
 ) {
     this._scene = scene;
@@ -16,10 +17,12 @@ export function NodeManager(
     this._renderer = renderer;
     this._raycaster = raycaster;
     this._meshData = nodeMeshData;
+    this.tick.delta = 0;
     if (
         Object.getPrototypeOf(this) === NodeManager.prototype && // don't reinitalize these when subclassing
         this._constructorArgs.some((arg) => arg === undefined)
     ) {
+        this.tick.interval = tickspeed;
     }
     Object.getOwnPropertyNames(Object.getPrototypeOf(this))
         .filter(
@@ -144,6 +147,10 @@ NodeManager.prototype = {
     nodelist: undefined,
     tetherlist: undefined,
     _lowPerformance: false,
+    tick: {
+        delta: undefined,
+        interval: undefined,
+    },
     get lowPerformanceMode() {
         return this._lowPerformance;
     },
@@ -430,10 +437,6 @@ export function AttackNodeManager(
         this._attacklist,
         this._proxyHandlers.attacklist
     );
-    this.tick = {
-        delta: 0,
-        interval: 0.1, // seconds, configurable
-    };
     // init data for existing nodes
     Object.values(this.nodes).forEach((node) => this._addNodeData(node));
 }
@@ -536,10 +539,6 @@ AttackNodeManager.prototype._proxyHandlers = {
             return Reflect.set(target, prop, val, receiver);
         },
     },
-};
-AttackNodeManager.prototype.tick = {
-    delta: undefined,
-    interval: undefined, // seconds, configurable
 };
 AttackNodeManager.prototype._nodeTypeData = {};
 AttackNodeManager.prototype._attackTypeData = {};

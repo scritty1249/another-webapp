@@ -188,7 +188,7 @@ export function MenuManager (
             section.br.appendChild(stopPropagation(
                 self.createElement.button(-67.5, undefined, "swap phases", {
                     click: (event) => {
-                        self.loadMenu.pickTarget();
+                        self._dispatch("swapphase", {phase: "select"});
                     }
                 }, 2)
             ));
@@ -204,27 +204,6 @@ export function MenuManager (
             self._appendElement(central, loading.element);
             self._appendMenu(central);
             self._dispatch("loadmenu", { history: ["loading"], statusElement: loading});
-        },
-        pickTarget: function () { // [!] For now swaps between build and attack phases, but in prod should actually be used for selecting a target
-            self.loadMenu.clear();
-            self.element.wrapper.classList.add("pickTarget");
-            const central = document.createElement("div");
-            central.classList.add("center", "absolutely-center");
-
-            const attackBtn = self.createElement.button(0, undefined, "attack", {
-                click: (event) => {
-                    self._dispatch("swapphase", { phase: "attack", log: true });
-                }
-            }, 5);
-            const buildBtn = self.createElement.button(0, undefined, "build", {
-                click: (event) => {
-                    self._dispatch("swapphase", { phase: "build", log: true });
-                }
-            }, 5);
-
-            self._appendElement(central, attackBtn, buildBtn);
-            self._appendMenu(central);
-            self._dispatch("loadmenu", { history: ["main"] });
         },
         settings: {
             main: function () {
@@ -596,7 +575,7 @@ export function MenuManager (
             self.persistentListeners.push({name: eventName, handler: handler});
     }
     this.clearListeners = function (keepPersistent = true) {
-        self.element.eventTarget.remove(); // should do noting since it has no parent (never in DOM), but just in case...
+        self.element.eventTarget.remove(); // should do nothing since it has no parent (never in DOM), but just in case...
         delete self.element.eventTarget;
         self.element.eventTarget = document.createElement("div");
         if (keepPersistent)

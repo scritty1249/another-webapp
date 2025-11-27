@@ -1,7 +1,8 @@
 import { loadTextureCube } from "./three-utils.js";
 import { AttackNodeManager, BuildNodeManager } from "./nodes.js";
-import { AttackOverlayManager, BuildOverlayManager } from "./overlay.js";
+import { AttackOverlayManager, BuildOverlayManager, SelectOverlayManager } from "./overlay.js";
 import { ListenerManager } from "./listeners.js";
+import * as THREE from "three";
 
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
@@ -154,6 +155,10 @@ export function layoutToJsonObj(scene, nodeManager) {
     return data;
 }
 
+export function loadFile(url) {
+    return fetch(url).then(data => data?.json());
+}
+
 export function layoutToJson(scene, nodeManager, obfuscate = true) {
     const data = layoutToJsonObj(scene, nodeManager);
     let dataStr = JSON.stringify(data);
@@ -209,6 +214,97 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
         return false;
     }
     return layoutFromJsonObj(data, scene, dragControls, nodeManager);
+}
+
+export function initSelectPhase(
+    callbacks, // expects Attack, Build
+    scene,
+    rendererDom,
+    controls,
+    managers, // expects Node, Physics, Overlay, Mouse, World- optional: Listener
+) {
+    Logger.info("Loading select phase");
+    {
+        const expectedNames = ["Node", "Physics", "Overlay", "Mouse", "World"];
+        const names = Object.keys(managers);
+        expectedNames.forEach((expectedName) => {
+            if (!names.includes(expectedName))
+                Logger.throw(
+                    new Error(
+                        `Cannot load select phase! Missing ${expectedName}Manager`
+                    )
+                );
+        });
+    }
+    {
+        const expectedNames = ["Attack", "Build"];
+        const names = Object.keys(callbacks);
+        expectedNames.forEach((expectedName) => {
+            if (!names.includes(expectedName))
+                Logger.throw(
+                    new Error(
+                        `Cannot load select phase! Missing ${expectedName} phase callback`
+                    )
+                );
+        });
+    }
+
+    controls.drag.enabled = false;
+    managers.Physics.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
+    managers.Node.clear();
+    managers.Overlay.clear();
+    managers.Listener?.clear();
+
+    const controllers = {
+        Node: undefined,
+        Overlay: new SelectOverlayManager(
+            ...managers.Overlay._constructorArgs
+        ),
+        Listener: new ListenerManager(),
+    };
+
+    managers.World.init();
+    controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
+
+    {
+        // Create a sphere to represent the location
+        const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const marker = new THREE.Mesh(geometry, material);
+
+        // Position the marker on the globe
+        marker.position.copy(managers.World.gpsToWorld(34.0549, 118.2426));
+        scene.add(marker);
+
+        const countryid = managers.World.getClosestCountry(marker.position.clone());
+        managers.World.getCountry(countryid).attach(marker);
+        Logger.log(managers.World.getCountry(countryid));
+
+        // Add the marker to your Three.js scene
+    }
+
+    managers.World.when("click", function (detail) {
+        const last = detail.previous;
+        const curr = detail.current;
+        const child = detail.child;
+        if (last)
+            managers.World.getCountry(last).userData.revert(.12);
+        if (curr) {
+            const country = managers.World.getCountry(curr);
+            Logger.log(country.uuid);
+            if (curr == last)
+                country.userData.revert(.12);
+            else {
+                country.userData.moveTo(country.position.clone().multiplyScalar(1.2), .12);
+                country.userData.scaleTo(2, .12);
+            }
+        }
+        if (child) {
+            callbacks.Attack(child);
+        }
+    });
+
+    return controllers;
 }
 
 export function initAttackPhase(
