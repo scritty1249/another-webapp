@@ -248,7 +248,7 @@ export function initSelectPhase(
                 );
         });
     }
-
+    controls.camera.autoRotate = true;
     controls.drag.enabled = false;
     managers.Physics.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
     managers.Node.clear();
@@ -281,11 +281,21 @@ export function initSelectPhase(
         const countryid = managers.World.getClosestCountry(marker.position.clone());
         managers.World.getCountry(countryid).attach(marker);
     }
-
+    controllers.Listener.listener(controls.camera).add(
+        "end",
+        function (event) {
+            controls.camera.autoRotate = false;
+            setTimeout(() => {
+                if (!managers.World.state.focusedCountry)
+                    controls.camera.autoRotate = true;
+            }, 3500);
+        }
+    );
     managers.World.when("click", function (detail) {
         const last = detail.previous;
         const curr = detail.current;
         const child = detail.child;
+        controls.camera.autoRotate = true;
         if (last)
             managers.World.getCountry(last).userData.revert(.12);
         if (curr) {
@@ -293,6 +303,7 @@ export function initSelectPhase(
             if (curr == last)
                 country.userData.revert(.12);
             else {
+                controls.camera.autoRotate = false;
                 country.userData.moveTo(country.position.clone().multiplyScalar(1.2), .12);
                 country.userData.scaleTo(2, .12);
             }
@@ -301,7 +312,7 @@ export function initSelectPhase(
             callbacks.Attack(child);
         }
     });
-
+    Logger.log("Finished loading select phase");
     return controllers;
 }
 
@@ -337,6 +348,7 @@ export function initAttackPhase(
                 );
         });
     }
+    controls.camera.autoRotate = false;
     controls.drag.enabled = false;
     managers.Physics.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
     managers.Node.clear();
@@ -395,6 +407,7 @@ export function initBuildPhase(
                 );
         });
     }
+    controls.camera.autoRotate = false;
     controls.drag.enabled = true;
     managers.Physics.activate();
     managers.Node.clear();

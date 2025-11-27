@@ -134,6 +134,13 @@ WorldManager.prototype.clear = function () {
     this._scene.remove(this._mesh);
     this.eventTarget = undefined;
     this._renderer.domElement.removeEventListener("clicked", this._clickListener);
+    this.countries.forEach(country => {
+        country.userData.revert(1);
+        country.children.forEach(child =>
+            country.remove(child)
+        )
+    });
+    this.focusedCountryId = undefined;
 }
 WorldManager.prototype._dispatch = function (name = "", detail = {}) {
     if (detail.log && detail.log === true)
