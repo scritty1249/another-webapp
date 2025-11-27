@@ -104,6 +104,7 @@ function SelectionGlobe(sceneData, radius = 5, widthSeg = 32, heightSeg = 32) {
     wrapper.add(sceneData.mesh.children[0].clone());
     wrapper.scale.setScalar(6);
     wrapper.userData = {...wrapper.userData,
+        core: wrapper.children[1],
         get radius () {
             return radius;
         },
@@ -112,7 +113,6 @@ function SelectionGlobe(sceneData, radius = 5, widthSeg = 32, heightSeg = 32) {
         },
     };
     wrapper.children[0].material = InvisibleMat;
-    wrapper.userData.core = wrapper.children[1];
     wrapper.userData.core.material = new MeshPhysicalMaterial({
         transmission: 0.85,
         roughness: 0.65,
