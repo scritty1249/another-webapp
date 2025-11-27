@@ -12,6 +12,7 @@ import { MenuManager } from "./menu.js";
 import * as UTIL from "./utils.js";
 import * as ATTACKERDATA from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
 import * as Session from "./session.js";
+import { WorldManager } from "./world.js";
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -19,6 +20,7 @@ const shapeMinProximity = 5.5;
 const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
 const maxStepsFromGlobe = 9; // max number of steps from a Globe each node is allowed to be
+const TICKSPEED = 0.1; // seconds
 
 // Setup
 // MouseController functionality
@@ -98,13 +100,14 @@ function mainloop(MenuController) {
 
         // Loading sequence
         const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
-        const NodeController = new NodeManager(scene, renderer, camera, raycaster);
+        const NodeController = new NodeManager(scene, renderer, camera, raycaster, TICKSPEED);
         const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
             document.getElementById("overlay"), MenuController
         );
         const PhysicsController = new PhysicsManager(NodeController,
             shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
         );
+        const WorldController = new WorldManager(scene, renderer, camera, raycaster, TICKSPEED, MouseController);
         const Manager = {
             phase: undefined,
             Node: undefined,
@@ -152,158 +155,193 @@ function mainloop(MenuController) {
         light.shadow.camera.near = 1;
         light.shadow.camera.far = 10;
 
-        statusEl.text = "Contacting server";
-        Session.getsave()
-            .then(res => {
-                statusEl.text = "Loading profile";
-                { // persistent listeners
-                    MenuController.when("swapphase", function (detail) {
-                        MenuController.close();
-                        const phaseType = detail.phase;
-                        try {
-                            const layout = UTIL.layoutToJsonObj(scene, NodeController, false);
-                            if (phaseType == "build") {
-                                Manager.set(UTIL.initBuildPhase(
-                                    layout,
-                                    scene,
-                                    renderer.domElement,
-                                    controls,
-                                    {
-                                        Node: NodeController,
-                                        Overlay: OverlayController,
-                                        Physics: PhysicsController,
-                                        Mouse: MouseController,
-                                        Listener: Manager.Listener
-                                    }
-                                ));
-                                Manager.phase = "build";
-                            } else if (phaseType == "attack") {
-                                Manager.set(UTIL.initAttackPhase(
-                                    {
-                                        layout: layout,
-                                        nodeTypes: ATTACKERDATA.NodeTypeData,
-                                        attackTypes: ATTACKERDATA.AttackTypeData,
-                                        attacks: ATTACKERDATA.AttackerData
-                                    },
-                                    scene,
-                                    renderer.domElement,
-                                    controls,
-                                    {
-                                        Node: NodeController,
-                                        Overlay: OverlayController,
-                                        Physics: PhysicsController,
-                                        Mouse: MouseController,
-                                        Listener: Manager.Listener
-                                    }
-                                ));
-                                Manager.phase = "attack";
-                            } else {
-                                Logger.error(`Unrecognized phase "${phaseType}"`);
-                            }
-                        } catch (err) {
-                            Logger.error(`Failed to swap phase to "${phaseType}"`);
-                            Logger.throw(err);
-                        }
-                    }, true);
-                    MenuController.when("lowperformance", function (detail) {
-                        const toggleTo = detail.set;
-                        NodeController.lowPerformanceMode = toggleTo;
-                        MenuController.close();
-                    }, true);
-                    MenuController.when("logout", function (_) {
-                        CookieJar.remove("session");
-                        window.location.reload();
-                    }, true);
-                    MenuController.when("_savelog", function (_) {
-                        UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
-                        MenuController.close();
-                    }, true);
-                    MenuController.when("save", function (_) {
-                        MenuController.close();
-                        if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
-                            MenuController.when("loadmenu", detail => {
-                                detail.statusElement.text = "Uploading to server";
-                                Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
-                                    .then(res => {
-                                        MenuController.close();
-                                        Logger.alert(res ? "Saved successfully" : "Failed to save");
+        { // persistent listeners
+            MenuController.when("swapphase", function (detail) {
+                const phaseType = detail.phase;
+                try {
+                    const layout = UTIL.layoutToJsonObj(scene, NodeController, false);
+                    if (phaseType == "build") {
+                        MenuController.when("loadmenu", detail => {
+                            detail.statusElement.text = "Contacting Server";
+                            Session.getsave()
+                                .then(res => {
+                                    detail.statusElement.text = "Loading profile";
+                                    Manager.set(UTIL.initBuildPhase(
+                                        res,
+                                        scene,
+                                        renderer.domElement,
+                                        controls,
+                                        {
+                                            Node: NodeController,
+                                            Overlay: OverlayController,
+                                            Physics: PhysicsController,
+                                            Mouse: MouseController,
+                                            Listener: Manager.Listener
+                                        }
+                                    ));
+                                    MenuController.close();
                                 });
-                            }, false, true);
-                            MenuController.open(["loading"]);
-                        } else
-                            Logger.alert(`Cannot save layout: All nodes must be connected and within ${maxStepsFromGlobe} steps of a Globe!`);
-                    }, true);
-                }
-                statusEl.text = "Loading mesh data";
-                const gtlfData = Promise.all([
-                    THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
-                    THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
-                    THREEUTILS.loadGLTFShape("./source/globe.glb"),
-                    THREEUTILS.loadGLTFShape("./source/scanner.glb")
-                ]);
-                gtlfData.then(data => {
-                    const [ placeholderData, cubeData, globeData, eyeData, ..._] = data;
-                    Logger.info("Finished loading shape data:", data);        
-
-                    NodeController.addMeshData({
-                        placeholder: () => MESH.Nodes.Placeholder(placeholderData),
-                        cube: () => MESH.Nodes.Cube(cubeData),
-                        globe: () => MESH.Nodes.Globe(globeData),
-                        scanner: () => MESH.Nodes.Scanner(eyeData),
-                        tether: (o, t) => MESH.Tether(o, t)
-                    });
-                    
-                    let trackLowPerformace = false;
-                    document.getElementById("performance").textContent = "Low Performance mode: OFF";
-                    const FPSCounter = new Framerate(
-                        (fps) => {
-                            document.getElementById("framerate").textContent = `FPS: ${fps}`;
-                            document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
-                            if (
-                                trackLowPerformace &&
-                                !NodeController.lowPerformanceMode &&
-                                FPSCounter.started &&
-                                FPSCounter.fps < 30
-                            ) {
-                                NodeController.lowPerformanceMode = true;
-                                Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
-                            }
-                        }
-                    );
-                    Manager.set(UTIL.initBuildPhase(
-                        !res || res === {} ? UTIL.BLANK_LAYOUT_OBJ : res,
-                        scene,
-                        renderer.domElement,
-                        controls,
-                        {
-                            Node: NodeController,
-                            Overlay: OverlayController,
-                            Physics: PhysicsController,
-                            Mouse: MouseController
-                        }
-                    ));
-                    Manager.phase = "build";
-                    MenuController.close();
-                    // render the stuff
-                    function animate() {
-                        //requestIdleCallback(animate)
-
-                        PhysicsController.update();
-                        Manager.Node.update(UTIL.clamp(clock.getDelta(), 0, 1000));
-                        Manager.Overlay.update();
-
-                        // required if controls.enableDamping or controls.autoRotate are set to true
-                        controls.camera.update(); // must be called after any manual changes to the camera"s transform
-
-                        FPSCounter.update();
-                        renderer.render(scene, camera);
+                        }, false, true);
+                        Manager.phase = phaseType;
+                    } else if (phaseType == "attack") {
+                        MenuController.when("loadmenu", detail => {
+                            detail.statusElement.text = "Contacting Server";
+                            Session.getsave()
+                                .then(res => {
+                                    detail.statusElement.text = "Loading target base";
+                                    Manager.set(UTIL.initAttackPhase(
+                                        {
+                                            layout: res,
+                                            nodeTypes: ATTACKERDATA.NodeTypeData,
+                                            attackTypes: ATTACKERDATA.AttackTypeData,
+                                            attacks: ATTACKERDATA.AttackerData
+                                        },
+                                        scene,
+                                        renderer.domElement,
+                                        controls,
+                                        {
+                                            Node: NodeController,
+                                            Overlay: OverlayController,
+                                            Physics: PhysicsController,
+                                            Mouse: MouseController,
+                                            Listener: Manager.Listener
+                                        }
+                                    ));
+                                    MenuController.close();
+                                });
+                        }, false, true);
+                        Manager.phase = phaseType;
+                    } else if (phaseType == "select") {
+                        MenuController.when("loadmenu", detail => {
+                            detail.statusElement.text = "Discovering targets";
+                            Manager.set(UTIL.initSelectPhase(
+                                {
+                                    Attack: (userid) => {
+                                        WorldController.clear();
+                                        MenuController._dispatch("swapphase", {phase: "attack"});
+                                    },
+                                    Build: () => {
+                                        WorldController.clear();
+                                        MenuController._dispatch("swapphase", {phase: "build"});
+                                    },
+                                },
+                                scene,
+                                renderer.domElement,
+                                controls,
+                                {
+                                    Node: NodeController,
+                                    Overlay: OverlayController,
+                                    Physics: PhysicsController,
+                                    Mouse: MouseController,
+                                    World: WorldController,
+                                    Listener: Manager.Listener
+                                }
+                            ));
+                            MenuController.close();
+                        }, false, true);
+                        Manager.phase = phaseType;
+                    } else {
+                        Logger.error(`Unrecognized phase "${phaseType}"`);
+                        MenuController.when("loadmenu", _ => MenuController.close(), false, true);
                     }
-                    FPSCounter.reset();
-                    renderer.setAnimationLoop(animate);
-                    setTimeout(() => {
-                        trackLowPerformace = true;
-                    }, 2500); // time before we start checking if we need to turn on low performance mode
-                });
+                } catch (err) {
+                    Logger.error(`Failed to swap phase to "${phaseType}"`);
+                    Logger.throw(err);
+                    MenuController.when("loadmenu", _ => MenuController.close(), false, true);
+                }
+                MenuController.open(["loading"]);
+            }, true);
+            MenuController.when("lowperformance", function (detail) {
+                const toggleTo = detail.set;
+                NodeController.lowPerformanceMode = toggleTo;
+                MenuController.close();
+            }, true);
+            MenuController.when("logout", function (_) {
+                CookieJar.remove("session");
+                window.location.reload();
+            }, true);
+            MenuController.when("_savelog", function (_) {
+                UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
+                MenuController.close();
+            }, true);
+            MenuController.when("save", function (_) {
+                MenuController.close();
+                if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                    MenuController.when("loadmenu", detail => {
+                        detail.statusElement.text = "Uploading to server";
+                        Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
+                            .then(res => {
+                                MenuController.close();
+                                Logger.alert(res ? "Saved successfully" : "Failed to save");
+                        });
+                    }, false, true);
+                    MenuController.open(["loading"]);
+                } else
+                    Logger.alert(`Cannot save layout: All nodes must be connected and within ${maxStepsFromGlobe} steps of a Globe!`);
+            }, true);
+        }
+        statusEl.text = "Loading mesh data";
+        const gtlfData = Promise.all([
+            THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
+            THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
+            THREEUTILS.loadGLTFShape("./source/globe.glb"),
+            THREEUTILS.loadGLTFShape("./source/scanner.glb"),
+            THREEUTILS.loadGLTFShape("./source/world1.glb"),
+        ]);
+        gtlfData.then(data => {
+            const [ placeholderData, cubeData, globeData, eyeData, worldData, ..._] = data;
+            Logger.info("Finished loading shape data:", data);        
+
+            NodeController.addMeshData({
+                placeholder: () => MESH.Nodes.Placeholder(placeholderData),
+                cube: () => MESH.Nodes.Cube(cubeData),
+                globe: () => MESH.Nodes.Globe(globeData),
+                scanner: () => MESH.Nodes.Scanner(eyeData),
+                tether: (o, t) => MESH.Tether(o, t)
+            });
+            WorldController.addMeshData(
+                MESH.SelectionGlobe(worldData)
+            );
+            
+            let trackLowPerformace = false;
+            document.getElementById("performance").textContent = "Low Performance mode: OFF";
+            const FPSCounter = new Framerate(
+                (fps) => {
+                    document.getElementById("framerate").textContent = `FPS: ${fps}`;
+                    document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
+                    if (
+                        trackLowPerformace &&
+                        !NodeController.lowPerformanceMode &&
+                        FPSCounter.started &&
+                        FPSCounter.fps < 30
+                    ) {
+                        NodeController.lowPerformanceMode = true;
+                        Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
+                    }
+                }
+            );
+            
+            MenuController._dispatch("swapphase", {phase: "build"});
+            // render the stuff
+            function animate() {
+                const delta = UTIL.clamp(clock.getDelta(), 0, 1000);
+                //requestIdleCallback(animate)
+                WorldController.update(delta);
+                PhysicsController.update();
+                Manager.Node?.update(delta);
+                Manager.Overlay?.update();
+
+                // required if controls.enableDamping or controls.autoRotate are set to true
+                controls.camera.update(); // must be called after any manual changes to the camera"s transform
+
+                FPSCounter.update();
+                renderer.render(scene, camera);
+            }
+            FPSCounter.reset();
+            renderer.setAnimationLoop(animate);
+            setTimeout(() => {
+                trackLowPerformace = true;
+            }, 2500); // time before we start checking if we need to turn on low performance mode
         });
     }, false, true);
     MenuController.open(["loading"]);

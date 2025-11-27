@@ -570,4 +570,20 @@ AttackOverlayManager.prototype.init =  function (...args) {
         Logger.alert(`Failed to add node (${detail.nodeType}): Cannot add nodes outside of build phase!`);
     });
     this._initOverlay();
+    this.element.menuButton.remove();
+    this.element.menuButton = Button.mainMenu(() => this._menuManager._dispatch("swapphase", {phase: "build"}));
+    this.element._overlay.appendChild(this.element.menuButton);
+};
+
+export function SelectOverlayManager(...parentArgs) { // laziness
+    OverlayManager.call(this, ...parentArgs);
+}
+SelectOverlayManager.prototype = Object.create(OverlayManager.prototype);
+SelectOverlayManager.prototype.constructor = SelectOverlayManager;
+SelectOverlayManager.prototype.init =  function (...args) {
+    OverlayManager.prototype.init.call(this, ...args);
+    this._initOverlay();
+    this.element.menuButton.remove();
+    this.element.menuButton = Button.mainMenu(() => this._menuManager._dispatch("swapphase", {phase: "build"}));
+    this.element._overlay.appendChild(this.element.menuButton);
 };

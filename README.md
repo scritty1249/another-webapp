@@ -7,6 +7,7 @@ The app this project is based on is still available today. Please give it a shot
 
 ### Frontend
 Three.js for rendering
+three-globe for the globe (no way am I redoing allat in blender)
 
 ### Backend
 - Google App Script webapp (process requests)
