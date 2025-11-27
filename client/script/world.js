@@ -72,7 +72,7 @@ WorldManager.prototype._clickListener = function (e) {
     }
 }
 WorldManager.prototype.gpsToWorld = function (lat, long) {
-    const globeRadius = this._mesh.userData.radius;
+    const globeRadius = this._mesh.userData.radius * 1.0375;
 
     // stupid radians
     const latRad = (lat * 0.8) * (Math.PI / 180); // the mesh is squished
