@@ -206,7 +206,7 @@ function mainloop(MenuController) {
                     } else if (phaseType == "attack") {
                         WorldController.clear();
                         MenuController.when("loadmenu", detail => {
-                            detail.statusElement.text = "Contacting Server";
+                            detail.statusElement.text = "Tracing Target";
                             Session.getsave()
                                 .then(res => {
                                     detail.statusElement.text = "Loading target base";
