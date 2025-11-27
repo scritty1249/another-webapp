@@ -99,6 +99,7 @@ function mainloop(MenuController) {
         statusEl.text = "Loading scene";
 
         // Loading sequence
+        let localLayout = undefined;
         const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
         const NodeController = new NodeManager(scene, renderer, camera, raycaster, TICKSPEED);
         const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
@@ -162,12 +163,31 @@ function mainloop(MenuController) {
                     const layout = UTIL.layoutToJsonObj(scene, NodeController, false);
                     if (phaseType == "build") {
                         MenuController.when("loadmenu", detail => {
-                            detail.statusElement.text = "Contacting Server";
-                            Session.getsave()
-                                .then(res => {
-                                    detail.statusElement.text = "Loading profile";
+                            WorldController.clear();
+                            if (!localLayout) {
+                                detail.statusElement.text = "Contacting Server";
+                                Session.getsave()
+                                    .then(res => {
+                                        detail.statusElement.text = "Loading profile";
+                                        localLayout = res;
+                                        Manager.set(UTIL.initBuildPhase(
+                                            localLayout,
+                                            scene,
+                                            renderer.domElement,
+                                            controls,
+                                            {
+                                                Node: NodeController,
+                                                Overlay: OverlayController,
+                                                Physics: PhysicsController,
+                                                Mouse: MouseController,
+                                                Listener: Manager.Listener
+                                            }
+                                        ));
+                                        MenuController.close();
+                                    });
+                                } else {
                                     Manager.set(UTIL.initBuildPhase(
-                                        res,
+                                        localLayout,
                                         scene,
                                         renderer.domElement,
                                         controls,
@@ -180,10 +200,11 @@ function mainloop(MenuController) {
                                         }
                                     ));
                                     MenuController.close();
-                                });
+                                }
                         }, false, true);
                         Manager.phase = phaseType;
                     } else if (phaseType == "attack") {
+                        WorldController.clear();
                         MenuController.when("loadmenu", detail => {
                             detail.statusElement.text = "Contacting Server";
                             Session.getsave()
@@ -213,15 +234,14 @@ function mainloop(MenuController) {
                         Manager.phase = phaseType;
                     } else if (phaseType == "select") {
                         MenuController.when("loadmenu", detail => {
+                            localLayout = UTIL.layoutToJsonObj(scene, NodeController);
                             detail.statusElement.text = "Discovering targets";
                             Manager.set(UTIL.initSelectPhase(
                                 {
                                     Attack: (userid) => {
-                                        WorldController.clear();
                                         MenuController._dispatch("swapphase", {phase: "attack"});
                                     },
                                     Build: () => {
-                                        WorldController.clear();
                                         MenuController._dispatch("swapphase", {phase: "build"});
                                     },
                                 },
