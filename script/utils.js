@@ -128,7 +128,7 @@ export function loadVideoTextureSource (videopath, maskpath, speed = 1) {
 
 export function layoutToJsonObj(scene, nodeManager) {
     const data = {
-        background: "", // [!] disabled for now
+        background: "./source/bg/", // [!] disabled for now
         layout: {
             nodes: [],
             neighbors: [],
@@ -254,7 +254,7 @@ export function initSelectPhase(
     managers.Node.clear();
     managers.Overlay.clear();
     managers.Listener?.clear();
-
+    scene.background = new THREE.Color(0x000000);
     const controllers = {
         Node: undefined,
         Overlay: new SelectOverlayManager(
@@ -266,21 +266,20 @@ export function initSelectPhase(
     managers.World.init();
     controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
 
-    {
-        // Create a sphere to represent the location
+    { // add a placeholder target
         const geometry = new THREE.SphereGeometry(0.1, 32, 32);
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            emissive: new THREE.Color(0xff0000),
+            emissiveIntensity: 1.5
+        });
         const marker = new THREE.Mesh(geometry, material);
 
-        // Position the marker on the globe
         marker.position.copy(managers.World.gpsToWorld(34.0549, 118.2426));
         scene.add(marker);
 
         const countryid = managers.World.getClosestCountry(marker.position.clone());
         managers.World.getCountry(countryid).attach(marker);
-        Logger.log(managers.World.getCountry(countryid));
-
-        // Add the marker to your Three.js scene
     }
 
     managers.World.when("click", function (detail) {
@@ -291,7 +290,6 @@ export function initSelectPhase(
             managers.World.getCountry(last).userData.revert(.12);
         if (curr) {
             const country = managers.World.getCountry(curr);
-            Logger.log(country.uuid);
             if (curr == last)
                 country.userData.revert(.12);
             else {

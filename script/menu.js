@@ -186,7 +186,7 @@ export function MenuManager (
                 }, 2)
             ));
             section.br.appendChild(stopPropagation(
-                self.createElement.button(-67.5, undefined, "swap phases", {
+                self.createElement.button(-67.5, "target", undefined, {
                     click: (event) => {
                         self._dispatch("swapphase", {phase: "select"});
                     }
