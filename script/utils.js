@@ -286,7 +286,7 @@ export function initSelectPhase(
         function (event) {
             controls.camera.autoRotate = false;
             setTimeout(() => {
-                if (!managers.World.state.focusedCountry)
+                if (!managers.World.state.focusedCountry && !managers.World.state.tweeningCamera)
                     controls.camera.autoRotate = true;
             }, 3500);
         }
@@ -303,9 +303,11 @@ export function initSelectPhase(
             if (curr == last)
                 country.userData.revert(.12);
             else {
-                controls.camera.autoRotate = false;
                 country.userData.moveTo(country.position.clone().multiplyScalar(1.2), .12);
                 country.userData.scaleTo(2, .12);
+                controls.camera.autoRotate = false;
+                managers.World.faceCameraTo(curr);
+                controls.camera.update();
             }
         }
         if (child) {

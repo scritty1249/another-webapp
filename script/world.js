@@ -1,6 +1,6 @@
 // World/Earth/Globe Manager
 import * as UTIL from "./utils.js";
-import { Box3, Vector3 } from "three";
+import { Box3, Vector3, Quaternion } from "three";
 
 export function WorldManager(
     scene,
@@ -18,6 +18,7 @@ export function WorldManager(
     this._mouseManager = mouseManager;
     this.eventTarget = document.createElement("div");
     this.tick.delta = 0;
+    this.cameraTween.target = new Vector3();
 
     if (
         Object.getPrototypeOf(this) === WorldManager.prototype // don't reinitalize these when subclassing
@@ -41,14 +42,19 @@ WorldManager.prototype = {
     tick: {
         delta: undefined,
         interval: undefined,
-    }
+    },
+    cameraTween: {
+        target: undefined,
+        speed: 0.1, // configurable
+    },
 };
 WorldManager.prototype._initState = function () {
     const self = this;
     this.state = {
+        tweeningCamera: false,
         get focusedCountry() {
             return self.focusedCountryId != undefined;
-        }
+        },
     }
 };
 WorldManager.prototype._clickListener = function (e) {
@@ -57,19 +63,23 @@ WorldManager.prototype._clickListener = function (e) {
         this.getCountryFromFlatCoordinate(
             clickPosition
         );
-    if ((clickedCountryId || this.focusedCountryId) && clickedCountryId != this.focusedCountryId) {
+    const dispatchClick = () => {
         this._dispatch("click", {
             current: clickedCountryId,
             previous: this.focusedCountryId
         });
-        this.focusedCountryId = (this.focusedCountryId == clickedCountryId) ? undefined : clickedCountryId;
-    } else if (clickedCountryId && this.focusedCountryId == clickedCountryId) {
-        const clickedChildId = this.getChildFromFlatCoordinate(clickPosition, clickedCountryId);
+        this.focusedCountryId = clickedCountryId;
+    };
+    if (this.state.focusedCountry) { // select a target within country
+        const clickedChildId = this.getChildFromFlatCoordinate(clickPosition, this.focusedCountryId);
         if (clickedChildId)
             this._dispatch("click", {
-                child: clickedChildId
+                child: clickedChildId,
             });
-    }
+        else if (clickedCountryId != this.focusedCountryId)
+            dispatchClick();
+    } else if (clickedCountryId)
+        dispatchClick();
 }
 WorldManager.prototype.gpsToWorld = function (lat, long) {
     const globeRadius = this._mesh.userData.radius * 1.0375;
@@ -84,6 +94,18 @@ WorldManager.prototype.gpsToWorld = function (lat, long) {
         globeRadius * Math.sin(latRad),
         globeRadius * Math.cos(latRad) * Math.sin(lonRad)
     );
+}
+WorldManager.prototype.getCountryDirection = function (countryid) { // [!] returns vector not normalized
+    const origin = this._mesh.position;
+    const target = this.getCountry(countryid)?.userData.position.origin;
+    const direction = new Vector3().subVectors(origin, target);
+    return direction;
+}
+WorldManager.prototype.faceCameraTo = function (countryid) { // need to pause orbitControls if used, before calling this function
+    const pos = new Vector3();
+    this.getCountry(countryid)?.getWorldPosition(pos);
+    pos.normalize().multiplyScalar(this._mesh.userData.radius * 2);
+    this.tweenCameraTo(pos);
 }
 WorldManager.prototype.addMeshData = function (worldMesh) {
     this._mesh = worldMesh;
@@ -154,6 +176,20 @@ WorldManager.prototype.when = function (eventName, handler, once = false) {
 WorldManager.prototype.clearWhen = function (eventName, handler) {
     this.eventTarget.removeEventListener(eventName, handler);
 }
+WorldManager.prototype.tweenCameraTo = function (position, speed = undefined) {
+    this.state.tweeningCamera = true;
+    this.cameraTween.target.copy(position);
+    if (speed)
+        this.cameraTween.speed = speed;
+}
+WorldManager.prototype._applyCameraTween = function () {
+    if (!this.state.tweeningCamera) return;
+    if (this._camera.position.distanceTo(this.cameraTween.target) <= 0.01) {
+        this._camera.position.copy(this.cameraTween.target); // snap to position
+        this.state.tweeningCamera = false;
+    } else
+        this._camera.position.lerp(this.cameraTween.target, this.cameraTween.speed); // [!] eventually, replace this with actual tweening. Calculate angle between points to curve camera around the globe, instead of through it.
+}
 WorldManager.prototype._applyIdleAnimations = function (ambientMoveVariance = 0.035) {
     this.countries
         .filter(country => !country.userData.position.needsUpdate && country.uuid != this.focusedCountryId)
@@ -173,6 +209,7 @@ WorldManager.prototype._updateTick = function (timedelta) {
         // do things within a tick here
         this._applyIdleAnimations();
         this._updateAnimations();
+        this._applyCameraTween();
     }    
     if (this.tick.delta >= this.tick.interval)
         this.tick.delta = this.tick.delta % this.tick.interval;
