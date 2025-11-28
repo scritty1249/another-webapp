@@ -164,6 +164,7 @@ NodeManager.prototype = {
             this._renderer,
             this._camera,
             this._raycaster,
+            this.tick.interval,
             this._meshData,
         ];
     },
@@ -255,7 +256,7 @@ NodeManager.prototype._getMesh = function (meshName, ...args) {
     if (!Object.keys(this._meshData).includes(meshName))
         Logger.throw(
             new Error(
-                `[NodeManager] | Could load mesh of type "${nodeType}": No mesh data found.`
+                `[NodeManager] | Could load mesh of type "${meshName}": No mesh data found.`
             )
         );
     return this._meshData[meshName](...args);
