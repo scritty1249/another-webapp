@@ -293,9 +293,10 @@ export function initSelectPhase(
         });
         const marker = new THREE.Mesh(geometry, material);
 
-        for (const {geo, targetid} of targets) {
+        for (const {geo, id, username} of targets) {
             const m = marker.clone();
-            m.userData.targetid = targetid;
+            m.userData.targetid = id;
+            m.userData.username = username;
             managers.World.placeOnWorld(geo.lat, geo.long, m);
         }
     }
@@ -305,7 +306,7 @@ export function initSelectPhase(
     controllers.Listener.listener(controls.camera)
         .add("end", function (event) {
             rotateTimeout = setTimeout(() => {
-                if (!managers.World.state.focusedCountry && !managers.World.state.tweeningCamera)
+                if (managers.World.enabled && !managers.World.state.focusedCountry && !managers.World.state.tweeningCamera)
                     controls.camera.autoRotate = true;
             }, 3500);
         }).add("start", function (event) {
@@ -321,7 +322,8 @@ export function initSelectPhase(
         if (target) {
             if (rotateTimeout)
                 clearTimeout(rotateTimeout);
-            callbacks.Attack(target);
+            Logger.log(`Selected target user: `, target);
+            callbacks.Attack(target.id, target.name);
         }
     });
     Logger.log("Finished loading select phase");
