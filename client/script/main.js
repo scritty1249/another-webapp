@@ -1,8 +1,6 @@
-import { CookieJar } from "./cookies"
-
 const overlayEl = document.getElementById("overlay");
 window.addEventListener("load", function() {
-    document.getElementById("version").textContent = "v0.0.5"
+    document.getElementById("version").textContent = "v0.0.6"
 });
 window.addEventListener("resize", function (event) {
     document.body.height = window.innerHeight;

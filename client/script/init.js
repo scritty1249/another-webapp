@@ -213,8 +213,8 @@ function mainloop(MenuController) {
                     } else if (phaseType == "attack") {
                         WorldController.clear();
                         MenuController.when("loadmenu", detail => {
-                            detail.statusElement.text = "Tracing Target";
-                            Session.getTarget(dt.target)
+                            detail.statusElement.text = `Tracing Target: ${dt.name}`;
+                            Session.getTarget(dt.id)
                                 .then(res => {
                                     detail.statusElement.text = "Loading target base";
                                     Manager.set(UTIL.initAttackPhase(
@@ -248,8 +248,8 @@ function mainloop(MenuController) {
                                 .then(targets => {
                                     Manager.set(UTIL.initSelectPhase(
                                         {
-                                            Attack: (userid) => {
-                                                MenuController._dispatch("swapphase", {phase: "attack", target: userid});
+                                            Attack: (userid, username) => {
+                                                MenuController._dispatch("swapphase", {phase: "attack", id: userid, name: username});
                                             },
                                             Build: () => {
                                                 MenuController._dispatch("swapphase", {phase: "build"});

@@ -66,7 +66,8 @@ export function getAttackTargets () {
             return Array.from(data, d => {
                 return {
                     geo: d.geo ? JSON.parse(atob(d.geo)) : UTIL.DEFAULT_GEO,
-                    targetid: d.targetid
+                    id: d.id,
+                    username: d.username
                 };
             });
         }

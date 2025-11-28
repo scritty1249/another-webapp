@@ -222,20 +222,24 @@ const Server = {
         conn._selectTable(TABLES.users);
         const ids = conn._getColumnAt(1, limit);
         const geos = conn._getColumnAt(4, limit);
+        const names = conn._getColumnAt(2, limit);
         const blankRow = conn._findBlankRow() - 2;
         if (blankRow && ids.length > blankRow) {
             ids.splice(blankRow);
             geos.splice(blankRow);
+            names.splice(blankRow);
         }
         const removeRow = ids.indexOf(userid);
         if (removeRow != -1) {
             ids.splice(removeRow, 1);
             geos.splice(removeRow, 1);
+            names.splice(removeRow, 1);
         }
         return Array.from(ids, (id, i) => {
             return {
-                targetid: id,
+                id: id,
                 geo: geos[i],
+                username: names[i]
             };
         });
     },

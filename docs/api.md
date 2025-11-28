@@ -47,7 +47,8 @@ As an obfuscated string:
 ## TargetData
 ```json
 {
-    "targetid": str,
+    "id": str,
+    "username": str,
     "geo": GeoData
 }
 ```
