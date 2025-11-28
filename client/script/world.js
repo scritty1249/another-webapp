@@ -70,8 +70,15 @@ WorldManager.prototype._insertMarker = function (marker, country) {
         mesh: marker,
         country: country.userData.id
     };
-    country.userData.revert(1);
+    const [scale, pos] = [
+        country.scale.clone(),
+        country.position.clone()
+    ];
+    country.position.copy(country.userData.position.origin);
+    country.scale.copy(country.userData.scale.origin);
     country.attach(marker);
+    country.position.copy(pos);
+    country.scale.copy(scale);
 }
 WorldManager.prototype.placeOnWorld = function (lat, long, object, offsetScalar = 1.035) {
     try {
