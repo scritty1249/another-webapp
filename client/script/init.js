@@ -165,8 +165,8 @@ function mainloop(MenuController) {
         light.shadow.camera.far = 10;
 
         { // persistent listeners
-            MenuController.when("swapphase", function (detail) {
-                const phaseType = detail.phase;
+            MenuController.when("swapphase", function (dt) {
+                const phaseType = dt.phase;
                 try {
                     if (phaseType == "build") {
                         MenuController.when("loadmenu", detail => {
@@ -214,12 +214,12 @@ function mainloop(MenuController) {
                         WorldController.clear();
                         MenuController.when("loadmenu", detail => {
                             detail.statusElement.text = "Tracing Target";
-                            Session.getsave()
+                            Session.getTarget(dt.target)
                                 .then(res => {
                                     detail.statusElement.text = "Loading target base";
                                     Manager.set(UTIL.initAttackPhase(
                                         {
-                                            layout: res,
+                                            layout: res?.game,
                                             nodeTypes: ATTACKERDATA.NodeTypeData,
                                             attackTypes: ATTACKERDATA.AttackTypeData,
                                             attacks: ATTACKERDATA.AttackerData
@@ -235,6 +235,7 @@ function mainloop(MenuController) {
                                             Listener: Manager.Listener
                                         }
                                     ));
+                                    Logger.info(`Instance: ${res?.instance}`)
                                     MenuController.close();
                                 });
                         }, false, true);
@@ -243,28 +244,32 @@ function mainloop(MenuController) {
                         MenuController.when("loadmenu", detail => {
                             localLayout = UTIL.layoutToJsonObj(scene, NodeController);
                             detail.statusElement.text = "Discovering targets";
-                            Manager.set(UTIL.initSelectPhase(
-                                {
-                                    Attack: (userid) => {
-                                        MenuController._dispatch("swapphase", {phase: "attack"});
-                                    },
-                                    Build: () => {
-                                        MenuController._dispatch("swapphase", {phase: "build"});
-                                    },
-                                },
-                                scene,
-                                renderer.domElement,
-                                controls,
-                                {
-                                    Node: NodeController,
-                                    Overlay: OverlayController,
-                                    Physics: PhysicsController,
-                                    Mouse: MouseController,
-                                    World: WorldController,
-                                    Listener: Manager.Listener
-                                }
-                            ));
-                            MenuController.close();
+                            Session.getAttackTargets()
+                                .then(targets => {
+                                    Manager.set(UTIL.initSelectPhase(
+                                        {
+                                            Attack: (userid) => {
+                                                MenuController._dispatch("swapphase", {phase: "attack", target: userid});
+                                            },
+                                            Build: () => {
+                                                MenuController._dispatch("swapphase", {phase: "build"});
+                                            },
+                                        },
+                                        scene,
+                                        renderer.domElement,
+                                        controls,
+                                        targets,
+                                        {
+                                            Node: NodeController,
+                                            Overlay: OverlayController,
+                                            Physics: PhysicsController,
+                                            Mouse: MouseController,
+                                            World: WorldController,
+                                            Listener: Manager.Listener
+                                        }
+                                    ));
+                                    MenuController.close();
+                                });
                         }, false, true);
                         Manager.phase = phaseType;
                     } else {
@@ -356,6 +361,9 @@ function mainloop(MenuController) {
             { // [!] testing area
                 if (DEBUG_MODE && urlParams.has("axes"))
                     scene.add(new THREE.AxesHelper(controls.camera.maxDistance * 2));
+
+                // UTIL.getLocation()
+                //     .then(data => Logger.log(btoa(JSON.stringify(data))))
             }
             // render the stuff
             function animate() {

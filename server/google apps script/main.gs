@@ -5,7 +5,8 @@ const TABLES = {
     users: "Account",
     userinfo: "AccountInfo",
     gamedata: "Game",
-    tokens: "LiveTokens"
+    tokens: "LiveTokens",
+    instances: "InstanceTokens",
 };
 
 function atob(b64str) {
@@ -16,11 +17,14 @@ function btoa(str) {
     return Utilities.base64Encode(str);
 }
 
-function processCookies(e) { // since we don't get real cookies...
+function processCookies(e) {
+    // since we don't get real cookies...
     const params = e.parameter;
-    const cookies = Object.keys(e.parameter).filter(key => key.startsWith("cookie-"));
+    const cookies = Object.keys(e.parameter).filter((key) =>
+        key.startsWith("cookie-")
+    );
     const cookieJar = {};
-    cookies.forEach(cookie => {
+    cookies.forEach((cookie) => {
         // "cookie-".length == 7
         cookieJar[cookie.slice(7)] = params[cookie];
     });
@@ -30,15 +34,15 @@ function processCookies(e) { // since we don't get real cookies...
 // API handlers
 const Handlers = {
     _debug: function (e) {
-      return Server.createResponse({...e, cookies: processCookies(e)});
+        return Server.createResponse({ ...e, cookies: processCookies(e) });
     },
-    newUser: function (conn, username, password) {
+    newUser: function (conn, username, password, geo) {
         if (Server.userExists(conn, username)) {
             console.error("Error while processing new user request");
             console.info(`Account with username "${username}" already exists`);
             return Server.createErrorResponse(0, "Account already exists");
         } else {
-            return Server.createNewUser(conn, username, password);
+            return Server.createNewUser(conn, username, password, geo);
         }
     },
     login: function (conn, params) {
@@ -46,12 +50,18 @@ const Handlers = {
         try {
             const [username, password] = atob(loginData?.[0]).split(":", 2);
             if (!Server.userExists(conn, username))
-                return Server.createErrorResponse(1, `Username "${username}" does not exist`);
+                return Server.createErrorResponse(
+                    1,
+                    `Username "${username}" does not exist`
+                );
             else if (!Server.checkPassword(conn, username, password))
                 return Server.createErrorResponse(1, "Wrong password entered");
             else
                 return Server.createResponse({
-                    token: Server.createToken(conn, Server.getUserId(conn, username))
+                    token: Server.createToken(
+                        conn,
+                        Server.getUserId(conn, username)
+                    ),
                 });
         } catch {
             console.error("Error while processing login request");
@@ -59,25 +69,49 @@ const Handlers = {
             return Server.createErrorResponse(0, "Failed to login");
         }
     },
+    getTargets: function (conn, params, cookies) {
+        const limit = Number(params.limit[0]);
+        if (!limit)
+            return Server.createErrorResponse(1, `Invalid limit ${limit}`);
+        if (
+            cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+        ) {
+            const token = Server.getToken(conn, cookies.session);
+            const targets = Server.getTargets(conn, token.id, limit);
+            return Server.createResponse({
+                targets: targets,
+            });
+        }
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
+    },
     loadGameData: function (conn, cookies) {
         if (
             cookies.session &&
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
             const token = Server.getToken(conn, cookies.session);
-            const gamedata = Server.entryToJson(...conn.lookupEntry(token.id, TABLES.gamedata));
+            const gamedata = Server.entryToJson(
+                ...conn.lookupEntry(token.id, TABLES.gamedata)
+            );
             return Server.createResponse({
                 game: {
                     backdrop: gamedata.backdrop,
-                    layout: gamedata.layout
+                    layout: gamedata.layout,
                 },
                 bank: {
                     cash: gamedata.cash,
-                    crypto: gamedata.crypto
-                }
+                    crypto: gamedata.crypto,
+                },
             });
         }
-        return Server.createErrorResponse(0, "Invalid or expired session token");
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
     },
     saveGameData: function (conn, payload, cookies) {
         if (
@@ -93,37 +127,69 @@ const Handlers = {
                 payload?.bank.hasOwnProperty("cash") &&
                 payload?.bank.hasOwnProperty("crypto")
             ) {
-                Server.updateGameData(conn, token.id, payload) // [!] may be unsafe, verify and revise later
+                Server.updateGameData(conn, token.id, payload); // [!] may be unsafe, verify and revise later
                 return Server.createSuccessResponse();
             }
-            return Server.createErrorResponse(1, "Invalid gamedata payload:\n" + JSON.stringify(payload));
+            return Server.createErrorResponse(
+                1,
+                "Invalid gamedata payload:\n" + JSON.stringify(payload)
+            );
         }
-        return Server.createErrorResponse(0, "Invalid or expired session token");
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
     },
     refreshSession: function (conn, cookies) {
-        return (
-            cookies.session
-            && Server.verifyRefreshToken(conn, cookies.session)
-        )
-        ? Server.createResponse(Server.getToken(conn, cookies.session))
-        : Server.createErrorResponse(0, "Invalid or expired session token");
-    }
-}
+        return cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+            ? Server.createResponse(Server.getToken(conn, cookies.session))
+            : Server.createErrorResponse(0, "Invalid or expired session token");
+    },
+    startAttack: function (conn, params, cookies) {
+        const targetid = params.id[0]; // since we go by ID, assume this user exists already- don't check.
+        if (
+            cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+        ) {
+            const token = Server.getToken(conn, cookies.session);
+            const targetGameData = Server.entryToJson(
+                ...conn.lookupEntry(targetid, TABLES.gamedata)
+            );
+            if (
+                targetGameData &&
+                targetGameData?.backdrop &&
+                targetGameData?.layout
+            ) {
+                const instance = Server.createToken(conn, token.id, 120, true); // 2 minutes
+                return Server.createResponse({
+                    instance: instance,
+                    game: {
+                        backdrop: targetGameData.backdrop,
+                        layout: targetGameData.layout,
+                    }
+                });
+            } else
+                return Server.createErrorResponse(
+                    1,
+                    `Invalid target ID: ${targetid}`
+                );
+        }
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
+    },
+};
 
 // Backend compute
 const Server = {
-    createNewUser: function (conn, username, password) {
+    createNewUser: function (conn, username, password, rawGeoData) {
         const passhash = this.hash(password);
         const userid = this.hash(btoa(username));
-        conn.insertEntry(TABLES.users,
-            userid,
-            username,
-            passhash
-        );
-        conn.insertEntry(TABLES.gamedata,
-            userid
-        );
-        return this.createResponse({token: this.createToken(conn, userid)});
+        conn.insertEntry(TABLES.users, userid, username, passhash, rawGeoData);
+        conn.insertEntry(TABLES.gamedata, userid);
+        return this.createResponse({ token: this.createToken(conn, userid) });
     },
     updateGameData: function (conn, userid, gamedata) {
         conn._selectTable(TABLES.gamedata);
@@ -131,7 +197,8 @@ const Server = {
         const layout = JSON.stringify(gamedata.game.layout);
         const cash = gamedata.bank.cash;
         const crypto = gamedata.bank.crypto;
-        conn.updateEntry(TABLES.gamedata,
+        conn.updateEntry(
+            TABLES.gamedata,
             userid,
             backdrop,
             layout,
@@ -146,101 +213,141 @@ const Server = {
     },
     checkPassword: function (conn, username, password) {
         const userid = this.getUserId(conn, username);
-        return this.entryToJson(...conn.lookupEntry(userid, TABLES.users))?.password == this.hash(password);
+        return (
+            this.entryToJson(...conn.lookupEntry(userid, TABLES.users))
+                ?.password == this.hash(password)
+        );
+    },
+    getTargets: function (conn, userid, limit) {
+        conn._selectTable(TABLES.users);
+        const ids = conn._getColumnAt(1, limit);
+        const geos = conn._getColumnAt(4, limit);
+        const blankRow = conn._findBlankRow() - 2;
+        if (blankRow && ids.length > blankRow) {
+            ids.splice(blankRow);
+            geos.splice(blankRow);
+        }
+        const removeRow = ids.indexOf(userid);
+        if (removeRow != -1) {
+            ids.splice(removeRow, 1);
+            geos.splice(removeRow, 1);
+        }
+        return Array.from(ids, (id, i) => {
+            return {
+                targetid: id,
+                geo: geos[i],
+            };
+        });
     },
     // token management
-    verifyRefreshToken: function (conn, token) {
-        if (this.tokenExists(conn, token)) {
-            const tokenData = this.getToken(conn, token);
-            if (!this.tokenExpired(conn, tokenData)) {
-                this.refreshToken(conn, token);
+    verifyRefreshToken: function (conn, token, instance = false) {
+        if (this.tokenExists(conn, token, instance)) {
+            const tokenData = this.getToken(conn, token, instance);
+            if (!this.tokenExpired(conn, tokenData, instance)) {
+                this.refreshToken(conn, token, instance);
                 return true;
             }
         }
         return false;
     },
-    createToken: function (conn, userid, expires = 0) {
-        const exp = (expires <= 0) ? this.maxExpirationUTC() : expires;
+    createToken: function (conn, userid, expires = 0, instance = false) {
+        const table = instance ? TABLES.instances : TABLES.tokens;
+        const exp = expires <= 0 ? this.maxExpirationUTC() : expires;
         const token = this.token();
-        conn.insertEntry(TABLES.tokens,
-            token,
-            userid,
-            exp
-        );
+        conn.insertEntry(table, token, userid, exp);
         return {
             token: token,
-            expires: exp
+            expires: exp,
         };
     },
-    refreshToken: function (conn, token) {
+    refreshToken: function (conn, token, instance = false) {
+        const table = instance ? TABLES.instances : TABLES.tokens;
         const tokenData = this.getToken(conn, token);
         if (!this.tokenExpired(conn, tokenData)) {
             const { token: t, id } = tokenData;
             const expires = this.maxExpirationUTC();
-            conn.updateEntry(TABLES.tokens, t, id, expires);
+            conn.updateEntry(table, t, id, expires);
             return true;
         }
         return false;
     },
-    tokenExists: function (conn, token) {
-        conn._selectTable(TABLES.tokens);
+    tokenExists: function (conn, token, instance = false) {
+        const table = instance ? TABLES.instances : TABLES.tokens;
+        conn._selectTable(table);
         return conn._findRow(token) != -1;
     },
-    getToken: function (conn, token) {
-        return this.entryToJson(...conn.lookupEntry(token, TABLES.tokens));
+    getToken: function (conn, token, instance = false) {
+        const table = instance ? TABLES.instances : TABLES.tokens;
+        return this.entryToJson(...conn.lookupEntry(token, table));
     },
-    tokenExpired: function (conn, tokenData) { // [!] also deletes expired tokens. So we clear old ones only when we care about them!
+    tokenExpired: function (conn, tokenData, instance = false) {
+        // [!] also deletes expired tokens. So we clear old ones only when we care about them!
+        const table = instance ? TABLES.instances : TABLES.tokens;
         const result = tokenData.expires <= this.getNowUTCSeconds();
-        if (result)
-            conn.deleteEntry(TABLES.tokens, tokenData.token);
+        if (result) conn.deleteEntry(table, tokenData.token);
         return result;
     },
     // utils
     _matchValue: function (conn, userid, tableName, key, value) {
-        return this.entryToJson(...conn.lookupEntry(userid, tableName))?.[key] == value;
+        return (
+            this.entryToJson(...conn.lookupEntry(userid, tableName))?.[key] ==
+            value
+        );
     },
     createResponse: function (jsonObj) {
         const jsonStr = JSON.stringify(jsonObj);
-        return ContentService.createTextOutput(jsonStr).setMimeType(ContentService.MimeType.JSON);
+        return ContentService.createTextOutput(jsonStr).setMimeType(
+            ContentService.MimeType.JSON
+        );
     },
     createErrorResponse: function (code, message) {
         const response = { code: code };
-        if (message)
-            response.detail = message;
+        if (message) response.detail = message;
         return this.createResponse({ error: response });
     },
     createSuccessResponse: function () {
         return this.createResponse({ success: true });
     },
-    maxExpirationUTC: function () { // returns in seconds
-        const now  = new Date();
-        now.setDate(now.getDate() + MAX_COOKIE_DAYS)
+    maxExpirationUTC: function () {
+        // returns in seconds
+        const now = new Date();
+        now.setDate(now.getDate() + MAX_COOKIE_DAYS);
         return Math.floor(now.getTime() / 1000);
     },
     getNowUTCSeconds: function () {
-        return (new Date()).getUTCSeconds();
+        return new Date().getUTCSeconds();
     },
-    token: function () { // time based, since that's how it'll be used
-        return Date.now().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    token: function () {
+        // time based, since that's how it'll be used
+        return (
+            Date.now().toString(36).substring(2) +
+            Math.random().toString(36).substring(2)
+        );
     },
-    hash: function (text) { // only works in Google Apps Script- can't port to normal JS
-        const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text);
-        const hexstr = bytes.map(byte => ("0" + (byte & 0xFF).toString(16)).slice(-2)).join(""); 
+    hash: function (text) {
+        // only works in Google Apps Script- can't port to normal JS
+        const bytes = Utilities.computeDigest(
+            Utilities.DigestAlgorithm.SHA_256,
+            text
+        );
+        const hexstr = bytes
+            .map((byte) => ("0" + (byte & 0xff).toString(16)).slice(-2))
+            .join("");
         return hexstr;
     },
     entryToJson: function (headers, row) {
         const jsonObj = {};
-        headers.forEach((header, idx) => jsonObj[header] = row[idx]);
+        headers.forEach((header, idx) => (jsonObj[header] = row[idx]));
         return jsonObj;
     },
     userExists: function (conn, username) {
         conn._selectTable(TABLES.users);
         return conn._findRow(username, 2) != -1;
-    }
-}
+    },
+};
 
 // Backend query info
-function DatabaseConnection (spreadsheetid) {
+function DatabaseConnection(spreadsheetid) {
     this.database = SpreadsheetApp.openById(spreadsheetid);
 }
 DatabaseConnection.prototype = {
@@ -251,51 +358,66 @@ DatabaseConnection.prototype._findRow = function (value, columnIdx = 1) {
     const idx = this.activeTable
         .getRange(2, columnIdx, this.activeTable.getLastRow())
         .getValues()
-        .map(row => row[0])
+        .map((row) => row[0])
         .indexOf(value);
     return idx === -1 ? idx : idx + 2; // 1 offset for header row, another offset becase GayAppsScript doesn't zero-index their spreadsheets
-}
+};
 DatabaseConnection.prototype._findBlankRow = function () {
     const idx = this.activeTable
         .getRange(2, 1, this.activeTable.getLastRow())
         .getValues()
-        .filter(c=>c)
-        .length;
+        .filter((c) => c).length;
     return idx === -1 ? idx : idx + 1; // need to get the next row
-}
+};
 DatabaseConnection.prototype._getEntryAt = function (idx) {
-    return this.activeTable.getRange(idx, 1, 1, this.activeTable.getLastColumn()).getValues()?.[0];
-}
+    return this.activeTable
+        .getRange(idx, 1, 1, this.activeTable.getLastColumn())
+        .getValues()?.[0];
+};
+DatabaseConnection.prototype._getColumnAt = function (idx, limit) {
+    return this.activeTable
+        .getRange(2, idx, limit, idx)
+        .getValues()
+        ?.map((row) => row[0]);
+};
 DatabaseConnection.prototype._getEntry = function (id) {
     const entryIdx = this._findRow(id);
-    return entryIdx != -1
-        ? this._getEntryAt(entryIdx)
-        : undefined;
-}
+    return entryIdx != -1 ? this._getEntryAt(entryIdx) : undefined;
+};
 DatabaseConnection.prototype._getHeaders = function () {
-    return this.activeTable.getRange(1, 1, 1, this.activeTable.getLastColumn()).getValues()?.[0];
-}
+    return this.activeTable
+        .getRange(1, 1, 1, this.activeTable.getLastColumn())
+        .getValues()?.[0];
+};
 DatabaseConnection.prototype._selectTable = function (tableName) {
     this.activeTable = this.database.getSheetByName(tableName);
-}
+};
 DatabaseConnection.prototype.lookupEntry = function (id, tableName) {
     this._selectTable(tableName);
     const entry = this._getEntry(id);
     const headers = this._getHeaders();
     return [headers, entry];
-}
+};
 DatabaseConnection.prototype.insertEntry = function (tableName, ...columns) {
     this._selectTable(tableName);
-    this.activeTable.getRange(this._findBlankRow(), 1, 1, columns.length).setValues([columns]);
-}
-DatabaseConnection.prototype.updateEntry = function (tableName, id, ...columns) {
+    this.activeTable
+        .getRange(this._findBlankRow(), 1, 1, columns.length)
+        .setValues([columns]);
+};
+DatabaseConnection.prototype.updateEntry = function (
+    tableName,
+    id,
+    ...columns
+) {
     this._selectTable(tableName);
-    this.activeTable.getRange(this._findRow(id), 2, 1, columns.length).setValues([columns]);
-}
+    this.activeTable
+        .getRange(this._findRow(id), 2, 1, columns.length)
+        .setValues([columns]);
+};
 DatabaseConnection.prototype.deleteEntry = function (tableName, id) {
     this._selectTable(tableName);
     this.activeTable.deleteRow(this._findRow(id));
-}
+};
 
 // Executed automatically upon webapp GET request
 function doGet(e) {
@@ -315,18 +437,32 @@ function doGet(e) {
             case ".game.load":
                 response = Handlers.loadGameData(conn, cookies);
                 break;
-            case ".attack.start":
-                response = Server.createSuccessResponse();
-                break;
             case ".api.refresh":
                 response = Handlers.refreshSession(conn, cookies);
+                break;
+            case ".attack.select":
+                response = Handlers.getTargets(conn, params, cookies);
+                break;
+            case ".attack.start":
+                response = Handlers.startAttack(conn, params, cookies);
+                break;
             default:
-                response = Server.createErrorResponse(2, "Unknown GET endpoint");
-        };
+                response = Server.createErrorResponse(
+                    2,
+                    "Unknown GET endpoint"
+                );
+        }
         return response;
     } catch (err) {
         console.error(err);
-        return Server.createErrorResponse(4, err.message + "\nDump:\n" + JSON.stringify(e) + "\nTrace:\n" + err.stack);
+        return Server.createErrorResponse(
+            4,
+            err.message +
+                "\nDump:\n" +
+                JSON.stringify(e) +
+                "\nTrace:\n" +
+                err.stack
+        );
     }
 }
 
@@ -344,7 +480,12 @@ function doPost(e) {
                 response = Handlers._debug(e);
                 break;
             case ".api.newlogin":
-                response = Handlers.newUser(conn, payload.username, payload.password);
+                response = Handlers.newUser(
+                    conn,
+                    payload.username,
+                    payload.password,
+                    payload.geo
+                );
                 break;
             case ".attack.result":
                 response = Server.createSuccessResponse();
@@ -353,11 +494,21 @@ function doPost(e) {
                 response = Handlers.saveGameData(conn, payload, cookies);
                 break;
             default:
-                response = Server.createErrorResponse(2, "Unknown POST endpoint");
-        };
+                response = Server.createErrorResponse(
+                    2,
+                    "Unknown POST endpoint"
+                );
+        }
         return response;
     } catch (err) {
         console.error(err);
-        return Server.createErrorResponse(4, err.message + "\nDump:\n" + JSON.stringify(e) + "\nTrace:\n" + err.stack);
+        return Server.createErrorResponse(
+            4,
+            err.message +
+                "\nDump:\n" +
+                JSON.stringify(e) +
+                "\nTrace:\n" +
+                err.stack
+        );
     }
 }

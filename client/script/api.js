@@ -49,9 +49,14 @@ export function login (username, password) {
         .then(data => data?.token);
 }
 
-export function createAccount (username, password) {
-    return sendRequest("/api/newlogin", undefined, "POST", {username: username, password: password})
+export function createAccount (username, password, location) {
+    return sendRequest("/api/newlogin", undefined, "POST", {username: username, password: password, geo: location})
         .then(data => data?.token);
+}
+
+export function getAttackTargets (sessionToken) {
+    return sendRequest("/attack/select", {limit: 5}, "GET", undefined, {session: sessionToken})
+        .then(data => data?.targets);
 }
 
 export function getOwnBase (sessionToken) {
@@ -62,6 +67,11 @@ export function getOwnBase (sessionToken) {
 export function refreshSession (sessionToken) {
     return sendRequest("/api/refresh", undefined, "GET", undefined, {session: sessionToken})
         .then(data => data?.token.expires);
+}
+
+export function startAttack (sessionToken, targetid) {
+    return sendRequest("/attack/start", {id: targetid}, "GET", undefined, {session: sessionToken})
+        .then(data => data);
 }
 
 export function saveGame (sessionToken, backdrop, layout, ...currency) {

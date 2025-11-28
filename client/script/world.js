@@ -44,6 +44,7 @@ WorldManager.prototype = {
     focusedCountryId: undefined,
     focusedCountryOutline: undefined,
     eventTarget: undefined,
+    enabled: false,
     markers: {}, // keep track of markers/objects placed on each country
     country: {}, // never meant to be updated, so additions/deletions are not reflected in set
     countries: [], // never meant to be updated, so additions/deletions are not reflected in dict
@@ -105,23 +106,25 @@ WorldManager.prototype.removeFromWorld = function (objectid) { // [!] fully disp
     delete this.markers[objectid];
 };
 WorldManager.prototype._clickListener = function (e) {
-    const clickPosition = this._mouseManager.position;
-    const clickedCountryId =
-        this.getCountryFromFlatCoordinate(
-            clickPosition
-        );
-    if (this.state.focusedCountry) { // select a target within country
-        const clickedChildId = this.getChildFromFlatCoordinate(clickPosition, this.focusedCountryId);
-        if (clickedChildId)
-            this._dispatch("click", {
-                child: clickedChildId,
-            });
-        else if (clickedCountryId && clickedCountryId != this.focusedCountryId)
+    if (this.enabled) {
+        const clickPosition = this._mouseManager.position;
+        const clickedCountryId =
+            this.getCountryFromFlatCoordinate(
+                clickPosition
+            );
+        if (this.state.focusedCountry) { // select a target within country
+            const clickedTargetId = this.getTargetFromFlatCoordinate(clickPosition, this.focusedCountryId);
+            if (clickedTargetId)
+                this._dispatch("click", {
+                    target: clickedTargetId,
+                });
+            else if (clickedCountryId && clickedCountryId != this.focusedCountryId)
+                this.focusCountry(clickedCountryId);
+            else if (!clickedCountryId)
+                this.unfocusCountry();
+        } else if (clickedCountryId)
             this.focusCountry(clickedCountryId);
-        else if (!clickedCountryId)
-            this.unfocusCountry();
-    } else if (clickedCountryId)
-        this.focusCountry(clickedCountryId);
+    }
 }
 WorldManager.prototype.focusCountry = function (countryid, dispatch = true) {
     if (countryid == this.focusedCountryId) return;
@@ -204,14 +207,15 @@ WorldManager.prototype.getClosestCountry = function (coord) {
         ? intersects[0].object.userData.id
         : undefined;
 }
-WorldManager.prototype.getChildFromFlatCoordinate = function (coordinate, countryid) {
+WorldManager.prototype.getTargetFromFlatCoordinate = function (coordinate, countryid) {
     // [!] this modifies the raycaster
     this._raycaster.setFromCamera(coordinate, this._camera);
     const country = this.getCountry(countryid);
-    const intersects = this._raycaster.intersectObjects([...country.children, this._mesh.userData.core], false);
+    const targets = Object.values(this.markers).filter(m => m.country == countryid)?.map(m => m.mesh);
+    const intersects = this._raycaster.intersectObjects([...targets, this._mesh.userData.core], false);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.uuid
+        ? intersects[0].object.userData.targetid // this IS EXPECTED.
         : undefined;
 }
 WorldManager.prototype.getCountryFromFlatCoordinate = function (coordinate) {
@@ -236,7 +240,7 @@ WorldManager.prototype.getCountry = function (countryid) {
 WorldManager.prototype.clear = function () {
     this._scene.remove(this._mesh);
     this.eventTarget = undefined;
-    this._renderer.domElement.removeEventListener("clicked", this._clickListener);
+    this.enabled = false;
     this.countries.forEach(country => {
         country.userData.revert(1);
         country.children.forEach(child =>
@@ -307,6 +311,7 @@ WorldManager.prototype.update = function (timedelta) {
 WorldManager.prototype.init = function () {
     this.eventTarget = document.createElement("div");
     this._scene.add(this._mesh);
+    this.enabled = true;
     // adding listeners
     this._renderer.domElement.addEventListener("clicked", (e) => {this._clickListener(e)}); // used in conjuction with MouseManager
 }

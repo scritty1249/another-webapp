@@ -36,7 +36,22 @@
     "detail": str (optional)
 }
 ```
-
+## GeoData
+As an obfuscated string:
+```json
+{
+    "lat": int,
+    "long": int
+}
+```
+## TargetData
+```json
+{
+    "targetid": str,
+    "geo": GeoData
+}
+```
+- [GeoData](#geodata)
 # Endpoints
 Due to design constraint (using google apps script to receive requests), domain paths are not supposed. We *emulate* the functionality with the `path` parameter.\
 - All endpoints listed are to be included in the `path` parameter of the request, and `/` characters are to be replaced with `.`.
@@ -66,9 +81,11 @@ POST
 ```json
 {
     "username": str,
-    "password": str (hash)
+    "password": str (hash),
+    "geo": GeoData
 }
 ```
+- [GeoData](#geodata)
 #### Returns
 **Content**
 ```json
@@ -127,6 +144,23 @@ GET
 ```
 - [GameData](#gamedata)
 - [Currency](#currency)
+
+## Get Targets *
+>/attack/select
+#### Expects
+**Method**\
+GET
+
+**Parameter**
+- `limit`: maximum results to return. Must be at least 1.
+#### Returns
+**Content**
+```json
+{
+    "targets": Array<TargetData>
+}
+```
+- [TargetData](#targetdata)
 
 ## Start Attack *
 >/attack/start
