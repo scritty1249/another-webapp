@@ -33,7 +33,7 @@ SelectiveOutlineEffect.prototype = {
     originalOnBeforeRenders: {},
     uniformsOutline: {
         outlineThickness: {
-            value: 0.005,
+            value: 0.008,
         },
         outlineColor: {
             value: undefined, // needs to be THREE.Color type

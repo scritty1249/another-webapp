@@ -14,14 +14,14 @@ import {
     DoubleSide,
     FrontSide,
     BackSide,
-    Path,
-    EdgesGeometry,
-    LineSegments
+    Object3D,
+    Color,
 } from "three";
 import * as THREE from 'three';
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
+import * as SceneUtils from 'three/addons/utils/SceneUtils.js';
 import * as UTIL from "./utils.js";
 
 const InvisibleMat = new MeshBasicMaterial({
@@ -114,35 +114,47 @@ function Outline(targetmesh) {
     return outlineMesh;
 }
 
-function SelectionGlobe(sceneData, radius = 5, widthSeg = 32, heightSeg = 32) {
+function SelectionGlobe(sceneData, radius) {
     const wrapper = new Group();
+    const countriesWrapper = new Object3D();
     const matt = new MeshPhongMaterial({
         color: 0xaa0000,
-        side: DoubleSide,
+        side: FrontSide,
         specular: 0xaa0505,
         shininess: 65,
     });
-    wrapper.add(sceneData.mesh.children[1].clone());
-    wrapper.add(sceneData.mesh.children[0].clone());
-    wrapper.scale.setScalar(6);
+    wrapper.add(sceneData.mesh.children[0].clone()); // core
+    wrapper.add(countriesWrapper); 
+    sceneData.mesh.children[1].children // countries wrapper
+        .forEach(child => {
+            const kid = new Mesh(child.geometry.clone(), matt);
+            kid.position.copy(child.position);
+            kid.rotation.copy(child.rotation);
+            kid.scale.copy(child.scale);
+            countriesWrapper.attach(kid);
+        });
+
+    wrapper.scale.setScalar(radius);
     wrapper.userData = {...wrapper.userData,
-        core: wrapper.children[1],
+        rotation: wrapper.children[1].rotation.clone(),
+        core: wrapper.children[0],
         get radius () {
             return radius;
         },
         get children () {
-            return wrapper.children[0].children;
+            return wrapper.children[1].children;
         },
     };
-    wrapper.children[0].material = InvisibleMat;
     wrapper.userData.core.material = new MeshPhysicalMaterial({
-        transmission: 0.85,
+        color: 0x0f0f0f,
+        transmission: 1,
         roughness: 0.65,
-        reflectivity: 0.4,
-        specularColor: 0x050505,
+        opacity: 1,
+        reflectivity: 0.1,
+        thickness: 0.1,
     });
+    wrapper.userData.core.material.needsUpdate = true;
     wrapper.userData.children.forEach(child => {
-        child.material = matt;
         child.userData = {...child.userData,
             position: {
                 origin: child.position.clone(),
