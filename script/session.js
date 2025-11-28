@@ -1,4 +1,5 @@
 import * as API from "./api.js";
+import * as UTIL from "./utils.js";
 
 async function hash (input) { // crypto module should be available in all modern (2021+) browsers. Just assume funcitonality ATP
     const textBuf = new TextEncoder().encode(input);
@@ -38,9 +39,11 @@ export function login (username, password) {
 
 export function newlogin (username, password, gamedata, bankdata) {
     Logger.info(`[Session] | Creating new account "${username}"`);
-    return hash(password)
-        .then(passhash =>
-            API.createAccount(username, passhash))
+    return Promise.all([
+            hash(password), UTIL.getLocation()
+        ])
+        .then(([passhash, location]) =>
+            API.createAccount(username, passhash, btoa(JSON.stringify(location))))
         .then(tokenObj => {
             if (!tokenObj)
                 Logger.alert(`Failed to create new account. Username ${username} already exists.`);
@@ -50,6 +53,43 @@ export function newlogin (username, password, gamedata, bankdata) {
         .then(sessionToken =>
             API.saveGame(sessionToken, gamedata.background, gamedata.layout, bankdata.cash, bankdata.crypto))
         .catch(err => false);
+}
+
+export function getAttackTargets () {
+    if (!CookieJar.has("session")) {
+        Logger.error("[Session] | Cannot query attack targets: No session token found!");
+        return Promise.resolve(undefined);
+    }
+    const sessionToken = CookieJar.get("session");
+    return API.getAttackTargets(sessionToken).then(data => {
+        if (data) {
+            return Array.from(data, d => {
+                return {
+                    geo: d.geo ? JSON.parse(atob(d.geo)) : UTIL.DEFAULT_GEO,
+                    targetid: d.targetid
+                };
+            });
+        }
+    });
+}
+
+export function getTarget (targetid) {
+    if (!CookieJar.has("session")) {
+        Logger.error("[Session] | Cannot query attack targets: No session token found!");
+        return Promise.resolve(undefined);
+    }
+    const sessionToken = CookieJar.get("session");
+    return API.startAttack(sessionToken, targetid).then(data => {
+        if (data) {
+            return {
+                instance: data?.instance,
+                game: {
+                    background: data?.game.backdrop,
+                    layout: data?.game.layout ? JSON.parse(data.game.layout) : undefined
+                }
+            };
+        }
+    });
 }
 
 export function getsave () {

@@ -7,7 +7,12 @@ import * as THREE from "three";
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 
-export const BLANK_LAYOUT_OBJ = {background: "", layout: {neighbors: [], nodes: [{"uuid":"0","type":"globe","position":[0,0,0],"_data":{}}]}};
+export const BLANK_LAYOUT_OBJ = {background: "./source/bg/", layout: {neighbors: [], nodes: [{"uuid":"0","type":"globe","position":[0,0,0],"_data":{}}]}};
+
+export const DEFAULT_GEO = { // lol
+    lat: 63.5888,
+    long: 154.4931,   
+};
 
 export function createVideoElement (videopath, speed = 1) {
     const videoEl = document.createElement("video");
@@ -89,6 +94,19 @@ export function createEvent(eventName, details = {}) {
         bubbles: true,
         cancelable: true,
         detail: details
+    });
+}
+
+export function getLocation() { // [!] does not check for geolocation api support. Caller should do that first.
+    return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+    }).then(pos => {
+        return {
+            lat: pos.coords.latitude,
+            long: -pos.coords.longitude
+        };
+    }).catch(err => {
+        return DEFAULT_GEO;
     });
 }
 
@@ -221,6 +239,7 @@ export function initSelectPhase(
     scene,
     rendererDom,
     controls,
+    targets,
     managers, // expects Node, Physics, Overlay, Mouse, World- optional: Listener
 ) {
     Logger.info("Loading select phase");
@@ -267,50 +286,17 @@ export function initSelectPhase(
     managers.World.init();
     controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
 
-    { // add a placeholder target
+    { // add targets
         const geometry = new THREE.SphereGeometry(0.05, 32, 32);
         const material = new THREE.MeshBasicMaterial({
             color: 0xffffff,
         });
         const marker = new THREE.Mesh(geometry, material);
 
-        // throw on however many ig...
-        const coords = {
-            texas: [30.2672, 97.7431],
-            india: [20.5937, -78.9629],
-            la: [34.0549, 118.2426],
-            sac: [38.5781, 121.4944],
-            japan: [36.2048, -138.2529],
-            aus: [-25.2744, -133.7751]
-        };
-        for (const coord of Object.values(coords))
-            managers.World.placeOnWorld(...coord, marker.clone());
-
-        // add own location
-        if ("geolocation" in navigator) {
-            /* geolocation is available */
-            const geo = new THREE.SphereGeometry(0.1, 32, 32);
-            const matt = new THREE.MeshBasicMaterial({
-                color: 0x00ff00,
-            });
-            const mark = new THREE.Mesh(geo, matt);
-            navigator.geolocation.getCurrentPosition((position) => {
-                const {latitude, longitude} = position.coords
-                Logger.log(`Got coordinates: ${latitude}, ${-longitude}`);
-                if (!
-                    managers.World.placeOnWorld(
-                        latitude,
-                        -longitude,
-                        mark
-                )) {
-                    mark.position.copy(
-                        managers.World.gpsToWorld(latitude, -longitude, 1.0375)
-                    );
-                    scene.add(mark);
-                }
-            });
-        } else {
-            /* geolocation IS NOT available */
+        for (const {geo, targetid} of targets) {
+            const m = marker.clone();
+            m.userData.targetid = targetid;
+            managers.World.placeOnWorld(geo.lat, geo.long, m);
         }
     }
 
@@ -331,9 +317,12 @@ export function initSelectPhase(
     managers.World.when("click", function (detail) {
         const last = detail.previous;
         const curr = detail.current;
-        const child = detail.child;
-        if (child)
-            callbacks.Attack(child);
+        const target = detail.target;
+        if (target) {
+            if (rotateTimeout)
+                clearTimeout(rotateTimeout);
+            callbacks.Attack(target);
+        }
     });
     Logger.log("Finished loading select phase");
     return controllers;
