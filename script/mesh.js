@@ -148,9 +148,9 @@ function SelectionGlobe(sceneData, radius) {
     wrapper.userData.core.material = new MeshPhysicalMaterial({
         color: 0x0f0f0f,
         transmission: 1,
-        roughness: 0.65,
+        roughness: 0,
         opacity: 1,
-        reflectivity: 0.1,
+        reflectivity: 0.4,
         thickness: 0.1,
     });
     wrapper.userData.core.material.needsUpdate = true;
