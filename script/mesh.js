@@ -131,6 +131,7 @@ function SelectionGlobe(sceneData, radius) {
             kid.position.copy(child.position);
             kid.rotation.copy(child.rotation);
             kid.scale.copy(child.scale);
+            kid.userData.id = child.name;
             countriesWrapper.attach(kid);
         });
 
