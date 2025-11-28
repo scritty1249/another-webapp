@@ -68,7 +68,7 @@ WorldManager.prototype._initState = function () {
 WorldManager.prototype._insertMarker = function (marker, country) {
     this.markers[marker.uuid] = {
         mesh: marker,
-        country: country.uuid
+        country: country.userData.id
     };
     country.attach(marker);
 }
@@ -126,6 +126,7 @@ WorldManager.prototype.focusCountry = function (countryid, dispatch = true) {
     this._fxRenderer.addOutline(country, {recursive: false});
     this.focusedCountryId = countryid;
     this.faceCameraTo(countryid);
+    Logger.debug(`[WorldManager] | Selected ${countryid}`)
     if (dispatch) // meant to be overridden during internal calls
         this._dispatch("focuschange", {
             current: countryid,
@@ -174,7 +175,7 @@ WorldManager.prototype.faceCameraTo = function (countryid) { // need to pause or
 WorldManager.prototype.addMeshData = function (worldMesh) {
     this._mesh = worldMesh;
     this._mesh.userData.children.forEach(country => {
-        this.country[country.uuid] = country; // [!] would prefer to go by country name, but for now just uuid...
+        this.country[country.userData.id] = country;
         this.countries.push(country);
     });
 }
@@ -192,7 +193,7 @@ WorldManager.prototype.getClosestCountry = function (coord) {
     const intersects = this._raycaster.intersectObjects([...this.countries, this._mesh.userData.core], false);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.uuid
+        ? intersects[0].object.userData.id
         : undefined;
 }
 WorldManager.prototype.getChildFromFlatCoordinate = function (coordinate, countryid) {
@@ -202,7 +203,7 @@ WorldManager.prototype.getChildFromFlatCoordinate = function (coordinate, countr
     const intersects = this._raycaster.intersectObjects([...country.children, this._mesh.userData.core], false);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.uuid
+        ? intersects[0].object.userData.id
         : undefined;
 }
 WorldManager.prototype.getCountryFromFlatCoordinate = function (coordinate) {
@@ -211,7 +212,7 @@ WorldManager.prototype.getCountryFromFlatCoordinate = function (coordinate) {
     const intersects = this._raycaster.intersectObjects([...this.countries, this._mesh.userData.core], false);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.uuid
+        ? intersects[0].object.userData.id
         : undefined;
 }
 WorldManager.prototype.getCountry = function (countryid) {
@@ -265,7 +266,7 @@ WorldManager.prototype._applyCameraTween = function () {
 }
 WorldManager.prototype._applyIdleAnimations = function (ambientMoveVariance = 0.05) {
     this.countries
-        .filter(country => !country.userData.position.needsUpdate && country.uuid != this.focusedCountryId)
+        .filter(country => !country.userData.position.needsUpdate && country.userData.id != this.focusedCountryId)
         .forEach(country => {
             country.userData.moveTo(
                 country.userData.position.origin.clone()
