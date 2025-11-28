@@ -268,29 +268,63 @@ export function initSelectPhase(
     controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
 
     { // add a placeholder target
-        const geometry = new THREE.SphereGeometry(0.1, 32, 32);
+        const geometry = new THREE.SphereGeometry(0.05, 32, 32);
         const material = new THREE.MeshBasicMaterial({
             color: 0xffffff,
-            emissive: new THREE.Color(0xff0000),
-            emissiveIntensity: 1.5
         });
         const marker = new THREE.Mesh(geometry, material);
 
-        marker.position.copy(managers.World.gpsToWorld(34.0549, 118.2426));
-        scene.add(marker);
+        // throw on however many ig...
+        const coords = {
+            texas: [30.2672, 97.7431],
+            india: [20.5937, -78.9629],
+            la: [34.0549, 118.2426],
+            sac: [38.5781, 121.4944],
+            japan: [36.2048, -138.2529],
+            aus: [-25.2744, -133.7751]
+        };
+        for (const coord of Object.values(coords))
+            managers.World.placeOnWorld(...coord, marker.clone());
 
-        const countryid = managers.World.getClosestCountry(marker.position.clone());
-        managers.World.getCountry(countryid).attach(marker);
+        // add own location
+        if ("geolocation" in navigator) {
+            /* geolocation is available */
+            const geo = new THREE.SphereGeometry(0.1, 32, 32);
+            const matt = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+            });
+            const mark = new THREE.Mesh(geo, matt);
+            navigator.geolocation.getCurrentPosition((position) => {
+                const {latitude, longitude} = position.coords
+                Logger.log(`Got coordinates: ${latitude}, ${-longitude}`);
+                if (!
+                    managers.World.placeOnWorld(
+                        latitude,
+                        -longitude,
+                        mark
+                )) {
+                    mark.position.copy(
+                        managers.World.gpsToWorld(latitude, -longitude, 1.0375)
+                    );
+                    scene.add(mark);
+                }
+            });
+        } else {
+            /* geolocation IS NOT available */
+        }
     }
 
     // listeners
+    let rotateTimeout;
     controllers.Listener.listener(controls.camera)
         .add("end", function (event) {
-            setTimeout(() => {
+            rotateTimeout = setTimeout(() => {
                 if (!managers.World.state.focusedCountry && !managers.World.state.tweeningCamera)
                     controls.camera.autoRotate = true;
             }, 3500);
         }).add("start", function (event) {
+            if (rotateTimeout)
+                clearTimeout(rotateTimeout);
             controls.camera.autoRotate = false;
             managers.World.state.tweeningCamera = false;
         });
@@ -298,25 +332,8 @@ export function initSelectPhase(
         const last = detail.previous;
         const curr = detail.current;
         const child = detail.child;
-        if (last)
-            managers.World.getCountry(last).userData.revert(.12);
-        if (curr) {
-            const country = managers.World.getCountry(curr);
-            if (curr == last)
-                country.userData.revert(.12);
-            else {
-                country.userData.moveTo(country.position.clone().multiplyScalar(1.2), .12);
-                country.userData.scaleTo(2, .12);
-                controls.camera.autoRotate = false;
-                managers.World.faceCameraTo(curr);
-                controls.camera.update();
-                Logger.info(curr);
-            }
-        } else
-            controls.camera.autoRotate = true;
-        if (child) {
+        if (child)
             callbacks.Attack(child);
-        }
     });
     Logger.log("Finished loading select phase");
     return controllers;

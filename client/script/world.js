@@ -1,6 +1,6 @@
 // World/Earth/Globe Manager
 import * as UTIL from "./utils.js";
-import { Box3, Vector3, Quaternion } from "three";
+import { Vector3, Quaternion } from "three";
 import { Outline } from "./mesh.js";
 
 export function WorldManager(
@@ -10,9 +10,11 @@ export function WorldManager(
     raycaster,
     tickspeed,
     mouseManager,
-    effectRenderer
+    effectRenderer,
+    orbitControls,
 ) {
     const self = this;
+    this._orbitControls = orbitControls;
     this._fxRenderer = effectRenderer;
     this._renderer = renderer;
     this._raycaster = raycaster;
@@ -33,6 +35,8 @@ export function WorldManager(
     return this;
 }
 WorldManager.prototype = {
+    _orbitControls: undefined,
+    _fxRenderer: undefined,
     _raycaster: undefined,
     _camera: undefined,
     _mesh: undefined,
@@ -40,7 +44,7 @@ WorldManager.prototype = {
     focusedCountryId: undefined,
     focusedCountryOutline: undefined,
     eventTarget: undefined,
-    bounds: {},
+    markers: {}, // keep track of markers/objects placed on each country
     country: {}, // never meant to be updated, so additions/deletions are not reflected in set
     countries: [], // never meant to be updated, so additions/deletions are not reflected in dict
     tick: {
@@ -61,6 +65,37 @@ WorldManager.prototype._initState = function () {
         },
     }
 };
+WorldManager.prototype._insertMarker = function (marker, country) {
+    this.markers[marker.uuid] = {
+        mesh: marker,
+        country: country.uuid
+    };
+    country.attach(marker);
+}
+WorldManager.prototype.placeOnWorld = function (lat, long, object, offsetScalar = 1.0375) {
+    try {
+        const worldPos = this.gpsToWorld(lat, long, offsetScalar);
+        const closestCountryId = this.getClosestCountry(worldPos);
+        object.position.copy(worldPos);
+        this._insertMarker(object, this.getCountry(closestCountryId));
+        return closestCountryId;
+    } catch (err) {
+        Logger.error(`[WorldManager] | Failed to add object to world: ${err.message}`)
+        return undefined;
+    }
+}
+WorldManager.prototype.removeFromWorld = function (objectid) { // [!] fully disposes of material and geometry. This may interfere with shared geometries and materials.
+    const mesh = this.markers[objectid].mesh
+    this.getCountry(this.markers[objectid].country)
+        .remove(mesh);
+    mesh.geometry.dispose();
+    if (mesh.material)
+        if (Array.isArray(mesh.material))
+            mesh.material.forEach(mat => mat.dispose());
+        else
+            mesh.material.dispose();
+    delete this.markers[objectid];
+};
 WorldManager.prototype._clickListener = function (e) {
     const clickPosition = this._mouseManager.position;
     const clickedCountryId =
@@ -80,39 +115,49 @@ WorldManager.prototype._clickListener = function (e) {
     } else if (clickedCountryId)
         this.focusCountry(clickedCountryId);
 }
-WorldManager.prototype.focusCountry = function (countryid) {
+WorldManager.prototype.focusCountry = function (countryid, dispatch = true) {
+    if (countryid == this.focusedCountryId) return;
     const previousCountryId = this.focusedCountryId;
+    this.unfocusCountry(false);
     const country = this.getCountry(countryid);
-    this._dispatch("click", {
-        current: countryid,
-        previous: previousCountryId
-    });
+    this._orbitControls.autoRotate = false;
+    country.userData.moveTo(country.position.clone().multiplyScalar(1.1), .12);
+    country.userData.scaleTo(2, .12);
     this._fxRenderer.addOutline(country, {recursive: false});
     this.focusedCountryId = countryid;
+    this.faceCameraTo(countryid);
+    if (dispatch) // meant to be overridden during internal calls
+        this._dispatch("focuschange", {
+            current: countryid,
+            previous: previousCountryId
+        });
 }
-WorldManager.prototype.unfocusCountry = function () {
+WorldManager.prototype.unfocusCountry = function (dispatch = true) {
     if (!this.state.focusedCountry) return;
-    this._dispatch("click", {
-        current: undefined,
-        previous: this.focusedCountryId
-    });
     const country = this.getCountry(this.focusedCountryId);
+    country.userData.revert(.12);
     this._fxRenderer.removeOutline(country);
     this.focusedCountryId = undefined;
+    this._orbitControls.autoRotate = true;
+    if (dispatch) // meant to be overridden during internal calls
+        this._dispatch("focuschange", {
+            current: undefined,
+            previous: this.focusedCountryId
+        });
 }
-WorldManager.prototype.gpsToWorld = function (lat, long) {
-    const globeRadius = this._mesh.userData.radius * 1.0375;
+WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 1) { // [!] caused some confusion here with JS Geolocation API. Lat N = +, Lat S = -..... Long W = +, Long E = -
+    const globeRadius = this._mesh.userData.radius * offsetScalar;
 
     // stupid radians
-    const latRad = (lat * 0.8) * (Math.PI / 180); // the mesh is squished
-    const lonRad = long * (Math.PI / 180);
-
-    // cartesian coords
-    return new Vector3(
+    const latRad = (lat * 1.1) * (Math.PI / 180);
+    const lonRad = (long * 0.95) * (Math.PI / 180);
+    const [x, y, z] = [
         globeRadius * Math.cos(latRad) * Math.cos(lonRad),
         globeRadius * Math.sin(latRad),
         globeRadius * Math.cos(latRad) * Math.sin(lonRad)
-    );
+    ];
+    // cartesian coords
+    return new Vector3(x, y, z);
 }
 WorldManager.prototype.getCountryDirection = function (countryid) { // [!] returns vector not normalized
     const origin = this._mesh.position;
@@ -130,17 +175,25 @@ WorldManager.prototype.addMeshData = function (worldMesh) {
     this._mesh = worldMesh;
     this._mesh.userData.children.forEach(country => {
         this.country[country.uuid] = country; // [!] would prefer to go by country name, but for now just uuid...
-        this.bounds[country.uuid] = new Box3().setFromObject(country);
         this.countries.push(country);
     });
 }
 WorldManager.prototype.getClosestCountry = function (coord) {
-    const distances = Array.from(Object.entries(this.bounds), ([uuid, bbox]) => { return {
-        uuid: uuid,
-        distance: bbox.distanceToPoint(coord)
-    };});
-    distances.sort((a, b) => a.distance - b.distance);
-    return distances?.[0].uuid;
+    // [!] this modifies the raycaster
+    const pos = coord.clone()
+            .multiplyScalar(this._orbitControls.maxDistance);
+    const direction = new Vector3();
+    this._mesh.getWorldPosition(direction);
+    direction.sub(pos).normalize();
+    this._raycaster.set(
+        pos,
+        direction
+    );
+    const intersects = this._raycaster.intersectObjects([...this.countries, this._mesh.userData.core], false);
+    return intersects.length > 0
+        && this._mesh.userData.core.uuid != intersects[0].object.uuid
+        ? intersects[0].object.uuid
+        : undefined;
 }
 WorldManager.prototype.getChildFromFlatCoordinate = function (coordinate, countryid) {
     // [!] this modifies the raycaster
@@ -182,6 +235,7 @@ WorldManager.prototype.clear = function () {
         )
     });
     this.unfocusCountry();
+    Object.keys(this.markers).forEach(markerid => this.removeFromWorld(markerid));
 }
 WorldManager.prototype._dispatch = function (name = "", detail = {}) {
     if (detail.log && detail.log === true)

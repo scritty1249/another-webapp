@@ -114,7 +114,6 @@ function mainloop(MenuController) {
         const PhysicsController = new PhysicsManager(NodeController,
             shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
         );
-        const WorldController = new WorldManager(scene, renderer, camera, raycaster, TICKSPEED, MouseController, effect);
         const Manager = {
             phase: undefined,
             Node: undefined,
@@ -132,12 +131,15 @@ function mainloop(MenuController) {
             drag: new DragControls(NodeController.nodelist, camera, renderer.domElement), // drag n" drop
             camera: new OrbitControls(camera, renderer.domElement), // camera
         };
+        
         controls.camera.enablePan = false;
         controls.camera.maxDistance = 25;
         controls.camera.enableDamping = true;
         controls.camera.dampingFactor = 0.12;
         controls.drag.transformGroup = true;
         controls.drag.rotateSpeed = 0;
+
+        const WorldController = new WorldManager(scene, renderer, camera, raycaster, TICKSPEED, MouseController, effect, controls.camera);
 
         // release right click
         controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
@@ -311,7 +313,7 @@ function mainloop(MenuController) {
             THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
             THREEUTILS.loadGLTFShape("./source/globe.glb"),
             THREEUTILS.loadGLTFShape("./source/scanner.glb"),
-            THREEUTILS.loadGLTFShape("./source/world.glb"),
+            THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
         ]);
         gtlfData.then(data => {
             const [ placeholderData, cubeData, globeData, eyeData, worldData, ..._] = data;
@@ -325,7 +327,7 @@ function mainloop(MenuController) {
                 tether: (o, t) => MESH.Tether(o, t)
             });
             WorldController.addMeshData(
-                MESH.SelectionGlobe(worldData)
+                MESH.SelectionGlobe(worldData, 4)
             );
             
             let trackLowPerformace = false;
@@ -352,7 +354,8 @@ function mainloop(MenuController) {
                 MenuController._dispatch("swapphase", {phase: "build"});
 
             { // [!] testing area
-                effect.addOutline(WorldController._mesh.userData.core, {recursive: false});
+                if (DEBUG_MODE && urlParams.has("axes"))
+                    scene.add(new THREE.AxesHelper(controls.camera.maxDistance * 2));
             }
             // render the stuff
             function animate() {
