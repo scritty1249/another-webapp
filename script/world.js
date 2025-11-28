@@ -70,9 +70,10 @@ WorldManager.prototype._insertMarker = function (marker, country) {
         mesh: marker,
         country: country.userData.id
     };
+    country.userData.revert(1);
     country.attach(marker);
 }
-WorldManager.prototype.placeOnWorld = function (lat, long, object, offsetScalar = 1.0375) {
+WorldManager.prototype.placeOnWorld = function (lat, long, object, offsetScalar = 1.035) {
     try {
         const worldPos = this.gpsToWorld(lat, long, offsetScalar);
         const closestCountryId = this.getClosestCountry(worldPos);
@@ -203,7 +204,7 @@ WorldManager.prototype.getChildFromFlatCoordinate = function (coordinate, countr
     const intersects = this._raycaster.intersectObjects([...country.children, this._mesh.userData.core], false);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.userData.id
+        ? intersects[0].object.uuid
         : undefined;
 }
 WorldManager.prototype.getCountryFromFlatCoordinate = function (coordinate) {
