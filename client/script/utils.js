@@ -249,6 +249,7 @@ export function initSelectPhase(
         });
     }
     controls.camera.autoRotate = true;
+    controls.camera.autoRotateSpeed = 0.6;
     controls.drag.enabled = false;
     managers.Physics.deactivate(); // there won't be any physics updates to calculate, as long as the loaded layout doesn't have any illegal positions...
     managers.Node.clear();
@@ -281,21 +282,22 @@ export function initSelectPhase(
         const countryid = managers.World.getClosestCountry(marker.position.clone());
         managers.World.getCountry(countryid).attach(marker);
     }
-    controllers.Listener.listener(controls.camera).add(
-        "end",
-        function (event) {
-            controls.camera.autoRotate = false;
+
+    // listeners
+    controllers.Listener.listener(controls.camera)
+        .add("end", function (event) {
             setTimeout(() => {
                 if (!managers.World.state.focusedCountry && !managers.World.state.tweeningCamera)
                     controls.camera.autoRotate = true;
             }, 3500);
-        }
-    );
+        }).add("start", function (event) {
+            controls.camera.autoRotate = false;
+            managers.World.state.tweeningCamera = false;
+        });
     managers.World.when("click", function (detail) {
         const last = detail.previous;
         const curr = detail.current;
         const child = detail.child;
-        controls.camera.autoRotate = true;
         if (last)
             managers.World.getCountry(last).userData.revert(.12);
         if (curr) {
@@ -308,8 +310,10 @@ export function initSelectPhase(
                 controls.camera.autoRotate = false;
                 managers.World.faceCameraTo(curr);
                 controls.camera.update();
+                Logger.info(curr);
             }
-        }
+        } else
+            controls.camera.autoRotate = true;
         if (child) {
             callbacks.Attack(child);
         }
