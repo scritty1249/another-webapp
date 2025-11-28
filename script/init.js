@@ -13,6 +13,7 @@ import * as UTIL from "./utils.js";
 import * as ATTACKERDATA from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
+import { SelectiveOutlineEffect } from "./renderer.js";
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -42,12 +43,17 @@ renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.LinearToneMapping;
 
+// outline effect for select phase
+const effect = new SelectiveOutlineEffect(renderer);
+
+// url params
+const urlParams = new URLSearchParams(window.location.search);
+const DEBUG_MODE = urlParams.has("debug");
+
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
-    const queryString = window.location.search;
-    const urlParams = new URLSearchParams(queryString);
     const MenuController = new MenuManager(document.getElementById("overlay"));
-    if (!CookieJar.has("session") || urlParams.has("debug")) {
+    if (!CookieJar.has("session") || (DEBUG_MODE && urlParams.has("login"))) {
         MenuController.loginScreen();
         MenuController.when("login", ({username, password, elements}) => {
             elements.forEach(el => el.classList.remove("pointer-events"));
@@ -108,7 +114,7 @@ function mainloop(MenuController) {
         const PhysicsController = new PhysicsManager(NodeController,
             shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
         );
-        const WorldController = new WorldManager(scene, renderer, camera, raycaster, TICKSPEED, MouseController);
+        const WorldController = new WorldManager(scene, renderer, camera, raycaster, TICKSPEED, MouseController, effect);
         const Manager = {
             phase: undefined,
             Node: undefined,
@@ -160,7 +166,6 @@ function mainloop(MenuController) {
             MenuController.when("swapphase", function (detail) {
                 const phaseType = detail.phase;
                 try {
-                    const layout = UTIL.layoutToJsonObj(scene, NodeController, false);
                     if (phaseType == "build") {
                         MenuController.when("loadmenu", detail => {
                             WorldController.clear();
@@ -306,7 +311,7 @@ function mainloop(MenuController) {
             THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
             THREEUTILS.loadGLTFShape("./source/globe.glb"),
             THREEUTILS.loadGLTFShape("./source/scanner.glb"),
-            THREEUTILS.loadGLTFShape("./source/world1.glb"),
+            THREEUTILS.loadGLTFShape("./source/world.glb"),
         ]);
         gtlfData.then(data => {
             const [ placeholderData, cubeData, globeData, eyeData, worldData, ..._] = data;
@@ -340,8 +345,15 @@ function mainloop(MenuController) {
                     }
                 }
             );
-            
-            MenuController._dispatch("swapphase", {phase: "build"});
+            if (DEBUG_MODE && urlParams.has("phase")) {
+                const phase = urlParams.get("phase");
+                MenuController._dispatch("swapphase", {phase: phase});
+            } else
+                MenuController._dispatch("swapphase", {phase: "build"});
+
+            { // [!] testing area
+                effect.addOutline(WorldController._mesh.userData.core, {recursive: false});
+            }
             // render the stuff
             function animate() {
                 const delta = UTIL.clamp(clock.getDelta(), 0, 1000);
@@ -355,7 +367,7 @@ function mainloop(MenuController) {
                 controls.camera.update(); // must be called after any manual changes to the camera"s transform
 
                 FPSCounter.update();
-                renderer.render(scene, camera);
+                effect.render(scene, camera);
             }
             FPSCounter.reset();
             renderer.setAnimationLoop(animate);

@@ -13,7 +13,10 @@ import {
     RepeatWrapping,
     DoubleSide,
     FrontSide,
+    BackSide,
     Path,
+    EdgesGeometry,
+    LineSegments
 } from "three";
 import * as THREE from 'three';
 import { Line2 } from "three/addons/lines/Line2.js";
@@ -92,13 +95,32 @@ function Node(mesh, animations = []) {
     return wrapper;
 }
 
+function Outline(targetmesh) {
+    const outlineMaterial = new MeshBasicMaterial({
+        color: 0x0000ff, // Outline color (e.g., blue)
+        side: BackSide // Crucial for rendering only the back faces
+    });
+
+    const outlineMesh = new THREE.Mesh(targetmesh.geometry, outlineMaterial);
+    outlineMesh.scale.copy(targetmesh.scale); // Match the original scale
+    outlineMesh.scale.multiplyScalar(1.05); // Slightly enlarge for the outline effect
+
+    // Position the outline mesh at the same position as the original
+    outlineMesh.position.copy(targetmesh.position);
+    outlineMesh.quaternion.copy(targetmesh.quaternion);
+
+    // Add the outline mesh to the scene
+    targetmesh.add(outlineMesh);
+    return outlineMesh;
+}
+
 function SelectionGlobe(sceneData, radius = 5, widthSeg = 32, heightSeg = 32) {
     const wrapper = new Group();
     const matt = new MeshPhongMaterial({
         color: 0xaa0000,
         side: DoubleSide,
         specular: 0xaa0505,
-        shininess: 65
+        shininess: 65,
     });
     wrapper.add(sceneData.mesh.children[1].clone());
     wrapper.add(sceneData.mesh.children[0].clone());
@@ -572,4 +594,4 @@ const Attack = {
     },
 };
 
-export { Tether, Nodes, Node, Attack, SelectionGlobe };
+export { Tether, Nodes, Node, Attack, SelectionGlobe, Outline };

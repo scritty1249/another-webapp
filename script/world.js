@@ -1,6 +1,7 @@
 // World/Earth/Globe Manager
 import * as UTIL from "./utils.js";
 import { Box3, Vector3, Quaternion } from "three";
+import { Outline } from "./mesh.js";
 
 export function WorldManager(
     scene,
@@ -8,9 +9,11 @@ export function WorldManager(
     camera,
     raycaster,
     tickspeed,
-    mouseManager
+    mouseManager,
+    effectRenderer
 ) {
     const self = this;
+    this._fxRenderer = effectRenderer;
     this._renderer = renderer;
     this._raycaster = raycaster;
     this._camera = camera;
@@ -35,6 +38,7 @@ WorldManager.prototype = {
     _mesh: undefined,
     _mouseManager: undefined,
     focusedCountryId: undefined,
+    focusedCountryOutline: undefined,
     eventTarget: undefined,
     bounds: {},
     country: {}, // never meant to be updated, so additions/deletions are not reflected in set
@@ -63,23 +67,38 @@ WorldManager.prototype._clickListener = function (e) {
         this.getCountryFromFlatCoordinate(
             clickPosition
         );
-    const dispatchClick = () => {
-        this._dispatch("click", {
-            current: clickedCountryId,
-            previous: this.focusedCountryId
-        });
-        this.focusedCountryId = clickedCountryId;
-    };
     if (this.state.focusedCountry) { // select a target within country
         const clickedChildId = this.getChildFromFlatCoordinate(clickPosition, this.focusedCountryId);
         if (clickedChildId)
             this._dispatch("click", {
                 child: clickedChildId,
             });
-        else if (clickedCountryId != this.focusedCountryId)
-            dispatchClick();
+        else if (clickedCountryId && clickedCountryId != this.focusedCountryId)
+            this.focusCountry(clickedCountryId);
+        else if (!clickedCountryId)
+            this.unfocusCountry();
     } else if (clickedCountryId)
-        dispatchClick();
+        this.focusCountry(clickedCountryId);
+}
+WorldManager.prototype.focusCountry = function (countryid) {
+    const previousCountryId = this.focusedCountryId;
+    const country = this.getCountry(countryid);
+    this._dispatch("click", {
+        current: countryid,
+        previous: previousCountryId
+    });
+    this._fxRenderer.addOutline(country, {recursive: false});
+    this.focusedCountryId = countryid;
+}
+WorldManager.prototype.unfocusCountry = function () {
+    if (!this.state.focusedCountry) return;
+    this._dispatch("click", {
+        current: undefined,
+        previous: this.focusedCountryId
+    });
+    const country = this.getCountry(this.focusedCountryId);
+    this._fxRenderer.removeOutline(country);
+    this.focusedCountryId = undefined;
 }
 WorldManager.prototype.gpsToWorld = function (lat, long) {
     const globeRadius = this._mesh.userData.radius * 1.0375;
@@ -162,7 +181,7 @@ WorldManager.prototype.clear = function () {
             country.remove(child)
         )
     });
-    this.focusedCountryId = undefined;
+    this.unfocusCountry();
 }
 WorldManager.prototype._dispatch = function (name = "", detail = {}) {
     if (detail.log && detail.log === true)
@@ -190,7 +209,7 @@ WorldManager.prototype._applyCameraTween = function () {
     } else
         this._camera.position.lerp(this.cameraTween.target, this.cameraTween.speed); // [!] eventually, replace this with actual tweening. Calculate angle between points to curve camera around the globe, instead of through it.
 }
-WorldManager.prototype._applyIdleAnimations = function (ambientMoveVariance = 0.035) {
+WorldManager.prototype._applyIdleAnimations = function (ambientMoveVariance = 0.05) {
     this.countries
         .filter(country => !country.userData.position.needsUpdate && country.uuid != this.focusedCountryId)
         .forEach(country => {
