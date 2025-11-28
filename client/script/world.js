@@ -113,10 +113,10 @@ WorldManager.prototype._clickListener = function (e) {
                 clickPosition
             );
         if (this.state.focusedCountry) { // select a target within country
-            const clickedTargetId = this.getTargetFromFlatCoordinate(clickPosition, this.focusedCountryId);
-            if (clickedTargetId)
+            const clickedTarget = this.getTargetFromFlatCoordinate(clickPosition, this.focusedCountryId);
+            if (clickedTarget)
                 this._dispatch("click", {
-                    target: clickedTargetId,
+                    target: clickedTarget,
                 });
             else if (clickedCountryId && clickedCountryId != this.focusedCountryId)
                 this.focusCountry(clickedCountryId);
@@ -215,8 +215,10 @@ WorldManager.prototype.getTargetFromFlatCoordinate = function (coordinate, count
     const intersects = this._raycaster.intersectObjects([...targets, this._mesh.userData.core], false);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.userData.targetid // this IS EXPECTED.
-        : undefined;
+        ? { // this IS EXPECTED.
+            id: intersects[0].object.userData.targetid,
+            name: intersects[0].object.userData.username
+        } : undefined;
 }
 WorldManager.prototype.getCountryFromFlatCoordinate = function (coordinate) {
     // [!] this modifies the raycaster
