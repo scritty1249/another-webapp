@@ -1,7 +1,8 @@
 // World/Earth/Globe Manager
 import * as UTIL from "./utils.js";
-import { Vector3, Quaternion } from "three";
-import { Outline } from "./mesh.js";
+import * as THREEUTIL from "./three-utils.js";
+import { Vector3, Quaternion, Box3 } from "three";
+import { WorldMarker } from "./mesh.js";
 
 export function WorldManager(
     scene,
@@ -56,6 +57,11 @@ WorldManager.prototype = {
         target: undefined,
         speed: 0.1, // configurable
     },
+    get origin () {
+        const origin = new Vector3();
+        this._mesh.userData.core.getWorldPosition(origin);
+        return origin;
+    },
 };
 WorldManager.prototype._initState = function () {
     const self = this;
@@ -71,15 +77,24 @@ WorldManager.prototype._insertMarker = function (marker, country) {
         mesh: marker,
         country: country.userData.id
     };
-    const [scale, pos] = [
-        country.scale.clone(),
-        country.position.clone()
-    ];
-    country.position.copy(country.userData.position.origin);
-    country.scale.copy(country.userData.scale.origin);
-    country.attach(marker);
-    country.position.copy(pos);
-    country.scale.copy(scale);
+    country.userData._reset((c) => {
+        c.attach(marker);
+    });
+}
+WorldManager.prototype.markOnWorld = function (lat, long, markerLength = 0.4) {
+    try {
+        const startPos = this.gpsToWorld(lat, long);
+        const endPos = startPos.clone()
+            .add(startPos.clone()
+                .multiplyScalar(markerLength));
+        const closestCountryId = this.getClosestCountry(startPos);
+        const marker = WorldMarker(startPos, endPos);
+        this._insertMarker(marker, this.getCountry(closestCountryId));
+        return closestCountryId;
+    } catch (err) {
+        Logger.error(`[WorldManager] | Failed to add marker to world at (${lat}, ${long}): ${err.message}`)
+        return undefined;
+    }
 }
 WorldManager.prototype.placeOnWorld = function (lat, long, object, offsetScalar = 1.035) {
     try {
@@ -89,7 +104,7 @@ WorldManager.prototype.placeOnWorld = function (lat, long, object, offsetScalar 
         this._insertMarker(object, this.getCountry(closestCountryId));
         return closestCountryId;
     } catch (err) {
-        Logger.error(`[WorldManager] | Failed to add object to world: ${err.message}`)
+        Logger.error(`[WorldManager] | Failed to add object to world at (${lat}, ${long}): ${err.message}`)
         return undefined;
     }
 }
@@ -157,9 +172,23 @@ WorldManager.prototype.unfocusCountry = function (dispatch = true) {
             previous: this.focusedCountryId
         });
 }
-WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 1) { // [!] caused some confusion here with JS Geolocation API. Lat N = +, Lat S = -..... Long W = +, Long E = -
-    const globeRadius = this._mesh.userData.radius * offsetScalar;
-
+WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 0) { // [!] caused some confusion here with JS Geolocation API. Lat N = +, Lat S = -..... Long W = +, Long E = -
+    let globeRadius = this._mesh.userData.radius * offsetScalar;
+    if (offsetScalar == 0) {
+        globeRadius = this._mesh.userData._reset((_) => {
+            const direction = THREEUTIL.direction(this.gpsToWorld(lat, long, 1), this.origin);
+            const raypos = direction.clone()
+                .multiplyScalar(this._mesh.userData.radius * 2);
+            const intersect = THREEUTIL.raycast(
+                this._raycaster,
+                [...this.countries, this._mesh.userData.core],
+                false
+            );
+            return intersect
+                ? Math.abs(intersect.point.distanceTo(this.origin))
+                : this._mesh.userData.radius;
+        });
+    }
     // stupid radians
     const latRad = (lat * 1.1) * (Math.PI / 180);
     const lonRad = (long * 0.95) * (Math.PI / 180);
@@ -171,11 +200,14 @@ WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 1) { // 
     // cartesian coords
     return new Vector3(x, y, z);
 }
-WorldManager.prototype.getCountryDirection = function (countryid) { // [!] returns vector not normalized
-    const origin = this._mesh.position;
-    const target = this.getCountry(countryid)?.userData.position.origin;
-    const direction = new Vector3().subVectors(origin, target);
+WorldManager.prototype._getDirection = function (position) {
+    const direction = new Vector3().subVectors(this.origin, position);
+    direction.normalize();
     return direction;
+}
+WorldManager.prototype.getCountryDirection = function (countryid) {
+    const target = this.getCountry(countryid)?.userData.position.origin;
+    return this._getDirection(target);
 }
 WorldManager.prototype.faceCameraTo = function (countryid) { // need to pause orbitControls if used, before calling this function
     const pos = new Vector3();
@@ -190,22 +222,43 @@ WorldManager.prototype.addMeshData = function (worldMesh) {
         this.countries.push(country);
     });
 }
-WorldManager.prototype.getClosestCountry = function (coord) {
-    // [!] this modifies the raycaster
-    const pos = coord.clone()
-            .multiplyScalar(this._orbitControls.maxDistance);
-    const direction = new Vector3();
-    this._mesh.getWorldPosition(direction);
-    direction.sub(pos).normalize();
-    this._raycaster.set(
-        pos,
-        direction
-    );
-    const intersects = this._raycaster.intersectObjects([...this.countries, this._mesh.userData.core], false);
-    return intersects.length > 0
-        && this._mesh.userData.core.uuid != intersects[0].object.uuid
-        ? intersects[0].object.userData.id
-        : undefined;
+WorldManager.prototype.getClosestCountry = function (coord) { // [!] still, cannot detect if inside of Russia.
+    return this._mesh.userData._reset((_) => {
+        const direction = THREEUTIL.direction(coord, this.origin);
+        const raypos = direction.clone()
+            .multiplyScalar(this._mesh.userData.radius * 2);
+        const intersect = THREEUTIL.raycast(
+            this._raycaster,
+            [...this.countries, this._mesh.userData.core],
+            false
+        );
+        if (intersect && intersect.object.uuid != this._mesh.userData.core.uuid) // intersection found
+            return intersect.object.userData.id;
+        const bboxes =  this.countries
+            .filter(c => {
+                const bbox = new Box3().setFromObject(c);
+                return bbox.containsPoint(coord);
+            });
+        if (bboxes.length === 1) // within a country
+            return bboxes[0].userData.id;
+        if (bboxes.length > 1) // within multiple country bounding boxes, go by closest origin
+            bboxes
+                .map(c => {
+                    return {
+                        distance: c.position.distanceTo(coord),
+                        id: c.userData.id,
+                    };
+                })
+                ?.toSorted((a, b) => a.distance - b.distance)
+                ?.[0].id;
+        return this.countries // outside of country, go by promixity to a country's edge
+            .map(c => {
+                return {
+                    distance: THREEUTIL.distanceTo(c, coord),
+                    id: c.userData.id,
+                };
+            })?.toSorted((a, b) => a.distance - b.distance)?.[0].id;
+    });
 }
 WorldManager.prototype.getTargetFromFlatCoordinate = function (coordinate, countryid) {
     // [!] this modifies the raycaster
