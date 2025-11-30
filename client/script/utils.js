@@ -1,20 +1,31 @@
 import { loadTextureCube } from "./three-utils.js";
 import { AttackNodeManager, BuildNodeManager } from "./nodes.js";
-import { AttackOverlayManager, BuildOverlayManager, SelectOverlayManager } from "./overlay.js";
+import {
+    AttackOverlayManager,
+    BuildOverlayManager,
+    SelectOverlayManager,
+} from "./overlay.js";
 import { ListenerManager } from "./listeners.js";
 import * as THREE from "three";
 
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
 
-export const BLANK_LAYOUT_OBJ = {background: "./source/bg/", layout: {neighbors: [], nodes: [{"uuid":"0","type":"globe","position":[0,0,0],"_data":{}}]}};
-
-export const DEFAULT_GEO = { // lol
-    lat: 63.5888,
-    long: 154.4931,   
+export const BLANK_LAYOUT_OBJ = {
+    background: "./source/bg/",
+    layout: {
+        neighbors: [],
+        nodes: [{ uuid: "0", type: "globe", position: [0, 0, 0], _data: {} }],
+    },
 };
 
-export function createVideoElement (videopath, speed = 1) {
+export const DEFAULT_GEO = {
+    // lol
+    lat: 63.5888,
+    long: 154.4931,
+};
+
+export function createVideoElement(videopath, speed = 1) {
     const videoEl = document.createElement("video");
     videoEl.src = videopath;
     videoEl.playbackRate = speed;
@@ -25,28 +36,40 @@ export function createVideoElement (videopath, speed = 1) {
     videoEl.muted = true; // [!] muted autoplay required by most browsers
     videoEl.style.display = "none";
     videoEl.preload = "auto";
-    videoEl.setAttribute("playsinline", true);// for safari on ios
+    videoEl.setAttribute("playsinline", true); // for safari on ios
     videoEl.load();
     return videoEl;
 }
 
-function videoReadyPromise (element) {
-  return new Promise((resolve, reject) => {
-    if (!element || !(element instanceof HTMLVideoElement)) {
-      reject(Logger.error("Invalid video element given"));
-      return;
-    }
-    if (element.readyState > 1) {
-      resolve(element);
-      return;
-    }
-    element.addEventListener("canplaythrough", (event) => {
-      resolve(element);
-    }, { once: true });
-    element.addEventListener("error", (event) => {
-      reject(Logger.error(`Video loading error: ${event.message || event.type}`));
-    }, { once: true });
-  });
+function videoReadyPromise(element) {
+    return new Promise((resolve, reject) => {
+        if (!element || !(element instanceof HTMLVideoElement)) {
+            reject(Logger.error("Invalid video element given"));
+            return;
+        }
+        if (element.readyState > 1) {
+            resolve(element);
+            return;
+        }
+        element.addEventListener(
+            "canplaythrough",
+            (event) => {
+                resolve(element);
+            },
+            { once: true }
+        );
+        element.addEventListener(
+            "error",
+            (event) => {
+                reject(
+                    Logger.error(
+                        `Video loading error: ${event.message || event.type}`
+                    )
+                );
+            },
+            { once: true }
+        );
+    });
 }
 
 export function download(filename, text) {
@@ -80,67 +103,82 @@ export function random(min, max) {
     return Math.random() * (max - min) + min;
 }
 
+export function average(...values) {
+    return values.reduce((a, b) => a + b) / values.length;
+}
+
 export function deepCopy(obj) {
     // ONLY FOR NORMAL JS OBJECTS. threejs objects have a dedicated stringify method!
     return JSON.parse(JSON.stringify(obj));
 }
 
 export function redrawElement(element) {
-    void(element.offsetWidth);
+    void element.offsetWidth;
 }
 
-export function createEvent(eventName, details = {}) { 
+export function createEvent(eventName, details = {}) {
     return new CustomEvent(eventName, {
         bubbles: true,
         cancelable: true,
-        detail: details
+        detail: details,
     });
 }
 
-export function getLocation() { // [!] does not check for geolocation api support. Caller should do that first.
+export function getLocation() {
+    // [!] does not check for geolocation api support. Caller should do that first.
     return new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject);
-    }).then(pos => {
-        return {
-            lat: pos.coords.latitude,
-            long: -pos.coords.longitude
-        };
-    }).catch(err => {
-        return DEFAULT_GEO;
-    });
+    })
+        .then((pos) => {
+            return {
+                lat: pos.coords.latitude,
+                long: -pos.coords.longitude,
+            };
+        })
+        .catch((err) => {
+            return DEFAULT_GEO;
+        });
 }
 
 export function bindProperty(object, target, property) {
     Object.defineProperty(target, property, {
-        get: function() {
+        get: function () {
             return object[property];
         },
-        set: function(value) {
+        set: function (value) {
             object[property] = value;
-        }
+        },
     });
 }
 
 export function bindProperties(object, target, ...properties) {
-    properties.forEach(prop => bindProperty(object, target, prop));
+    properties.forEach((prop) => bindProperty(object, target, prop));
 }
 
 export function bindProtoProperties(object, target) {
-    bindProperties(object, target, ...Object.getOwnPropertyNames(Object.getPrototypeOf(object)).filter(prop => prop !== "constructor"));
+    bindProperties(
+        object,
+        target,
+        ...Object.getOwnPropertyNames(Object.getPrototypeOf(object)).filter(
+            (prop) => prop !== "constructor"
+        )
+    );
 }
 
-export function loadVideoTextureSource (videopath, maskpath, speed = 1) {
+export function loadVideoTextureSource(videopath, maskpath, speed = 1) {
     const video = createVideoElement(videopath, speed);
     const mask = createVideoElement(maskpath, speed);
     return {
         video: video,
         mask: mask,
-        promise: Promise.all([videoReadyPromise(video), videoReadyPromise(mask)])
-            .then(([v, m]) => {
-                v.playbackRate = speed;
-                m.playbackRate = speed;
-                return [v, m];
-            })
+        promise: Promise.all([
+            videoReadyPromise(video),
+            videoReadyPromise(mask),
+        ]).then(([v, m]) => {
+            v.playbackRate = speed;
+            m.playbackRate = speed;
+            return [v, m];
+        }),
     };
 }
 
@@ -174,7 +212,7 @@ export function layoutToJsonObj(scene, nodeManager) {
 }
 
 export function loadFile(url) {
-    return fetch(url).then(data => data?.json());
+    return fetch(url).then((data) => data?.json());
 }
 
 export function layoutToJson(scene, nodeManager, obfuscate = true) {
@@ -209,10 +247,7 @@ export function layoutFromJsonObj(jsonObj, scene, dragControls, nodeManager) {
         Logger.debug("Loaded layout: ", jsonObj);
         return true;
     } catch (error) {
-        Logger.error(
-            `Error loading layout: `,
-            jsonObj
-        );
+        Logger.error(`Error loading layout: `, jsonObj);
         Logger.error(error);
         return false;
     }
@@ -240,7 +275,7 @@ export function initSelectPhase(
     rendererDom,
     controls,
     targets,
-    managers, // expects Node, Physics, Overlay, Mouse, World- optional: Listener
+    managers // expects Node, Physics, Overlay, Mouse, World- optional: Listener
 ) {
     Logger.info("Loading select phase");
     {
@@ -277,27 +312,21 @@ export function initSelectPhase(
     scene.background = new THREE.Color(0x000000);
     const controllers = {
         Node: undefined,
-        Overlay: new SelectOverlayManager(
-            ...managers.Overlay._constructorArgs
-        ),
+        Overlay: new SelectOverlayManager(...managers.Overlay._constructorArgs),
         Listener: new ListenerManager(),
     };
 
     managers.World.init();
-    controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
+    controllers.Overlay.init(controls, {
+        Mouse: managers.Mouse,
+        ...controllers,
+    });
 
-    { // add targets
-        const geometry = new THREE.SphereGeometry(0.05, 32, 32);
-        const material = new THREE.MeshBasicMaterial({
-            color: 0xffffff,
-        });
-        const marker = new THREE.Mesh(geometry, material);
+    {
+        // add targets
 
-        for (const {geo, id, username} of targets) {
-            const m = marker.clone();
-            m.userData.targetid = id;
-            m.userData.username = username;
-            managers.World.placeOnWorld(geo.lat, geo.long, m);
+        for (const { geo, id, username } of targets) {
+            const country = managers.World.markOnWorld(geo.lat, geo.long);
         }
     }
 
@@ -306,12 +335,16 @@ export function initSelectPhase(
     controllers.Listener.listener(controls.camera)
         .add("end", function (event) {
             rotateTimeout = setTimeout(() => {
-                if (managers.World.enabled && !managers.World.state.focusedCountry && !managers.World.state.tweeningCamera)
+                if (
+                    managers.World.enabled &&
+                    !managers.World.state.focusedCountry &&
+                    !managers.World.state.tweeningCamera
+                )
                     controls.camera.autoRotate = true;
             }, 3500);
-        }).add("start", function (event) {
-            if (rotateTimeout)
-                clearTimeout(rotateTimeout);
+        })
+        .add("start", function (event) {
+            if (rotateTimeout) clearTimeout(rotateTimeout);
             controls.camera.autoRotate = false;
             managers.World.state.tweeningCamera = false;
         });
@@ -320,8 +353,7 @@ export function initSelectPhase(
         const curr = detail.current;
         const target = detail.target;
         if (target) {
-            if (rotateTimeout)
-                clearTimeout(rotateTimeout);
+            if (rotateTimeout) clearTimeout(rotateTimeout);
             Logger.log(`Selected target user: `, target);
             callbacks.Attack(target.id, target.name);
         }
@@ -335,7 +367,7 @@ export function initAttackPhase(
     scene,
     rendererDom,
     controls,
-    managers, // expects Node, Physics, Overlay, Mouse- optional: Listener
+    managers // expects Node, Physics, Overlay, Mouse- optional: Listener
 ) {
     Logger.info("Loading Attack phase");
     {
@@ -381,22 +413,18 @@ export function initAttackPhase(
         ),
         Listener: new ListenerManager(),
     };
-    controllers.Overlay.init(controls, {Mouse: managers.Mouse, ...controllers});
-    controllers.Listener.listener(rendererDom).add(
-        "clicked",
-        function (event) {
-            const clickedNodeId =
-                controllers.Node.getNodeFromFlatCoordinate(
-                    managers.Mouse.position
-                );
-            if (
-                clickedNodeId &&
-                controllers.Overlay.focusedNodeId != clickedNodeId
-            )
-                controllers.Overlay.focusNode(clickedNodeId);
-            else controllers.Overlay.unfocusNode();
-        }
-    );
+    controllers.Overlay.init(controls, {
+        Mouse: managers.Mouse,
+        ...controllers,
+    });
+    controllers.Listener.listener(rendererDom).add("clicked", function (event) {
+        const clickedNodeId = controllers.Node.getNodeFromFlatCoordinate(
+            managers.Mouse.position
+        );
+        if (clickedNodeId && controllers.Overlay.focusedNodeId != clickedNodeId)
+            controllers.Overlay.focusNode(clickedNodeId);
+        else controllers.Overlay.unfocusNode();
+    });
     Logger.log("Finished loading attack phase");
     return controllers;
 }
@@ -433,7 +461,10 @@ export function initBuildPhase(
         Overlay: new BuildOverlayManager(...managers.Overlay._constructorArgs),
         Listener: new ListenerManager(),
     };
-    controllers.Overlay.init(controls, {Mouse: managers.Mouse, Node: controllers.Node});
+    controllers.Overlay.init(controls, {
+        Mouse: managers.Mouse,
+        Node: controllers.Node,
+    });
     // Add event listeners
     controllers.Listener.listener(controls.camera).add(
         "change",
@@ -471,28 +502,21 @@ export function initBuildPhase(
                 );
             }
         });
-    controllers.Listener.listener(rendererDom).add(
-        "clicked",
-        function (event) {
-            const clickedNodeId =
-                controllers.Node.getNodeFromFlatCoordinate(
-                    managers.Mouse.position
-                );
-            if (
-                clickedNodeId &&
-                controllers.Overlay.focusedNodeId != clickedNodeId
-            )
-                controllers.Overlay.focusNode(clickedNodeId);
-            else controllers.Overlay.unfocusNode();
-        }
-    );
+    controllers.Listener.listener(rendererDom).add("clicked", function (event) {
+        const clickedNodeId = controllers.Node.getNodeFromFlatCoordinate(
+            managers.Mouse.position
+        );
+        if (clickedNodeId && controllers.Overlay.focusedNodeId != clickedNodeId)
+            controllers.Overlay.focusNode(clickedNodeId);
+        else controllers.Overlay.unfocusNode();
+    });
     Logger.log("Finished loading build phase");
     return controllers;
 }
 
 export async function getClipboardText() {
     try {
-        return await navigator.clipboard.readText();;
+        return await navigator.clipboard.readText();
     } catch (err) {
         // cases where permission is denied or clipboard is empty/non-text
         Logger.error("Failed to read clipboard contents");
@@ -500,12 +524,15 @@ export async function getClipboardText() {
     }
 }
 
-export const _DebugTool = { // [!] for testing
+export const _DebugTool = {
+    // [!] for testing
     trace: function (reason = false) {
         try {
             throw new Error("Trace point");
         } catch (e) {
-            Logger.log(`${reason ? `"${reason}"\n` : ""}Trace point:\n${e.stack}`); // Stack trace as a string
+            Logger.log(
+                `${reason ? `"${reason}"\n` : ""}Trace point:\n${e.stack}`
+            ); // Stack trace as a string
         }
     },
     exportLogger: function (scene, nodeManager, logger) {
@@ -513,11 +540,59 @@ export const _DebugTool = { // [!] for testing
         const domData = document.documentElement.outerHTML;
         Logger.log("Generating debug file for download");
         download(
-            `CUBE_GAME-${(new Date()).toISOString()}.log`,
+            `CUBE_GAME-${new Date().toISOString()}.log`,
             `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${logger.history}\n`
         );
     },
-}
+    marker: function (
+        scene = undefined,
+        position = undefined,
+        markerColor = 0x00ff00,
+        markerRadius = 0.05,
+        direction = undefined,
+        lineLength = 1
+    ) {
+        const geometry = new THREE.SphereGeometry(markerRadius, 32, 32);
+        const material = new THREE.MeshBasicMaterial({
+            color: markerColor,
+        });
+        const marker = new THREE.Mesh(geometry, material);
+        if (position && scene) {
+            marker.position.copy(position);
+            if (direction) {
+                const linegeo = new THREE.BufferGeometry().setFromPoints([
+                    position,
+                    position
+                        .clone()
+                        .sub(direction.clone().multiplyScalar(lineLength)),
+                ]);
+                const linemat = new THREE.LineBasicMaterial({ color: markerColor });
+                const line = new THREE.Line(linegeo, linemat);
+                marker.attach(line);
+            }
+
+            scene.add(marker);
+            Logger.info("Added marker: ", marker);
+        }
+        return marker;
+    },
+    markRaycaster: function (
+        scene,
+        raycaster,
+        lineLength = 1,
+        markerColor = 0x00ff00,
+        markerRadius = 0.05,
+    ) {
+        return _DebugTool.marker(
+            scene,
+            raycaster.ray.origin,
+            markerColor,
+            markerRadius,
+            raycaster.ray.direction,
+            lineLength
+        );
+    },
+};
 
 function NodeObject(type, uuid, position, data = {}) {
     this.uuid = uuid;

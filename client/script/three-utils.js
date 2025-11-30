@@ -1,4 +1,4 @@
-import { Vector3, CubeTextureLoader, TextureLoader } from "three";
+import { Vector3, CubeTextureLoader, TextureLoader, Raycaster } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const zeroVector = new Vector3();
@@ -69,6 +69,32 @@ function getZoom(camera) {
     return camera.position.distanceTo(zeroVector);
 }
 
+function raycast(raycaster, objects, searchChildren = true) {
+    objects.forEach(obj => obj.updateMatrixWorld());
+    const intersects = raycaster.intersectObjects(objects, searchChildren);
+    return intersects.length > 0
+        ? intersects[0]
+        : undefined;
+}
+
+function direction(originPos, targetPos) {
+    return targetPos.clone().sub(originPos).normalize();
+}
+
+function distanceTo(object, point) { // check vertexes, so should go based off edges- more accurate for complex shapes vs. a bounding box
+    const vertices = object.geometry.attributes.position.array;
+    const vertex = new Vector3();
+    let distance = Number.POSITIVE_INFINITY;
+    let tempdist;
+    for (let i = 0; i < vertices.length; i+=3) {
+        vertex.set(vertices[i],vertices[i+1],vertices[i+2]);
+        vertex.copy(object.localToWorld(vertex));
+        tempdist = vertex.distanceTo(point);
+        if (tempdist < distance)
+            distance = tempdist;
+    }
+    return distance;
+}
 
 export {
     isVectorZero,
@@ -76,4 +102,7 @@ export {
     getZoom,
     loadTextureCube,
     loadTexture,
+    raycast,
+    direction,
+    distanceTo
 };
