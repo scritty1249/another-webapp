@@ -29,7 +29,6 @@ const InvisibleMat = new MeshBasicMaterial({
     transparent: true,
     opacity: 0,
 });
-
 function recurseMeshChildren(mesh, maxDepth, callback, ...args) {
     if (maxDepth >= 0) {
         callback(mesh, ...args);
@@ -37,6 +36,22 @@ function recurseMeshChildren(mesh, maxDepth, callback, ...args) {
             recurseMeshChildren(child, maxDepth - 1, callback, ...args)
         );
     }
+}
+function WorldMarker( startPos, endPos, lineOptions = {} ) {
+    const material = new LineMaterial({
+        ...{
+            color: 0xffffff,
+            linewidth: 1,
+            alphaToCoverage: true,
+        }, ...lineOptions
+    });
+    const geometry = new LineGeometry()
+        .setFromPoints([
+            startPos,
+            endPos
+        ]);
+    const marker = new Line2(geometry, material);
+    return marker;
 }
 function Node(mesh, animations = []) {
     const wrapper = new Group();
@@ -95,26 +110,7 @@ function Node(mesh, animations = []) {
     return wrapper;
 }
 
-function Outline(targetmesh) {
-    const outlineMaterial = new MeshBasicMaterial({
-        color: 0x0000ff, // Outline color (e.g., blue)
-        side: BackSide // Crucial for rendering only the back faces
-    });
-
-    const outlineMesh = new THREE.Mesh(targetmesh.geometry, outlineMaterial);
-    outlineMesh.scale.copy(targetmesh.scale); // Match the original scale
-    outlineMesh.scale.multiplyScalar(1.05); // Slightly enlarge for the outline effect
-
-    // Position the outline mesh at the same position as the original
-    outlineMesh.position.copy(targetmesh.position);
-    outlineMesh.quaternion.copy(targetmesh.quaternion);
-
-    // Add the outline mesh to the scene
-    targetmesh.add(outlineMesh);
-    return outlineMesh;
-}
-
-function SelectionGlobe(sceneData, radius) {
+function SelectionGlobe(sceneData, scale) {
     const wrapper = new Group();
     const countriesWrapper = new Object3D();
     const matt = new MeshPhongMaterial({
@@ -123,6 +119,7 @@ function SelectionGlobe(sceneData, radius) {
         specular: 0xaa0505,
         shininess: 65,
     });
+    const CORE_SCALE = 0.95; // from model file
     wrapper.add(sceneData.mesh.children[0].clone()); // core
     wrapper.add(countriesWrapper); 
     sceneData.mesh.children[1].children // countries wrapper
@@ -135,15 +132,33 @@ function SelectionGlobe(sceneData, radius) {
             countriesWrapper.attach(kid);
         });
 
-    wrapper.scale.setScalar(radius);
+    wrapper.scale.setScalar(scale);
     wrapper.userData = {...wrapper.userData,
         rotation: wrapper.children[1].rotation.clone(),
         core: wrapper.children[0],
         get radius () {
-            return radius;
+            return wrapper.scale.x * CORE_SCALE; // should all be the same anyways
         },
         get children () {
             return wrapper.children[1].children;
+        },
+        _reset: function (callback = (objs) => {}) {
+            const s = wrapper.userData.children.map(child => child.scale.clone());
+            const p = wrapper.userData.children.map(child => child.position.clone());
+            wrapper.userData.children.forEach(child => {
+                if (child.userData.position?.origin)
+                    child.position.copy(child.userData.position.origin);
+                if (child.userData.scale?.origin)
+                    child.scale.copy(child.userData.scale.origin);
+            });
+            wrapper.updateMatrixWorld();
+            const result = callback(wrapper.userData.children);
+            wrapper.userData.children.forEach((child, i) => {
+                child.position.copy(p[i]);
+                child.scale.copy(s[i]);
+            });
+            wrapper.updateMatrixWorld();
+            return result;
         },
     };
     wrapper.userData.core.material = new MeshPhysicalMaterial({
@@ -204,7 +219,21 @@ function SelectionGlobe(sceneData, radius) {
             revert: function (lerpSpeed = undefined) {
                 this.scaleTo(1, lerpSpeed);
                 this.moveTo(this.position.origin, lerpSpeed);
-            }
+            },
+            _reset: function (callback = (obj) => {}) {
+                const [scale, pos] = [
+                    child.scale.clone(),
+                    child.position.clone()
+                ];
+                child.position.copy(child.userData.position.origin);
+                child.scale.copy(child.userData.scale.origin);
+                child.updateMatrixWorld();
+                const result = callback(child);
+                child.position.copy(pos);
+                child.scale.copy(scale);
+                child.updateMatrixWorld();
+                return result;
+            },
         };
     });
 
@@ -607,4 +636,4 @@ const Attack = {
     },
 };
 
-export { Tether, Nodes, Node, Attack, SelectionGlobe, Outline };
+export { Tether, Nodes, Node, Attack, SelectionGlobe, WorldMarker };
