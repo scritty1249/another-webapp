@@ -360,7 +360,10 @@ function mainloop(MenuController) {
 
             { // [!] testing area
                 if (DEBUG_MODE && urlParams.has("axes"))
-                    scene.add(new THREE.AxesHelper(controls.camera.maxDistance * 2));
+                    if (Number(urlParams.get("axes")))
+                        scene.add(new THREE.AxesHelper(Number(urlParams.get("axes"))));
+                    else
+                        scene.add(new THREE.AxesHelper(controls.camera.maxDistance * 2));
 
                 // UTIL.getLocation()
                 //     .then(data => Logger.log(btoa(JSON.stringify(data))))
