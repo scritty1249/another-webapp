@@ -45,7 +45,7 @@ export const AttackTypeData = {
     },
     cubedefense: {
         mesh: MESH.Attack.CubeDefense,
-        damage: 20,
+        damage: 10,
         logic: AttackLogic.BasicLogicFactory
     }
 };
