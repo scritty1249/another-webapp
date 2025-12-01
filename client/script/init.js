@@ -103,10 +103,9 @@ if (WebGL.isWebGL2Available()) {
 function mainloop(MenuController) {
     MenuController.when("loadmenu", d => {
         const statusEl = d.statusElement;
-
         statusEl.text = "Loading scene";
 
-        // Clear any storage
+        // Clear any session storage
         Storage.remove("localLayout");
         Storage.remove("targets");
 
@@ -182,11 +181,19 @@ function mainloop(MenuController) {
                 } else
                     event.returnValue = "You have unsaved changes to your network. Are you sure you want to leave?";
             }
-            if (Storage.has("localLayout"))
+            if (
+                Storage.has("localLayout") && (
+                    !Storage.has("lastSavedLayout", true) ||
+                    !UTIL.layoutsEqual(
+                        Storage.get("lastSavedLayout", true),
+                        Storage.get("localLayout")
+                    )
+                )
+            )
                 Session.savegame(Storage.get("localLayout"))
                     .then(res => {
                         if (res)
-                            Logger.info("Saved successfully.");
+                            Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
                         else
                             Logger.warn("Failed to save.");
                     });
@@ -204,6 +211,7 @@ function mainloop(MenuController) {
                                 Session.getsave()
                                     .then(res => {
                                         Storage.set("localLayout", res);
+                                        Storage.set("lastSavedLayout", res, true);
                                         MenuController._dispatch("swapphase", { phase: "build" });
                                     });
                                 } else {
