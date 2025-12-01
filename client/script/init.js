@@ -325,23 +325,6 @@ function mainloop(MenuController) {
                 UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
                 MenuController.close();
             }, true);
-            MenuController.when("save", function (_) {
-                MenuController.close();
-                if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
-                    MenuController.when("loadmenu", detail => {
-                        Storage.set("localLayout", UTIL.layoutToJsonObj(scene, Manager.Node));
-                        detail.statusElement.text = "Uploading to server";
-                        Session.savegame(Storage.get("localLayout"))
-                            .then(res => {
-                                Logger.log(res);
-                                MenuController.close();
-                                Logger.alert(res ? "Saved successfully" : "Failed to save");
-                        });
-                    }, false, true);
-                    MenuController.open(["loading"]);
-                } else
-                    Logger.alert(`Cannot save layout: All nodes must be connected and within ${maxStepsFromGlobe} steps of a Globe!`);
-            }, true);
         }
         statusEl.text = "Loading mesh data";
         const gtlfData = Promise.all([
