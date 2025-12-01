@@ -14,14 +14,15 @@ function buildURL (path, params = undefined, cookieJar = undefined) {
     return url;
 }
 
-function sendRequest (path, params = {}, method = "GET", body = undefined, cookieJar = undefined) {
+function sendRequest (path, params = {}, method = "GET", body = undefined, cookieJar = undefined, keepAlive = false) {
     const url = buildURL(path, params, cookieJar);
     const data = {
         method: method.toUpperCase(),
         redirect: "follow",
         headers: {
             "Content-Type": "text/plain;charset=utf-8"
-        }
+        },
+        keepAlive: keepAlive, // [!] keepAlive = true requests are restricted to 64KB of data
     };
     if (body) {
         // [!] Google Apps Script does not expose the request body for GET requests. Use POST if sending a request body!
@@ -55,7 +56,7 @@ export function createAccount (username, password, location) {
 }
 
 export function getAttackTargets (sessionToken) {
-    return sendRequest("/attack/select", {limit: 5}, "GET", undefined, {session: sessionToken})
+    return sendRequest("/attack/select", {limit: 999}, "GET", undefined, {session: sessionToken})
         .then(data => data?.targets);
 }
 
@@ -69,11 +70,6 @@ export function refreshSession (sessionToken) {
         .then(data => data?.token.expires);
 }
 
-export function startAttack (sessionToken, targetid) {
-    return sendRequest("/attack/start", {id: targetid}, "GET", undefined, {session: sessionToken})
-        .then(data => data);
-}
-
 export function saveGame (sessionToken, backdrop, layout, ...currency) {
     return sendRequest("/game/save", undefined, "POST", {
         game: {
@@ -85,5 +81,19 @@ export function saveGame (sessionToken, backdrop, layout, ...currency) {
             crypto: currency[1]
         }
     }, {session: sessionToken})
+        .then(data => Boolean(data?.success));
+}
+
+export function saveGameAsync (sessionToken, backdrop, layout, ...currency) {
+    return sendRequest("/game/save", undefined, "POST", {
+        game: {
+            backdrop: backdrop,
+            layout: layout
+        },
+        bank: {
+            cash: currency[0],
+            crypto: currency[1]
+        }
+    }, {session: sessionToken}, true)
         .then(data => Boolean(data?.success));
 }

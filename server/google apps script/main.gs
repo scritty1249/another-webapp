@@ -1,6 +1,7 @@
 // main.gs - Google Apps Script file
 
 const MAX_COOKIE_DAYS = 400; // Chrome limit
+const DB_CONN_TIMEOUT = 10000; // ms
 const TABLES = {
     users: "Account",
     userinfo: "AccountInfo",
@@ -146,40 +147,6 @@ const Handlers = {
             ? Server.createResponse(Server.getToken(conn, cookies.session))
             : Server.createErrorResponse(0, "Invalid or expired session token");
     },
-    startAttack: function (conn, params, cookies) {
-        const targetid = params.id[0]; // since we go by ID, assume this user exists already- don't check.
-        if (
-            cookies.session &&
-            Server.verifyRefreshToken(conn, cookies.session)
-        ) {
-            const token = Server.getToken(conn, cookies.session);
-            const targetGameData = Server.entryToJson(
-                ...conn.lookupEntry(targetid, TABLES.gamedata)
-            );
-            if (
-                targetGameData &&
-                targetGameData?.backdrop &&
-                targetGameData?.layout
-            ) {
-                const instance = Server.createToken(conn, token.id, 120, true); // 2 minutes
-                return Server.createResponse({
-                    instance: instance,
-                    game: {
-                        backdrop: targetGameData.backdrop,
-                        layout: targetGameData.layout,
-                    }
-                });
-            } else
-                return Server.createErrorResponse(
-                    1,
-                    `Invalid target ID: ${targetid}`
-                );
-        }
-        return Server.createErrorResponse(
-            0,
-            "Invalid or expired session token"
-        );
-    },
 };
 
 // Backend compute
@@ -224,6 +191,13 @@ const Server = {
         const geos = conn._getColumnAt(4, limit);
         const names = conn._getColumnAt(2, limit);
         const blankRow = conn._findBlankRow() - 2;
+        conn._selectTable(TABLES.gamedata);
+        const gameBlankRow = conn._findBlankRow() - 2;
+        const gamedata = {
+            id: conn._getColumnAt(1, gameBlankRow),
+            backdrop: conn._getColumnAt(2, gameBlankRow),
+            layout: conn._getColumnAt(3, gameBlankRow)
+        };
         if (blankRow && ids.length > blankRow) {
             ids.splice(blankRow);
             geos.splice(blankRow);
@@ -235,13 +209,21 @@ const Server = {
             geos.splice(removeRow, 1);
             names.splice(removeRow, 1);
         }
-        return Array.from(ids, (id, i) => {
-            return {
-                id: id,
-                geo: geos[i],
-                username: names[i]
-            };
+        const data = [];
+        ids.forEach((userid, idx) => {
+            const i = gamedata.id.indexOf(userid);
+            if (i != -1)
+                data.push({
+                    id: userid,
+                    username: names[idx],
+                    geo: geos[idx],
+                    game: {
+                        backdrop: gamedata.backdrop[i],
+                        layout: gamedata.layout[i]
+                    }
+                });
         });
+        return data;
     },
     // token management
     verifyRefreshToken: function (conn, token, instance = false) {
@@ -256,7 +238,7 @@ const Server = {
     },
     createToken: function (conn, userid, expires = 0, instance = false) {
         const table = instance ? TABLES.instances : TABLES.tokens;
-        const exp = expires <= 0 ? this.maxExpirationUTC() : expires;
+        const exp = expires <= 0 ? this.maxExpirationUTC() : this.getNowUTCSeconds() + expires;
         const token = this.token();
         conn.insertEntry(table, token, userid, exp);
         return {
@@ -351,12 +333,26 @@ const Server = {
 };
 
 // Backend query info
-function DatabaseConnection(spreadsheetid) {
+function DatabaseConnection(spreadsheetid, connectionTimeout = 10000) {
     this.database = SpreadsheetApp.openById(spreadsheetid);
+    this.connTimeout = connectionTimeout;
 }
 DatabaseConnection.prototype = {
+    connTimeout: 0,
+    lock: undefined,
     database: undefined,
     activeTable: undefined,
+};
+DatabaseConnection.prototype.open = function () {
+    this.lock = LockService.getScriptLock();
+    if (!this.lock.tryLock(this.connTimeout))
+        throw new Error(`[DatabaseConnection] | Timed out waiting for connection thread lock after ${this.connTimeout / 1000} seconds.`);
+};
+DatabaseConnection.prototype.commit = function () {
+    SpreadsheetApp.flush();
+};
+DatabaseConnection.prototype.close = function () {
+    this.lock.releaseLock();
 };
 DatabaseConnection.prototype._findRow = function (value, columnIdx = 1) {
     const idx = this.activeTable
@@ -380,7 +376,7 @@ DatabaseConnection.prototype._getEntryAt = function (idx) {
 };
 DatabaseConnection.prototype._getColumnAt = function (idx, limit) {
     return this.activeTable
-        .getRange(2, idx, limit, idx)
+        .getRange(2, idx, limit)
         .getValues()
         ?.map((row) => row[0]);
 };
@@ -425,12 +421,13 @@ DatabaseConnection.prototype.deleteEntry = function (tableName, id) {
 
 // Executed automatically upon webapp GET request
 function doGet(e) {
+    let conn;
     try {
         const params = e.parameters;
         const cookies = processCookies(e);
         const path = params.path?.[0];
         let response;
-        const conn = new DatabaseConnection(SSID);
+        conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
         switch (path) {
             case ".api.debug":
                 response = Handlers._debug(e);
@@ -447,15 +444,13 @@ function doGet(e) {
             case ".attack.select":
                 response = Handlers.getTargets(conn, params, cookies);
                 break;
-            case ".attack.start":
-                response = Handlers.startAttack(conn, params, cookies);
-                break;
             default:
                 response = Server.createErrorResponse(
                     2,
                     "Unknown GET endpoint"
                 );
         }
+        conn.commit();
         return response;
     } catch (err) {
         console.error(err);
@@ -467,18 +462,22 @@ function doGet(e) {
                 "\nTrace:\n" +
                 err.stack
         );
+    } finally {
+        if (conn)
+            conn.close();
     }
 }
 
 // Executed automatically upon webapp POST request
 function doPost(e) {
+    let conn;
     try {
         const params = e.parameters;
         const cookies = processCookies(e);
         const path = params.path?.[0];
         const payload = JSON.parse(e.postData.contents);
         let response;
-        const conn = new DatabaseConnection(SSID);
+        conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
         switch (path) {
             case ".api.debug":
                 response = Handlers._debug(e);
@@ -503,6 +502,7 @@ function doPost(e) {
                     "Unknown POST endpoint"
                 );
         }
+        conn.commit();
         return response;
     } catch (err) {
         console.error(err);
@@ -514,5 +514,8 @@ function doPost(e) {
                 "\nTrace:\n" +
                 err.stack
         );
+    } finally {
+        if (conn)
+            conn.close();
     }
 }

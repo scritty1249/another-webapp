@@ -49,10 +49,12 @@ As an obfuscated string:
 {
     "id": str,
     "username": str,
-    "geo": GeoData
+    "geo": GeoData,
+    "game": GameData
 }
 ```
 - [GeoData](#geodata)
+- [GameData](#gamedata)
 # Endpoints
 Due to design constraint (using google apps script to receive requests), domain paths are not supposed. We *emulate* the functionality with the `path` parameter.\
 - All endpoints listed are to be included in the `path` parameter of the request, and `/` characters are to be replaced with `.`.
@@ -163,25 +165,6 @@ GET
 ```
 - [TargetData](#targetdata)
 
-## Start Attack *
->/attack/start
-#### Expects
-**Method**\
-GET
-
-**Parameter**
-- `id`: userid of target base owner
-#### Returns
-**Content**
-```json
-{
-    "instance": Token,
-    "game": GameData
-}
-```
-- [Token](#token)
-- [GameData](#gamedata)
-
 ## Finish Attack *
 >/attack/result
 #### Expects
@@ -194,11 +177,9 @@ POST
 **Content**
 ```json
 {
-    "instance": str (instanceid),
     "result": AttackResult
 }
 ```
-- instance id taken from the `token` portion of previously given [Token](#token)
 - [AttackResult](#attackresult)
 
 ## Save Owner Base *
