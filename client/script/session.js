@@ -51,7 +51,7 @@ export function newlogin (username, password, gamedata, bankdata) {
                 return setSession(throwFalse(tokenObj));
         })
         .then(sessionToken =>
-            API.saveGame(sessionToken, gamedata.background, gamedata.layout, bankdata.cash, bankdata.crypto))
+            API.saveGameAsync(sessionToken, gamedata.background, gamedata.layout, bankdata.cash, bankdata.crypto))
         .catch(err => false);
 }
 
@@ -67,28 +67,13 @@ export function getAttackTargets () {
                 return {
                     geo: d.geo ? JSON.parse(atob(d.geo)) : UTIL.DEFAULT_GEO,
                     id: d.id,
-                    username: d.username
+                    username: d.username,
+                    game: {
+                        background: d?.game.backdrop,
+                        layout: d?.game.layout ? JSON.parse(d.game.layout) : undefined
+                    }
                 };
             });
-        }
-    });
-}
-
-export function getTarget (targetid) {
-    if (!CookieJar.has("session")) {
-        Logger.error("[Session] | Cannot query attack targets: No session token found!");
-        return Promise.resolve(undefined);
-    }
-    const sessionToken = CookieJar.get("session");
-    return API.startAttack(sessionToken, targetid).then(data => {
-        if (data) {
-            return {
-                instance: data?.instance,
-                game: {
-                    background: data?.game.backdrop,
-                    layout: data?.game.layout ? JSON.parse(data.game.layout) : undefined
-                }
-            };
         }
     });
 }
@@ -116,5 +101,5 @@ export function savegame (layoutObj) { // [!] currency data not implemented yet
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.saveGame(sessionToken, layoutObj.background, layoutObj.layout, 1, 1);
+    return API.saveGameAsync(sessionToken, layoutObj.background, layoutObj.layout, 1, 1);
 }

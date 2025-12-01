@@ -31,11 +31,8 @@ export function StorageManager() {
     this.get = function (key, persistent = false) {
         const store = getstore(persistent);
         const keydata = JSON.parse(store.getItem(key + "_data"))
-        const keycontent = store.getItem(key);
-        return {
-            updated: keydata.updated,
-            value: keydata.type != "string" ? JSON.parse(keycontent) : keycontent
-        };
+        const value = store.getItem(key);
+        return keydata.type != "string" ? JSON.parse(value) : value;
     }
     this.update = function (key, persistent = false) {
         const store = getstore(persistent);

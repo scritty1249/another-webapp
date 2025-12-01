@@ -22,27 +22,34 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
         headers: {
             "Content-Type": "text/plain;charset=utf-8"
         },
-        keepAlive: keepAlive, // [!] keepAlive = true requests are restricted to 64KB of data
     };
+    if (keepAlive) {
+        // [!] keepalive = true requests are restricted to 64KB of data
+        data.keepalive = keepAlive;
+    }
     if (body) {
         // [!] Google Apps Script does not expose the request body for GET requests. Use POST if sending a request body!
         data.body = JSON.stringify(body);
     }
     Logger.debug(`[API] | ${method.toUpperCase()} Request to "${path}"\n\t${url}`);
-    return fetch(url, data)
-        .then(resp => {
-            if (!resp.ok)
-                Logger.error(`[API] | Response returned error: ${resp.status}`);
-            else
-                return resp.json();
-        }).then(data => {
-            if (data?.error)
-                Logger.error(
-                    `[API] | Server returned error ${data.error.code}${data.error?.detail ? ": "+ data.error.detail : ""}`
-                );
-            else
-                return data;
-        });
+    try {
+        return fetch(url, data)
+            .then(resp => {
+                if (!resp.ok)
+                    Logger.error(`[API] | Response returned error: ${resp.status}`);
+                else
+                    return resp.json();
+            }).then(data => {
+                if (data?.error)
+                    Logger.error(
+                        `[API] | Server returned error ${data.error.code}${data.error?.detail ? ": "+ data.error.detail : ""}`
+                    );
+                else
+                    return data;
+            });
+    } catch (err) {
+        Logger.throw("[API] | Failed to contact server. Error:\n" + err.message);
+    }
 }
 
 export function login (username, password) {

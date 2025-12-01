@@ -81,11 +81,11 @@ WorldManager.prototype._insertMarker = function (marker, country) {
         c.attach(marker);
     });
 }
-WorldManager.prototype.markOnWorld = function (lat, long, markerLength = 0.4) {
+WorldManager.prototype.markOnWorld = function (lat, long, markerLength = 1) {
     try {
         const startPos = this.gpsToWorld(lat, long);
         const endPos = startPos.clone()
-            .add(startPos.clone()
+            .add(this._getDirection(startPos)
                 .multiplyScalar(markerLength));
         const closestCountryId = this.getClosestCountry(startPos);
         const marker = WorldMarker(startPos, endPos);
@@ -176,14 +176,18 @@ WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 0) { // 
     let globeRadius = this._mesh.userData.radius * offsetScalar;
     if (offsetScalar == 0) {
         globeRadius = this._mesh.userData._reset((_) => {
-            const direction = THREEUTIL.direction(this.gpsToWorld(lat, long, 1), this.origin);
-            const raypos = direction.clone()
-                .multiplyScalar(this._mesh.userData.radius * 2);
+            const basepos = this.gpsToWorld(lat, long, 1);
+            const direction = THREEUTIL.direction(basepos, this.origin);
+            const raypos = basepos.add(
+                    direction.clone()
+                        .multiplyScalar(this._orbitControls.maxDistance)
+                );
             const intersect = THREEUTIL.raycast(
                 this._raycaster,
                 [...this.countries, this._mesh.userData.core],
                 false
             );
+            Logger.log(intersect);
             return intersect
                 ? Math.abs(intersect.point.distanceTo(this.origin))
                 : this._mesh.userData.radius;
@@ -201,9 +205,7 @@ WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 0) { // 
     return new Vector3(x, y, z);
 }
 WorldManager.prototype._getDirection = function (position) {
-    const direction = new Vector3().subVectors(this.origin, position);
-    direction.normalize();
-    return direction;
+    return THREEUTIL.direction(this.origin, position);
 }
 WorldManager.prototype.getCountryDirection = function (countryid) {
     const target = this.getCountry(countryid)?.userData.position.origin;

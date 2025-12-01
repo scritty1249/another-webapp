@@ -140,6 +140,10 @@ export function getLocation() {
         });
 }
 
+export function getNowUTCSeconds() {
+    return Math.floor(Date.now() / 1000);
+}
+
 export function bindProperty(object, target, property) {
     Object.defineProperty(target, property, {
         get: function () {
@@ -324,7 +328,6 @@ export function initSelectPhase(
 
     {
         // add targets
-
         for (const { geo, id, username } of targets) {
             const country = managers.World.markOnWorld(geo.lat, geo.long);
         }
@@ -355,7 +358,7 @@ export function initSelectPhase(
         if (target) {
             if (rotateTimeout) clearTimeout(rotateTimeout);
             Logger.log(`Selected target user: `, target);
-            callbacks.Attack(target.id, target.name);
+            callbacks.Attack(target.id);
         }
     });
     Logger.log("Finished loading select phase");

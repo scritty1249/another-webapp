@@ -428,6 +428,7 @@ function doGet(e) {
         const path = params.path?.[0];
         let response;
         conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
+        conn.open();
         switch (path) {
             case ".api.debug":
                 response = Handlers._debug(e);
@@ -439,7 +440,6 @@ function doGet(e) {
                 response = Handlers.loadGameData(conn, cookies);
                 break;
             case ".api.refresh":
-                conn.open();
                 response = Handlers.refreshSession(conn, cookies);
                 break;
             case ".attack.select":
@@ -479,12 +479,12 @@ function doPost(e) {
         const payload = JSON.parse(e.postData.contents);
         let response;
         conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
+        conn.open();
         switch (path) {
             case ".api.debug":
                 response = Handlers._debug(e);
                 break;
             case ".api.newlogin":
-                conn.open();
                 response = Handlers.newUser(
                     conn,
                     payload.username,
@@ -496,7 +496,6 @@ function doPost(e) {
                 response = Server.createSuccessResponse();
                 break;
             case ".game.save":
-                conn.open();
                 response = Handlers.saveGameData(conn, payload, cookies);
                 break;
             default:

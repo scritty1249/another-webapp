@@ -22,6 +22,7 @@ const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
 const maxStepsFromGlobe = 9; // max number of steps from a Globe each node is allowed to be
 const TICKSPEED = 0.1; // seconds
+const TARGETS_TTL = 1 * 60 * 1000; // how long we should store targets for before querying again - 2 miuntes
 
 // Setup
 // MouseController functionality
@@ -53,6 +54,7 @@ const DEBUG_MODE = urlParams.has("debug");
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
     const MenuController = new MenuManager(document.getElementById("overlay"));
+    // Login
     if (!CookieJar.has("session") || (DEBUG_MODE && urlParams.has("login"))) {
         MenuController.loginScreen();
         MenuController.when("login", ({username, password, elements}) => {
@@ -90,7 +92,7 @@ if (WebGL.isWebGL2Available()) {
             MenuController.open(["loading"]);
             
         });
-    } else { // auto login
+    } else { // remembered login
         mainloop(MenuController);
     }
 } else {
@@ -104,8 +106,11 @@ function mainloop(MenuController) {
 
         statusEl.text = "Loading scene";
 
+        // Clear any storage
+        Storage.remove("localLayout");
+        Storage.remove("targets");
+
         // Loading sequence
-        let localLayout = undefined;
         const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
         const NodeController = new NodeManager(scene, renderer, camera, raycaster, TICKSPEED);
         const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
@@ -164,6 +169,21 @@ function mainloop(MenuController) {
         light.shadow.camera.near = 1;
         light.shadow.camera.far = 10;
 
+        // autosave
+        window.addEventListener("beforeunload", function (event) {
+            let message = null;
+            if (Manager.phase == "build")
+                if (Manager.Node.validateLayout(maxStepsFromGlobe))
+                    Storage.set("localLayout", UTIL.layoutToJsonObj(scene, Manager.Node));
+                else
+                    message = "You have unsaved changes to your network. Are you sure you want to leave?";
+            if (Storage.has("localLayout"))
+                Session.savegame(Storage.get("localLayout"))
+                    .then(res => Logger.info(res));
+            event.returnValue = message;
+            return message;
+        });
+
         { // persistent listeners
             MenuController.when("swapphase", function (dt) {
                 const phaseType = dt.phase;
@@ -171,30 +191,17 @@ function mainloop(MenuController) {
                     if (phaseType == "build") {
                         MenuController.when("loadmenu", detail => {
                             WorldController.clear();
-                            if (!localLayout) {
+                            if (!Storage.has("localLayout")) {
                                 detail.statusElement.text = "Contacting Server";
                                 Session.getsave()
                                     .then(res => {
-                                        detail.statusElement.text = "Loading profile";
-                                        localLayout = res;
-                                        Manager.set(UTIL.initBuildPhase(
-                                            localLayout,
-                                            scene,
-                                            renderer.domElement,
-                                            controls,
-                                            {
-                                                Node: NodeController,
-                                                Overlay: OverlayController,
-                                                Physics: PhysicsController,
-                                                Mouse: MouseController,
-                                                Listener: Manager.Listener
-                                            }
-                                        ));
-                                        MenuController.close();
+                                        Storage.set("localLayout", res);
+                                        MenuController._dispatch("swapphase", { phase: "build" });
                                     });
                                 } else {
+                                    detail.statusElement.text = "Loading profile";
                                     Manager.set(UTIL.initBuildPhase(
-                                        localLayout,
+                                        Storage.get("localLayout"),
                                         scene,
                                         renderer.domElement,
                                         controls,
@@ -206,72 +213,73 @@ function mainloop(MenuController) {
                                             Listener: Manager.Listener
                                         }
                                     ));
+                                    Manager.phase = phaseType;
                                     MenuController.close();
                                 }
                         }, false, true);
-                        Manager.phase = phaseType;
                     } else if (phaseType == "attack") {
                         WorldController.clear();
                         MenuController.when("loadmenu", detail => {
                             detail.statusElement.text = `Tracing Target: ${dt.name}`;
-                            Session.getTarget(dt.id)
-                                .then(res => {
-                                    detail.statusElement.text = "Loading target base";
-                                    Manager.set(UTIL.initAttackPhase(
-                                        {
-                                            layout: res?.game,
-                                            nodeTypes: ATTACKERDATA.NodeTypeData,
-                                            attackTypes: ATTACKERDATA.AttackTypeData,
-                                            attacks: ATTACKERDATA.AttackerData
-                                        },
-                                        scene,
-                                        renderer.domElement,
-                                        controls,
-                                        {
-                                            Node: NodeController,
-                                            Overlay: OverlayController,
-                                            Physics: PhysicsController,
-                                            Mouse: MouseController,
-                                            Listener: Manager.Listener
-                                        }
-                                    ));
-                                    Logger.info(`Instance: ${res?.instance}`)
-                                    MenuController.close();
-                                });
+                            Manager.set(UTIL.initAttackPhase(
+                                {
+                                    layout: Storage.get("targets"),
+                                    nodeTypes: ATTACKERDATA.NodeTypeData,
+                                    attackTypes: ATTACKERDATA.AttackTypeData,
+                                    attacks: ATTACKERDATA.AttackerData
+                                },
+                                scene,
+                                renderer.domElement,
+                                controls,
+                                {
+                                    Node: NodeController,
+                                    Overlay: OverlayController,
+                                    Physics: PhysicsController,
+                                    Mouse: MouseController,
+                                    Listener: Manager.Listener
+                                }
+                            ));
+                            MenuController.close();
                         }, false, true);
                         Manager.phase = phaseType;
                     } else if (phaseType == "select") {
                         MenuController.when("loadmenu", detail => {
-                            localLayout = UTIL.layoutToJsonObj(scene, NodeController);
+                            Storage.set("localLayout", UTIL.layoutToJsonObj(scene, NodeController));
                             detail.statusElement.text = "Discovering targets";
-                            Session.getAttackTargets()
-                                .then(targets => {
-                                    Manager.set(UTIL.initSelectPhase(
-                                        {
-                                            Attack: (userid, username) => {
-                                                MenuController._dispatch("swapphase", {phase: "attack", id: userid, name: username});
-                                            },
-                                            Build: () => {
-                                                MenuController._dispatch("swapphase", {phase: "build"});
-                                            },
+                            if (!Storage.has("targets") || UTIL.getNowUTCSeconds() - Storage.updated("targets") > TARGETS_TTL) {
+                                Session.getAttackTargets()
+                                    .then(targets => {
+                                        Storage.set("targets", targets);
+                                        MenuController._dispatch("swapphase", { phase: "select" });
+                                    });
+                            } else {
+                                detail.statusElement.text = "Loading global net";
+                                Manager.set(UTIL.initSelectPhase(
+                                    {
+                                        Attack: (userid) => {
+                                            MenuController._dispatch("swapphase", {phase: "attack", targetid: userid});
                                         },
-                                        scene,
-                                        renderer.domElement,
-                                        controls,
-                                        targets,
-                                        {
-                                            Node: NodeController,
-                                            Overlay: OverlayController,
-                                            Physics: PhysicsController,
-                                            Mouse: MouseController,
-                                            World: WorldController,
-                                            Listener: Manager.Listener
-                                        }
-                                    ));
-                                    MenuController.close();
-                                });
+                                        Build: () => {
+                                            MenuController._dispatch("swapphase", {phase: "build"});
+                                        },
+                                    },
+                                    scene,
+                                    renderer.domElement,
+                                    controls,
+                                    Storage.get("targets"),
+                                    {
+                                        Node: NodeController,
+                                        Overlay: OverlayController,
+                                        Physics: PhysicsController,
+                                        Mouse: MouseController,
+                                        World: WorldController,
+                                        Listener: Manager.Listener
+                                    }
+                                ));
+                                Manager.phase = phaseType;
+                                MenuController.close();
+                            }
                         }, false, true);
-                        Manager.phase = phaseType;
                     } else {
                         Logger.error(`Unrecognized phase "${phaseType}"`);
                         MenuController.when("loadmenu", _ => MenuController.close(), false, true);
@@ -300,9 +308,11 @@ function mainloop(MenuController) {
                 MenuController.close();
                 if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
                     MenuController.when("loadmenu", detail => {
+                        Storage.set("localLayout", UTIL.layoutToJsonObj(scene, Manager.Node));
                         detail.statusElement.text = "Uploading to server";
-                        Session.savegame(UTIL.layoutToJsonObj(scene, Manager.Node))
+                        Session.savegame(Storage.get("localLayout"))
                             .then(res => {
+                                Logger.log(res);
                                 MenuController.close();
                                 Logger.alert(res ? "Saved successfully" : "Failed to save");
                         });
