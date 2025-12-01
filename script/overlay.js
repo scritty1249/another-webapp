@@ -391,7 +391,7 @@ BuildOverlayManager.prototype._createFocusMenuElement =  function () {
     return BuildFocusMenu.createMenuElement(
         () => { // link button
             if (!this.state.targeting) {
-                this._nodeManager.highlightNode(this.focusedNodeId);
+                // this._nodeManager.highlightNode(this.focusedNodeId);
                 this.state.targeting = true;
                 this._mouseManager.getNextEvent("clicked").then(event => {
                     if (this.state.targeting) {
@@ -414,12 +414,13 @@ BuildOverlayManager.prototype._createFocusMenuElement =  function () {
                         } else { // nothing selected
                             Logger.log("didnt link :(");
                         }
-                        this._nodeManager.unhighlightNode(this.focusedNodeId);
+                        // this._nodeManager.unhighlightNode(this.focusedNodeId);
                         this.state.targeting = false;
                         this.unfocusNode();
                     }
                 });
                 Logger.log("looking to link");
+                this._hideNodeMenu();
             }
         },
         () => { // info button
@@ -433,7 +434,7 @@ BuildOverlayManager.prototype._createFocusMenuElement =  function () {
     );
 };
 BuildOverlayManager.prototype._updateFocusMenu =  function (scaleRange = [5, 20], clampScale = [0.25, 0.85]) {
-    if (this.state.focusedNode && !this.state.inMenu) {
+    if (this.state.focusedNode && !this.state.inMenu && this.element?.focusMenu) {
         const positionData = this._nodeManager.getFlatCoordinateFromNode(this.focusedNodeId);
         const scale = UTIL.clamp(this._scaler(
             scaleRange[1] - UTIL.clamp(positionData.distance, scaleRange[0], scaleRange[1]),
@@ -447,26 +448,35 @@ BuildOverlayManager.prototype._updateFocusMenu =  function (scaleRange = [5, 20]
         this.element.focusMenu.style.setProperty("--scale", scale);
     }
 };
+BuildOverlayManager.prototype._showNodeMenu = function () {
+    if (!this.state.focusedNode) return;
+    this.element.focusMenu = this._createFocusMenuElement();
+    this._updateFocusMenu();
+    this.element._overlay.appendChild(this.element.focusMenu);
+    UTIL.redrawElement(this.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
+    this.element.focusMenu.classList.add("show");
+};
+BuildOverlayManager.prototype._hideNodeMenu = function () {
+    if (!this.element?.focusMenu) return;
+    const oldElement = this.element.focusMenu;
+    UTIL.redrawElement(oldElement);
+    oldElement.classList.add("hide");
+    oldElement.addEventListener("transitionend", (event) => {
+        oldElement.remove();
+        this.element.focusMenu = undefined; // [!] may be inefficent to release and reinit every time
+    }, { once: true});
+};
 BuildOverlayManager.prototype.focusNode =  function (nodeid) {
     if (!this.state.stopFocusing) {
         this.unfocusNode();
         OverlayManager.prototype.focusNode.call(this, nodeid);
-        this.element.focusMenu = this._createFocusMenuElement();
-        this._updateFocusMenu();
-        this.element._overlay.appendChild(this.element.focusMenu);
-        UTIL.redrawElement(this.element.focusMenu); // force redraw of element i.e. triggers the transition effect we want
-        this.element.focusMenu.classList.add("show");
+        this._showNodeMenu();
     }
 };
 BuildOverlayManager.prototype.unfocusNode =  function () {
     if (this.state.focusedNode && !this.state.keepFocus) {
         OverlayManager.prototype.unfocusNode.call(this);
-        const oldElement = this.element.focusMenu;
-        UTIL.redrawElement(oldElement);
-        oldElement.classList.add("hide");
-        oldElement.addEventListener("transitionend", function (event) {
-            oldElement.remove();
-        }, { once: true});
+        this._hideNodeMenu();
     }
 };
 BuildOverlayManager.prototype.update =  function () {
