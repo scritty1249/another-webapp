@@ -81,7 +81,7 @@ WorldManager.prototype._insertMarker = function (marker, country) {
         c.attach(marker);
     });
 }
-WorldManager.prototype.markOnWorld = function (lat, long, markerLength = 1) {
+WorldManager.prototype.markOnWorld = function (lat, long, targetid, markerLength = 1) {
     try {
         const startPos = this.gpsToWorld(lat, long);
         const endPos = startPos.clone()
@@ -89,6 +89,8 @@ WorldManager.prototype.markOnWorld = function (lat, long, markerLength = 1) {
                 .multiplyScalar(markerLength));
         const closestCountryId = this.getClosestCountry(startPos);
         const marker = WorldMarker(startPos, endPos);
+        marker.userData.targetid = targetid;
+        marker.userData.head.userData.targetid = targetid; // [!] temporary fix
         this._insertMarker(marker, this.getCountry(closestCountryId));
         return closestCountryId;
     } catch (err) {
@@ -151,6 +153,7 @@ WorldManager.prototype.focusCountry = function (countryid, dispatch = true) {
     country.userData.scaleTo(2, .12);
     this._fxRenderer.addOutline(country, {recursive: false});
     this.focusedCountryId = countryid;
+    this._focusMarkers();
     this.faceCameraTo(countryid);
     Logger.debug(`[WorldManager] | Selected ${countryid}`)
     if (dispatch) // meant to be overridden during internal calls
@@ -163,6 +166,7 @@ WorldManager.prototype.unfocusCountry = function (dispatch = true) {
     if (!this.state.focusedCountry) return;
     const country = this.getCountry(this.focusedCountryId);
     country.userData.revert(.12);
+    this._unfocusMarkers();
     this._fxRenderer.removeOutline(country);
     this.focusedCountryId = undefined;
     this._orbitControls.autoRotate = true;
@@ -171,6 +175,26 @@ WorldManager.prototype.unfocusCountry = function (dispatch = true) {
             current: undefined,
             previous: this.focusedCountryId
         });
+}
+WorldManager.prototype._focusMarkers = function () {
+    if (!this.state.focusedCountry) return;
+    const country = this.getCountry(this.focusedCountryId);
+    const markers = Object.values(this.markers).filter(m => m.country == this.focusedCountryId)?.map(m => m.mesh);
+    markers.forEach((marker, idx) => {
+        marker.userData._ogscale = marker.scale.x;
+        marker.scale.multiplyScalar((0.2 * (idx + 1)) + 0.5);
+    });
+}
+WorldManager.prototype._unfocusMarkers = function () {
+    if (!this.state.focusedCountry) return;
+    const country = this.getCountry(this.focusedCountryId);
+    const markers = Object.values(this.markers).filter(m => m.country == this.focusedCountryId)?.map(m => m.mesh);
+    markers.forEach((marker, idx) => {
+        if (marker.userData._ogscale) {
+            marker.scale.setScalar(marker.userData._ogscale);
+            delete marker.userData._ogscale;
+        }
+    });
 }
 WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 0) { // [!] caused some confusion here with JS Geolocation API. Lat N = +, Lat S = -..... Long W = +, Long E = -
     let globeRadius = this._mesh.userData.radius * offsetScalar;
@@ -267,12 +291,11 @@ WorldManager.prototype.getTargetFromFlatCoordinate = function (coordinate, count
     this._raycaster.setFromCamera(coordinate, this._camera);
     const country = this.getCountry(countryid);
     const targets = Object.values(this.markers).filter(m => m.country == countryid)?.map(m => m.mesh);
-    const intersects = this._raycaster.intersectObjects([...targets, this._mesh.userData.core], false);
+    const intersects = this._raycaster.intersectObjects([...targets, this._mesh.userData.core], true);
     return intersects.length > 0
         && this._mesh.userData.core.uuid != intersects[0].object.uuid
         ? { // this IS EXPECTED.
-            id: intersects[0].object.userData.targetid,
-            name: intersects[0].object.userData.username
+            id: intersects[0].object.userData.targetid
         } : undefined;
 }
 WorldManager.prototype.getCountryFromFlatCoordinate = function (coordinate) {

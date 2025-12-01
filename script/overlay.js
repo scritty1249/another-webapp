@@ -481,8 +481,9 @@ BuildOverlayManager.prototype.init =  function (...args) {
     });
     this._initOverlay();
 };
-export function AttackOverlayManager(attackManager, ...parentArgs) {
+export function AttackOverlayManager(targetData, attackManager, ...parentArgs) {
     OverlayManager.call(this, ...parentArgs);
+    this._targetData = targetData;
     this._attackManager = attackManager;
     this.element.attackBarMenu = undefined;
 }
@@ -504,6 +505,11 @@ AttackOverlayManager.prototype._initOverlay =  function () {
     this.element.attackBarMenu = AttackBarMenu.createMenuElement(...attackTiles);
 
     this.element._overlay.appendChild(this.element.attackBarMenu);
+
+    // [!] placeholder
+    this.element.targetName = document.createElement("div");
+    this.element.targetName.innerText = `Target: ${this._targetData.username}`;
+    this.element._overlay.appendChild(this.element.targetName);
 };
 AttackOverlayManager.prototype._updateFocusMenu =  function () {
     if (this.state.focusedNode) {

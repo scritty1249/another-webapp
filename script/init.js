@@ -22,7 +22,8 @@ const shapeMaxProximity = 4;
 const mouseClickDurationThreshold = 0.4 * 1000; // ms
 const maxStepsFromGlobe = 9; // max number of steps from a Globe each node is allowed to be
 const TICKSPEED = 0.1; // seconds
-const TARGETS_TTL = 1 * 60 * 1000; // how long we should store targets for before querying again - 2 miuntes
+const TARGETS_TTL = 300; // seconds, how long we should store targets for before querying again - 5 minutes
+const WORLD_TARGET_COUNT = 5;
 
 // Setup
 // MouseController functionality
@@ -192,9 +193,10 @@ function mainloop(MenuController) {
             )
                 Session.savegame(Storage.get("localLayout"))
                     .then(res => {
-                        if (res)
+                        if (res) {
+                            Logger.info("Saved layout.");
                             Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
-                        else
+                        } else
                             Logger.warn("Failed to save.");
                     });
         });
@@ -236,40 +238,56 @@ function mainloop(MenuController) {
                     } else if (phaseType == "attack") {
                         WorldController.clear();
                         MenuController.when("loadmenu", detail => {
-                            detail.statusElement.text = `Tracing Target: ${dt.name}`;
-                            Manager.set(UTIL.initAttackPhase(
-                                {
-                                    layout: Storage.get("targets"),
-                                    nodeTypes: ATTACKERDATA.NodeTypeData,
-                                    attackTypes: ATTACKERDATA.AttackTypeData,
-                                    attacks: ATTACKERDATA.AttackerData
-                                },
-                                scene,
-                                renderer.domElement,
-                                controls,
-                                {
-                                    Node: NodeController,
-                                    Overlay: OverlayController,
-                                    Physics: PhysicsController,
-                                    Mouse: MouseController,
-                                    Listener: Manager.Listener
+                            const targetData = Storage.get("targets", true).filter(t => t.id == dt.targetid)?.[0];
+                            try {
+                                if (targetData) {
+                                    detail.statusElement.text = `Tracing Target: ${targetData.username}`;
+                                    const _controllers = UTIL.initAttackPhase(
+                                            {
+                                                target: {
+                                                    username: targetData.username,
+                                                },
+                                                layout: targetData.game,
+                                                nodeTypes: ATTACKERDATA.NodeTypeData,
+                                                attackTypes: ATTACKERDATA.AttackTypeData,
+                                                attacks: ATTACKERDATA.AttackerData
+                                            },
+                                            scene,
+                                            renderer.domElement,
+                                            controls,
+                                            {
+                                                Node: NodeController,
+                                                Overlay: OverlayController,
+                                                Physics: PhysicsController,
+                                                Mouse: MouseController,
+                                                Listener: Manager.Listener
+                                            }
+                                        );
+                                    Manager.set(_controllers);
+                                    MenuController.close();
+                                } else {
+                                    Logger.alert("Failed to load data for target!");
+                                    MenuController._dispatch("swapphase", { phase: "build" });
                                 }
-                            ));
-                            MenuController.close();
+                            } catch (err) {
+                                Logger.alert("Failed to load data for target!");
+                                Logger.error(`Something went wrong while loading attack phase on target ${dt.targetid}. Data:`, targetData, "\n" + err.message);
+                                MenuController._dispatch("swapphase", { phase: "build" });
+                            }
                         }, false, true);
                         Manager.phase = phaseType;
                     } else if (phaseType == "select") {
-                        if (!Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                        if (Manager.Node && !Manager.Node.validateLayout(maxStepsFromGlobe)) {
                             Logger.alert(`You have unsaved changes: All nodes must be connected and within ${maxStepsFromGlobe} steps of a network node!`);
-                            MenuController.close();
+                            MenuController.when("loadmenu", _ => MenuController.close(), false, true);
                         } else {
                             MenuController.when("loadmenu", detail => {
                                 Storage.set("localLayout", UTIL.layoutToJsonObj(scene, NodeController));
                                 detail.statusElement.text = "Discovering targets";
-                                if (!Storage.has("targets") || UTIL.getNowUTCSeconds() - Storage.updated("targets") > TARGETS_TTL) {
+                                if (!Storage.has("targets", true) || UTIL.getNowUTCSeconds() - Storage.updated("targets", true) > TARGETS_TTL) {
                                     Session.getAttackTargets()
                                         .then(targets => {
-                                            Storage.set("targets", targets);
+                                            Storage.set("targets", targets, true);
                                             MenuController._dispatch("swapphase", { phase: "select" });
                                         });
                                 } else {
@@ -286,7 +304,7 @@ function mainloop(MenuController) {
                                         scene,
                                         renderer.domElement,
                                         controls,
-                                        Storage.get("targets"),
+                                        UTIL.getRandomItems(Storage.get("targets", true), WORLD_TARGET_COUNT),
                                         {
                                             Node: NodeController,
                                             Overlay: OverlayController,

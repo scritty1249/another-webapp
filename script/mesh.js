@@ -16,6 +16,7 @@ import {
     BackSide,
     Object3D,
     Color,
+    SphereGeometry,
 } from "three";
 import * as THREE from 'three';
 import { Line2 } from "three/addons/lines/Line2.js";
@@ -23,6 +24,7 @@ import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import * as SceneUtils from 'three/addons/utils/SceneUtils.js';
 import * as UTIL from "./utils.js";
+import * as THREEUTIL from "./three-utils.js";
 
 const InvisibleMat = new MeshBasicMaterial({
     color: 0x000000,
@@ -41,16 +43,123 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
     const material = new LineMaterial({
         ...{
             color: 0xffffff,
-            linewidth: 1,
+            linewidth: 0.7,
             alphaToCoverage: true,
         }, ...lineOptions
     });
+    const newStart = new Vector3();
+    const newEnd = endPos.clone().sub(startPos);
     const geometry = new LineGeometry()
         .setFromPoints([
-            startPos,
-            endPos
+            newStart,
+            newEnd
         ]);
+    
+    const headmat = new MeshBasicMaterial({
+        color: material.color,
+    });
+    const headgeo = new SphereGeometry(0.03, 16, 16);
+    const head = new Mesh(headgeo, headmat);
+    head.position.copy(newEnd);
     const marker = new Line2(geometry, material);
+    marker.attach(head);
+    marker.position.copy(startPos);
+
+    marker.userData = {
+        head: head,
+        get origin () {
+            const origin = new Vector3(
+                marker.geometry.attributes.position.array[0],
+                marker.geometry.attributes.position.array[1],
+                marker.geometry.attributes.position.array[2],
+            );
+            origin.set = function (x, y, z) {
+                marker.geometry.attributes.position.array[0] = x;
+                marker.geometry.attributes.position.array[1] = y;
+                marker.geometry.attributes.position.array[2] = z;
+                origin.x = x;
+                origin.y = y;
+                origin.z = z;
+                marker.geometry.attributes.position.needsUpdate = true;
+            }
+            origin.add = function (vec) {
+                origin.set(
+                    origin.x + vec.x,
+                    origin.y + vec.y,
+                    origin.z + vec.z
+                );
+                return origin;
+            }
+            origin.sub = function (vec) {
+                origin.set(
+                    origin.x - vec.x,
+                    origin.y - vec.y,
+                    origin.z - vec.z
+                );
+                return origin;
+            }
+            origin.copy = function (vec) {
+                origin.set(vec.x, vec.y, vec.z);
+            }
+            origin.clone = function () {
+                return new Vector3(origin.x, origin.y, origin.z);
+            }
+            return origin;
+        },
+        get target () {
+            const target = new Vector3(
+                marker.geometry.attributes.position.array[3],
+                marker.geometry.attributes.position.array[4],
+                marker.geometry.attributes.position.array[5],
+            );
+            target.set = function (x, y, z) {
+                marker.geometry.attributes.position.array[3] = x;
+                marker.geometry.attributes.position.array[4] = y;
+                marker.geometry.attributes.position.array[5] = z;
+                target.x = x;
+                target.y = y;
+                target.z = z;
+                marker.geometry.attributes.position.needsUpdate = true;
+            }
+            target.add = function (vec) {
+                target.set(
+                    target.x + vec.x,
+                    target.y + vec.y,
+                    target.z + vec.z
+                );
+                return target;
+            }
+            target.sub = function (vec) {
+                target.set(
+                    target.x - vec.x,
+                    target.y - vec.y,
+                    target.z - vec.z
+                );
+                return target;
+            }
+            target.copy = function (vec) {
+                target.set(vec.x, vec.y, vec.z);
+            }
+            target.clone = function () {
+                return new Vector3(target.x, target.y, target.z);
+            }
+            return target;
+        },
+        get direction () {
+            return THREEUTIL.direction(marker.userData.origin, marker.userData.target);
+        },
+        set length (value) {
+            const origin = marker.userData.origin;
+            marker.userData.target.copy(
+                origin.clone().add(
+                    marker.userData.direction.multiplyScalar(value)
+                )
+            );
+        },
+        get length () {
+            return marker.userData.origin.distanceTo(marker.userData.target);
+        },
+    };
     return marker;
 }
 function Node(mesh, animations = []) {
