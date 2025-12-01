@@ -332,6 +332,13 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
     return layoutFromJsonObj(data, scene, dragControls, nodeManager);
 }
 
+export function getRandomItems(array, count) {
+    const selected = new Set();
+    while (selected.size < count)
+        selected.add(Math.floor(Math.random() * array.length));
+    return Array.from(selected, idx => array[idx]);
+}
+
 export function initSelectPhase(
     callbacks, // expects Attack, Build
     scene,
@@ -388,7 +395,7 @@ export function initSelectPhase(
     {
         // add targets
         for (const { geo, id, username } of targets) {
-            const country = managers.World.markOnWorld(geo.lat, geo.long);
+            const country = managers.World.markOnWorld(geo.lat, geo.long, id);
         }
     }
 
@@ -425,7 +432,7 @@ export function initSelectPhase(
 }
 
 export function initAttackPhase(
-    attackData, // Expects layout, attackTypes, nodeTypes and attacks
+    attackData, // Expects target, layout, attackTypes, nodeTypes and attacks
     scene,
     rendererDom,
     controls,
@@ -445,7 +452,7 @@ export function initAttackPhase(
         });
     }
     {
-        const expectedNames = ["layout", "attackTypes", "nodeTypes", "attacks"];
+        const expectedNames = ["target", "layout", "attackTypes", "nodeTypes", "attacks"];
         const names = Object.keys(attackData);
         expectedNames.forEach((expectedName) => {
             if (!names.includes(expectedName))
@@ -470,6 +477,7 @@ export function initAttackPhase(
             ...managers.Node._constructorArgs
         ),
         Overlay: new AttackOverlayManager(
+            attackData.target,
             attackData.attacks,
             ...managers.Overlay._constructorArgs
         ),
