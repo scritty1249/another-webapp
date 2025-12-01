@@ -18,8 +18,10 @@
         <script type="module"> 
             import { LogManager } from "./script/logger.js";
             import { CookieJar } from "./script/cookies.js";
+            import { StorageManager } from "./script/storage.js";
             window.Logger = new LogManager();
             window.CookieJar = new CookieJar();
+            window.Storage = new StorageManager();
         </script>
         <script type="module" src="./script/init.js"></script>
         <script src="./script/main.js"></script>
