@@ -24,6 +24,7 @@ const maxStepsFromGlobe = 9; // max number of steps from a Globe each node is al
 const TICKSPEED = 0.1; // seconds
 const TARGETS_TTL = 300; // seconds, how long we should store targets for before querying again - 5 minutes
 const WORLD_TARGET_COUNT = 5;
+const DEFAULT_CAM_POS = new THREE.Vector3(0, 5, 10);
 
 // Setup
 // MouseController functionality
@@ -36,8 +37,7 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     80
 );
-camera.position.z = 10;
-camera.position.y = 5;
+camera.position.copy(DEFAULT_CAM_POS);
 // rendererererer
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", alpha: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -323,6 +323,7 @@ function mainloop(MenuController) {
                         Logger.error(`Unrecognized phase "${phaseType}"`);
                         MenuController.when("loadmenu", _ => MenuController.close(), false, true);
                     }
+                    camera.position.copy(DEFAULT_CAM_POS);
                 } catch (err) {
                     Logger.error(`Failed to swap phase to "${phaseType}"`);
                     Logger.throw(err);
