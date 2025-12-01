@@ -428,6 +428,7 @@ function doGet(e) {
         const path = params.path?.[0];
         let response;
         conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
+        conn.open();
         switch (path) {
             case ".api.debug":
                 response = Handlers._debug(e);
@@ -478,6 +479,7 @@ function doPost(e) {
         const payload = JSON.parse(e.postData.contents);
         let response;
         conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
+        conn.open();
         switch (path) {
             case ".api.debug":
                 response = Handlers._debug(e);
