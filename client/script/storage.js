@@ -1,7 +1,7 @@
 export function StorageManager() {
     const self = this;
     const getstore = (persistent) => (persistent) ? localStorage : sessionStorage;
-    const now = () => Math.floor(Date.now() / 1000);
+    const now = () => Math.floor(Date.now() / 1000); // UTC seconds
     this._keydata = function (key, value) {
         return [
             key + "_data",
@@ -44,6 +44,11 @@ export function StorageManager() {
             type: keydata.type,
             updated: now()
         }));
+    }
+    this.updated = function (key, persistent = false) {
+        const store = getstore(persistent);
+        const keydata = JSON.parse(store.getItem(key + "_data"))
+        return keydata?.updated;
     }
     this.remove = function (key, persistent = false) {
         const store = getstore(persistent);
