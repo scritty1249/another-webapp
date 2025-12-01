@@ -25,6 +25,7 @@ const TICKSPEED = 0.1; // seconds
 const TARGETS_TTL = 300; // seconds, how long we should store targets for before querying again - 5 minutes
 const WORLD_TARGET_COUNT = 5;
 const DEFAULT_CAM_POS = new THREE.Vector3(0, 5, 10);
+const AUTOSAVE_INTERVAL = 150000; // ms, interval for autosaves. Shouldn't overlap with saving when leaving the page
 
 // Setup
 // MouseController functionality
@@ -169,37 +170,45 @@ function mainloop(MenuController) {
         light.shadow.camera.near = 1;
         light.shadow.camera.far = 10;
 
-        // autosave
-        window.addEventListener("pagehide", function (event) {
-            let message = null;
-            if (Manager.phase == "build") {
-                const currLayout = UTIL.layoutToJsonObj(scene, Manager.Node);
-                if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
-                    if (!UTIL.layoutsEqual(currLayout, Storage.get("localLayout"))) {
-                        Logger.log("saved changed layout");
-                        Storage.set("localLayout", currLayout);
-                    }
-                } else
-                    event.returnValue = "You have unsaved changes to your network. Are you sure you want to leave?";
-            }
-            if (
-                Storage.has("localLayout") && (
-                    !Storage.has("lastSavedLayout", true) ||
-                    !UTIL.layoutsEqual(
-                        Storage.get("lastSavedLayout", true),
-                        Storage.get("localLayout")
+        { // autosave
+            const _autosaveHandler = (event) => {
+                if (Manager.phase == "build") {
+                    const currLayout = UTIL.layoutToJsonObj(scene, Manager.Node);
+                    if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                        if (!UTIL.layoutsEqual(currLayout, Storage.get("localLayout"))) {
+                            Logger.log("saved changed layout");
+                            Storage.set("localLayout", currLayout);
+                        }
+                    } else
+                        event.returnValue = "You have unsaved changes to your network. Are you sure you want to leave?";
+                }
+                if (
+                    Storage.has("localLayout") && (
+                        !Storage.has("lastSavedLayout", true) ||
+                        !UTIL.layoutsEqual(
+                            Storage.get("lastSavedLayout", true),
+                            Storage.get("localLayout")
+                        )
                     )
-                )
-            )
-                Session.savegame(Storage.get("localLayout"))
-                    .then(res => {
-                        if (res) {
-                            Logger.info("Saved layout.");
-                            Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
-                        } else
-                            Logger.warn("Failed to save.");
-                    });
-        });
+                ) {
+                    Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
+                    Session.savegame(Storage.get("localLayout"))
+                        .then(res => {
+                            if (res) {
+                                Logger.info("Saved layout.");
+                            } else {
+                                Logger.warn("Failed to save.");
+                                Storage.set("lastSavedLayout", undefined, true);
+                            }
+                        });
+                }
+            };
+            window.addEventListener("pagehide", _autosaveHandler);
+            setTimeout(
+                () => setInterval(_autosaveHandler, AUTOSAVE_INTERVAL),
+                AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
+            );
+        }
 
         { // persistent listeners
             MenuController.when("swapphase", function (dt) {
