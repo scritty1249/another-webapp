@@ -170,7 +170,7 @@ function mainloop(MenuController) {
         light.shadow.camera.far = 10;
 
         // autosave
-        window.addEventListener("beforeunload", function (event) {
+        window.addEventListener("pagehide", function (event) {
             let message = null;
             if (Manager.phase == "build") {
                 const currLayout = UTIL.layoutToJsonObj(scene, Manager.Node);
