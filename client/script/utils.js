@@ -41,6 +41,31 @@ export function createVideoElement(videopath, speed = 1) {
     return videoEl;
 }
 
+function nestedSetEquals (set1, set2) { // [!] only compares to a depth of 2
+    for (const item1 of set1) {
+        let found = false;
+        for (const item2 of set2) {
+            if (item1.symmetricDifference(item2).size === 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return false;
+    }
+    for (const item2 of set2) {
+        let found = false;
+        for (const item1 of set1) {
+            if (item2.symmetricDifference(item1).size === 0) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            return false;
+    }
+    return true;
+}
 function videoReadyPromise(element) {
     return new Promise((resolve, reject) => {
         if (!element || !(element instanceof HTMLVideoElement)) {
@@ -184,6 +209,40 @@ export function loadVideoTextureSource(videopath, maskpath, speed = 1) {
             return [v, m];
         }),
     };
+}
+
+export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does not evaluate position changes. not sure if I want to implement that since the nodes float around passively...
+    try {
+        const thisNodes = thisLayout.layout.nodes;
+        const thatNodes = thatLayout.layout.nodes;
+        const thisNeighbors = new Set(thisLayout.layout.neighbors.map(edge => new Set(edge)));
+        const thatNeighbors = new Set(thatLayout.layout.neighbors.map(edge => new Set(edge)));
+        const thisNodeTypes = {};
+        const thatNodeTypes = {};
+
+        thisNodes.forEach(({type, position}) => {
+            if (!thisNodeTypes[type])
+                thisNodeTypes[type] = 1;
+            else
+                thisNodeTypes[type] += 1;
+        });
+        thatNodes.forEach(({type, position}) => {
+            if (!thatNodeTypes[type])
+                thatNodeTypes[type] = 1;
+            else
+                thatNodeTypes[type] += 1;
+        });
+        return (
+            thisLayout.background == thatLayout.background &&
+            thisNodes.length == thatNodes.length &&
+            nestedSetEquals(thisNeighbors, thatNeighbors) &&
+            Object.entries(thisNodeTypes).every(([type, count]) => thatNodeTypes[type] == count) &&
+            Object.entries(thatNodeTypes).every(([type, count]) => thisNodeTypes[type] == count)
+        );
+    } catch { // if a layout is missing an expected property, it means it's not a Layout. which likely means its NOT equal to whatever we're trying to compare anyways.
+        Logger.info("failed to compare layouts");
+        return false;
+    }
 }
 
 export function layoutToJsonObj(scene, nodeManager) {

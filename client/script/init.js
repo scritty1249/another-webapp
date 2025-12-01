@@ -172,16 +172,24 @@ function mainloop(MenuController) {
         // autosave
         window.addEventListener("beforeunload", function (event) {
             let message = null;
-            if (Manager.phase == "build")
-                if (Manager.Node.validateLayout(maxStepsFromGlobe))
-                    Storage.set("localLayout", UTIL.layoutToJsonObj(scene, Manager.Node));
-                else
-                    message = "You have unsaved changes to your network. Are you sure you want to leave?";
+            if (Manager.phase == "build") {
+                const currLayout = UTIL.layoutToJsonObj(scene, Manager.Node);
+                if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                    if (!UTIL.layoutsEqual(currLayout, Storage.get("localLayout"))) {
+                        Logger.log("saved changed layout");
+                        Storage.set("localLayout", currLayout);
+                    }
+                } else
+                    event.returnValue = "You have unsaved changes to your network. Are you sure you want to leave?";
+            }
             if (Storage.has("localLayout"))
                 Session.savegame(Storage.get("localLayout"))
-                    .then(res => Logger.info(res));
-            event.returnValue = message;
-            return message;
+                    .then(res => {
+                        if (res)
+                            Logger.info("Saved successfully.");
+                        else
+                            Logger.warn("Failed to save.");
+                    });
         });
 
         { // persistent listeners
@@ -243,43 +251,48 @@ function mainloop(MenuController) {
                         }, false, true);
                         Manager.phase = phaseType;
                     } else if (phaseType == "select") {
-                        MenuController.when("loadmenu", detail => {
-                            Storage.set("localLayout", UTIL.layoutToJsonObj(scene, NodeController));
-                            detail.statusElement.text = "Discovering targets";
-                            if (!Storage.has("targets") || UTIL.getNowUTCSeconds() - Storage.updated("targets") > TARGETS_TTL) {
-                                Session.getAttackTargets()
-                                    .then(targets => {
-                                        Storage.set("targets", targets);
-                                        MenuController._dispatch("swapphase", { phase: "select" });
-                                    });
-                            } else {
-                                detail.statusElement.text = "Loading global net";
-                                Manager.set(UTIL.initSelectPhase(
-                                    {
-                                        Attack: (userid) => {
-                                            MenuController._dispatch("swapphase", {phase: "attack", targetid: userid});
+                        if (!Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                            Logger.alert(`You have unsaved changes: All nodes must be connected and within ${maxStepsFromGlobe} steps of a network node!`);
+                            MenuController.close();
+                        } else {
+                            MenuController.when("loadmenu", detail => {
+                                Storage.set("localLayout", UTIL.layoutToJsonObj(scene, NodeController));
+                                detail.statusElement.text = "Discovering targets";
+                                if (!Storage.has("targets") || UTIL.getNowUTCSeconds() - Storage.updated("targets") > TARGETS_TTL) {
+                                    Session.getAttackTargets()
+                                        .then(targets => {
+                                            Storage.set("targets", targets);
+                                            MenuController._dispatch("swapphase", { phase: "select" });
+                                        });
+                                } else {
+                                    detail.statusElement.text = "Loading global net";
+                                    Manager.set(UTIL.initSelectPhase(
+                                        {
+                                            Attack: (userid) => {
+                                                MenuController._dispatch("swapphase", {phase: "attack", targetid: userid});
+                                            },
+                                            Build: () => {
+                                                MenuController._dispatch("swapphase", {phase: "build"});
+                                            },
                                         },
-                                        Build: () => {
-                                            MenuController._dispatch("swapphase", {phase: "build"});
-                                        },
-                                    },
-                                    scene,
-                                    renderer.domElement,
-                                    controls,
-                                    Storage.get("targets"),
-                                    {
-                                        Node: NodeController,
-                                        Overlay: OverlayController,
-                                        Physics: PhysicsController,
-                                        Mouse: MouseController,
-                                        World: WorldController,
-                                        Listener: Manager.Listener
-                                    }
-                                ));
-                                Manager.phase = phaseType;
-                                MenuController.close();
-                            }
-                        }, false, true);
+                                        scene,
+                                        renderer.domElement,
+                                        controls,
+                                        Storage.get("targets"),
+                                        {
+                                            Node: NodeController,
+                                            Overlay: OverlayController,
+                                            Physics: PhysicsController,
+                                            Mouse: MouseController,
+                                            World: WorldController,
+                                            Listener: Manager.Listener
+                                        }
+                                    ));
+                                    Manager.phase = phaseType;
+                                    MenuController.close();
+                                }
+                            }, false, true);
+                        }
                     } else {
                         Logger.error(`Unrecognized phase "${phaseType}"`);
                         MenuController.when("loadmenu", _ => MenuController.close(), false, true);
