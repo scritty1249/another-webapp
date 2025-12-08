@@ -1,7 +1,8 @@
-import { Vector3, CubeTextureLoader, TextureLoader, Raycaster } from "three";
+import { Vector3, Matrix4, Quaternion, CubeTextureLoader, TextureLoader, Raycaster } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const zeroVector = new Vector3();
+const upVector = new Vector3(0, 1, 0);
 
 function isVectorZero(vector) {
     // meant for handling floating-point bullshit
@@ -77,8 +78,14 @@ function raycast(raycaster, objects, searchChildren = true) {
         : undefined;
 }
 
-function direction(originPos, targetPos) {
+function directionVector(originPos, targetPos) {
     return targetPos.clone().sub(originPos).normalize();
+}
+
+function directionQuaternion(directonVector) {
+    var mx = new Matrix4().lookAt(directonVector, zeroVector, upVector);
+    var qt = new Quaternion().setFromRotationMatrix(mx);
+    return qt;
 }
 
 function distanceTo(object, point) { // check vertexes, so should go based off edges- more accurate for complex shapes vs. a bounding box
@@ -103,6 +110,7 @@ export {
     loadTextureCube,
     loadTexture,
     raycast,
-    direction,
-    distanceTo
+    directionVector,
+    distanceTo,
+    directionQuaternion
 };

@@ -25,6 +25,7 @@ import { LineGeometry } from "three/addons/lines/LineGeometry.js";
 import * as SceneUtils from 'three/addons/utils/SceneUtils.js';
 import * as UTIL from "./utils.js";
 import * as THREEUTIL from "./three-utils.js";
+import { AttackManager } from "./attacker.js";
 
 const InvisibleMat = new MeshBasicMaterial({
     color: 0x000000,
@@ -146,7 +147,7 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
             return target;
         },
         get direction () {
-            return THREEUTIL.direction(marker.userData.origin, marker.userData.target);
+            return THREEUTIL.directionVector(marker.userData.origin, marker.userData.target);
         },
         set length (value) {
             const origin = marker.userData.origin;
@@ -347,172 +348,6 @@ function SelectionGlobe(sceneData, scale) {
     });
 
     return wrapper;
-}
-function Beam(
-    videopath,
-    maskpath,
-    thickness = 0.5,
-    segments = 5,
-    repeatSides = 5
-) {
-    const geometry = new CylinderGeometry(
-        thickness,
-        thickness,
-        thickness,
-        segments,
-        1,
-        true
-    );
-    // geometry.translate( thickness, thickness/2, thickness ); // make origin point for translations the end instead of midpoint to save headache later
-    const {
-        video: videoEl,
-        mask: maskEl,
-        promise,
-    } = UTIL.loadVideoTextureSource(videopath, maskpath, 4);
-    const materialPlaceholder = new MeshBasicMaterial({
-        transparent: true,
-        opacity: 0,
-    });
-    const cylinder_must_not_be_harmed = new Mesh(geometry, materialPlaceholder);
-
-    cylinder_must_not_be_harmed.userData = {
-        textureElement: {
-            video: videoEl,
-            mask: maskEl,
-        },
-        update: function () {
-            cylinder_must_not_be_harmed.position.copy(this.position.current);
-        },
-        start: function (startPercent = 0.0) {
-            // float between 0 and 1
-            if (this.ready && startPercent >= Number.EPSILON)
-                this.elapsed = UTIL.clamp(startPercent, 0.0, 1.0);
-            else this.video.elapsed = 0;
-            this.video.play();
-        },
-        get elapsed() {
-            // returns a percentage of duration as float (should be 0-1), instead of seconds elapsed
-            return this.video.elapsed / this.video.duration;
-        },
-        set elapsed(percent) {
-            // float between 0 and 1
-            this.video.elapsed = this.video.duration * percent;
-        },
-        set callback(callback) {
-            // [!] redunant convenience function, may remove later
-            this.video.onended = callback;
-        },
-        get ready() {
-            return this.video.duration === NaN;
-        },
-        set: function (originVector, targetVector) {
-            this.position.start.copy(originVector);
-            this.position.end.copy(targetVector);
-            cylinder_must_not_be_harmed.position.copy(originVector);
-            // sure, whatever the fuck this means...
-            const quaternion = new Quaternion().setFromUnitVectors(
-                cylinder_must_not_be_harmed.up,
-                this.position.direction
-            );
-            cylinder_must_not_be_harmed.setRotationFromQuaternion(quaternion);
-        },
-        setOrigin: function (originVector) {
-            this.set(originVector, this.position.end);
-        },
-        setTarget: function (targetVector) {
-            this.set(this.position.start, targetVector);
-        },
-        position: {
-            start: new Vector3(),
-            end: new Vector3(),
-            get direction() {
-                return this.start.clone().sub(this.end).normalize();
-            },
-            get current() {
-                return this.end
-                    .clone()
-                    .sub(this.start)
-                    .multiplyScalar(
-                        cylinder_must_not_be_harmed.userData.elapsed
-                    )
-                    .add(this.start);
-            },
-        },
-        video: {
-            play: function () {
-                cylinder_must_not_be_harmed.userData.textureElement.video.play();
-                cylinder_must_not_be_harmed.userData.textureElement.mask.play();
-            },
-            load: function () {
-                cylinder_must_not_be_harmed.userData.textureElement.video.load();
-                cylinder_must_not_be_harmed.userData.textureElement.mask.load();
-            },
-            pause: function () {
-                cylinder_must_not_be_harmed.userData.textureElement.video.pause();
-                cylinder_must_not_be_harmed.userData.textureElement.mask.pause();
-            },
-            get elapsed() {
-                return cylinder_must_not_be_harmed.userData.textureElement.video
-                    .currentTime;
-            },
-            set elapsed(seconds) {
-                cylinder_must_not_be_harmed.userData.textureElement.video.currentTime =
-                    seconds;
-                cylinder_must_not_be_harmed.userData.textureElement.mask.currentTime =
-                    seconds;
-            },
-            get ended() {
-                return cylinder_must_not_be_harmed.userData.textureElement.video
-                    .ended;
-            },
-            get paused() {
-                return cylinder_must_not_be_harmed.userData.textureElement.video
-                    .paused;
-            },
-            get duration() {
-                return cylinder_must_not_be_harmed.userData.textureElement.video
-                    .duration;
-            },
-            set onended(callback) {
-                // simpler substitute for replacing event listeners
-                cylinder_must_not_be_harmed.userData.textureElement.video.onended =
-                    callback;
-            },
-        },
-    };
-
-    promise.then(([videoEl, maskEl]) => {
-        // videoEl.playbackRate = 5;
-        // maskEl.playbackRate = 5;
-        const texture = new VideoTexture(videoEl);
-        texture.format = RGBAFormat;
-        texture.wrapS = RepeatWrapping;
-        texture.wrapT = RepeatWrapping;
-        texture.repeat.set(
-            repeatSides, // # of sides (excluding caps)
-            1 // # of repeats on each side
-        );
-        texture.needsUpdate = true;
-
-        const mask = new VideoTexture(maskEl);
-        mask.format = RGBAFormat;
-        mask.wrapS = RepeatWrapping;
-        mask.wrapT = RepeatWrapping;
-        mask.repeat.set(
-            repeatSides, // # of sides (excluding caps)
-            1 // # of repeats on each side
-        );
-        mask.needsUpdate = true;
-        cylinder_must_not_be_harmed.material.copy(
-            new MeshBasicMaterial({
-                map: texture,
-                alphaMap: mask,
-                transparent: true,
-                side: DoubleSide,
-            })
-        );
-    });
-    return cylinder_must_not_be_harmed;
 }
 
 function Tether(origin, target, color = 0xc0c0c0) {
@@ -720,29 +555,152 @@ const Nodes = {
         return cube;
     },
 };
-const Attack = {
-    Particle: function () {
-        const particle = Beam(
-            "./source/attacks/particle/attack.mp4",
-            "./source/attacks/particle/attack-mask.mp4",
+
+function Beam (
+    type,
+    thickness = 0.5,
+    faces = 16,
+    repeatSides = 1,
+    instanceCount,
+    animation = {
+        mappath: undefined,
+        maskpath: undefined,
+        fps: undefined,
+        frames: undefined
+    }
+) {
+    const aniMeta = { // animation metadata
+        fps: animation.fps,
+        frames: animation.frames
+    };
+    const texOptions = {
+        repeat: {
+            x: repeatSides,
+            y: 1
+        },
+        alphaCutoff: 0.3
+    };
+    const geometry = new CylinderGeometry(
+        thickness, thickness, thickness,
+        faces,
+        1,
+        true // open-ended
+    );
+
+    const controller = new AttackManager(
+        type,
+        animation.mappath,
+        animation.maskpath,
+        geometry,
+        instanceCount,
+        aniMeta,
+        texOptions
+    );
+    
+    { // adding Beam specific methods
+        Object.keys(controller.instanceAttributes.userData).forEach(id => {
+            controller.setUserData(id, {
+                position: {
+                    start: new Vector3(),
+                    end: new Vector3(),
+                    get direction() {
+                        return this.start.clone().sub(this.end).normalize();
+                    },
+                    get current() {
+                        return this.end
+                            .clone()
+                            .sub(this.start)
+                            .multiplyScalar(
+                                controller.getElapsed(id)
+                            )
+                            .add(this.start);
+                    },
+                },
+                setVectors: function (originVector, targetVector) {
+                    this.position.start.copy(originVector);
+                    this.position.end.copy(targetVector);
+                    controller.setPosition(id, originVector);
+                    const rotation = new Quaternion().setFromUnitVectors(
+                        controller.instances.up,
+                        this.position.direction
+                    );
+                    controller.setRotation(id, rotation);
+                },
+                setOrigin: function (originVector) {
+                    this.setVectors(originVector, this.position.end);
+                },
+                setTarget: function (targetVector) {
+                    this.setVectors(this.position.start, targetVector);
+                },
+            });
+        });
+        controller.update = function (delta) {
+            const instances = controller.getInstances();
+            instances.forEach(id => {
+                const userData = controller.getUserData(id);
+                const [pos, rot, sca] = controller.getMatrixComposition(id);
+                controller.setMatrixComposition(id,
+                    userData.position.current,
+                    rot,
+                    sca
+                );
+            });
+            return AttackManager.prototype.update.call(controller, delta);
+        }
+        controller.userData.createAttack = function () { // returns a "fresh" instance, if available
+            const instanceid = controller.allocateInstance();
+            if (!instanceid)
+                Logger.throw(new Error(`[BeamAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`));
+            controller.play(instanceid);
+            controller.show(instanceid);
+            return instanceid;
+        };
+
+        controller.userData.removeAttack = function (instanceid) {
+            controller.resetInstance(instanceid);
+            controller.hide(instanceid);
+        };
+    }
+    
+    return controller;
+}
+
+const AttackManagerFactory = {
+    Particle: function (count) {
+        const ParticleController = Beam(
+            "particle",
             0.55,
             16,
-            3
+            3,
+            count,
+            { // animation data
+                mappath: "./source/attacks/particle/attack.png",
+                maskpath: "./source/attacks/particle/attack-mask.png",
+                fps: 30,
+                frames: 121
+            }
         );
-        particle.userData.type = "particle";
-        return particle;
+
+        return ParticleController;
     },
-    CubeDefense: function () {
-        const cubeDefense = Beam(
-            "./source/attacks/particle/attack.mp4",
-            "./source/attacks/particle/attack-mask.mp4",
+    CubeDefense: function (count) {
+        const CubeDefenseController = Beam(
+            "cubedefense",
             0.65,
             16,
-            1
+            1,
+            count,
+            { // animation data
+                mappath: "./source/attacks/particle/attack.png",
+                maskpath: "./source/attacks/particle/attack-mask.png",
+                fps: 30,
+                frames: 121
+            }
         );
-        cubeDefense.userData.type = "cubedefense";
-        return cubeDefense;
+
+        return CubeDefenseController;
     },
+
 };
 
-export { Tether, Nodes, Node, Attack, SelectionGlobe, WorldMarker };
+export { Tether, Nodes, Node, AttackManagerFactory, SelectionGlobe, WorldMarker };
