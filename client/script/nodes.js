@@ -9,7 +9,6 @@ export function NodeManager(
     renderer,
     camera,
     raycaster,
-    tickspeed,
     nodeMeshData = {}
 ) {
     this._scene = scene;
@@ -17,12 +16,11 @@ export function NodeManager(
     this._renderer = renderer;
     this._raycaster = raycaster;
     this._meshData = nodeMeshData;
-    this.tick.delta = 0;
     if (
         Object.getPrototypeOf(this) === NodeManager.prototype && // don't reinitalize these when subclassing
         this._constructorArgs.some((arg) => arg === undefined)
     ) {
-        this.tick.interval = tickspeed;
+
     }
     Object.getOwnPropertyNames(Object.getPrototypeOf(this))
         .filter(
@@ -34,6 +32,10 @@ export function NodeManager(
     Object.values(this._proxyHandlers).forEach(
         (handler) => (handler._instance = this)
     );
+    this._nodes = {};
+    this._nodelist = [];
+    this._tethers = {};
+    this._tetherlist = [];
     this.nodes = new Proxy(this._nodes, this._proxyHandlers.nodes);
     this.tethers = new Proxy(this._tethers, this._proxyHandlers.tethers);
     this.nodelist = new Proxy(this._nodelist, this._proxyHandlers.nodelist);
@@ -147,10 +149,6 @@ NodeManager.prototype = {
     nodelist: undefined,
     tetherlist: undefined,
     _lowPerformance: false,
-    tick: {
-        delta: undefined,
-        interval: undefined,
-    },
     get lowPerformanceMode() {
         return this._lowPerformance;
     },
@@ -164,7 +162,6 @@ NodeManager.prototype = {
             this._renderer,
             this._camera,
             this._raycaster,
-            this.tick.interval,
             this._meshData,
         ];
     },
@@ -432,6 +429,9 @@ export function AttackNodeManager(
     NodeManager.call(this, ...parentArgs);
     this._nodeTypeData = nodeTypeData;
     this._attackTypeData = attackTypeData;
+    this._nodedata = {};
+    this._attacks = {};
+    this._attacklist = [];
     this.nodedata = new Proxy(this._nodedata, this._proxyHandlers.nodedata);
     this.attacks = new Proxy(this._attacks, this._proxyHandlers.attacks);
     this.attacklist = new Proxy(
@@ -455,11 +455,12 @@ AttackNodeManager.prototype._proxyHandlers = {
                 );
                 return false;
             } else {
+                const result = Reflect.set(target, prop, val, receiver);
+                this._instance._nodelist.push(val);
+                this._instance._scene.add(val);
                 this._instance._addNodeData(val);
+                return result;
             }
-            this._instance._nodelist.push(val);
-            this._instance._scene.add(val);
-            return Reflect.set(target, prop, val, receiver);
         },
         deleteProperty(target, prop) {
             const node = target[prop];
@@ -508,15 +509,12 @@ AttackNodeManager.prototype._proxyHandlers = {
             }
             this._instance._attacklist.push(val);
             val.update();
-            this._instance._scene.add(val.mesh);
             return Reflect.set(target, prop, val, receiver);
         },
         deleteProperty(target, prop) {
             const attack = target[prop];
-            if (attack) {
+            if (attack)
                 attack.halt();
-                this._instance._scene.remove(attack.mesh);
-            }
             // [!] may be optimizied, see if performance is impacted by this
             this._instance._attacklist.splice(
                 this._instance._attacklist
@@ -541,12 +539,12 @@ AttackNodeManager.prototype._proxyHandlers = {
         },
     },
 };
-AttackNodeManager.prototype._nodeTypeData = {};
-AttackNodeManager.prototype._attackTypeData = {};
+AttackNodeManager.prototype._nodeTypeData = undefined;
+AttackNodeManager.prototype._attackTypeData = undefined;
 
-AttackNodeManager.prototype._nodedata = {};
-AttackNodeManager.prototype._attacks = {};
-AttackNodeManager.prototype._attacklist = [];
+AttackNodeManager.prototype._nodedata = undefined;
+AttackNodeManager.prototype._attacks = undefined;
+AttackNodeManager.prototype._attacklist = undefined;
 AttackNodeManager.prototype.nodedata = undefined;
 AttackNodeManager.prototype.attacks = undefined;
 AttackNodeManager.prototype.attacklist = undefined;
@@ -561,7 +559,7 @@ AttackNodeManager.prototype._addNodeData = function (node) {
         }
     } catch (err) {
         Logger.error(
-            `[AttackNodeManager] | Error while creating node data for type: ${node.userData.type}`
+            `[AttackNodeManager] | Error while creating node data for type: ${node.userData.type}.`
         );
         Logger.throw(err);
     }
@@ -690,17 +688,9 @@ AttackNodeManager.prototype._updateAnimations = function (timedelta) {
 AttackNodeManager.prototype._updateAttacks = function () {
     this.attacklist.forEach((attack) => attack.update());
 };
-AttackNodeManager.prototype._updateTick = function (timedelta) {
-    this.tick.delta += timedelta;
-    if (this.tick.delta < this.tick.interval) return;
-    // deal damage and whatnot here
-
-    this.tick.delta = this.tick.delta % this.tick.interval;
-};
 AttackNodeManager.prototype.update = function (timedelta) {
-    this._updateTick(timedelta);
     NodeManager.prototype.update.call(this, timedelta);
-    this._updateAttacks();
+    this._updateAttacks(timedelta);
 };
 AttackNodeManager.prototype.clear = function () {
     NodeManager.prototype.clear.call(this);
@@ -709,6 +699,12 @@ AttackNodeManager.prototype.clear = function () {
     this._nodeTypeData = {};
     delete this._attackTypeData;
     this._attackTypeData = {};
+    delete this._nodedata;
+    this._nodedata = {};
+    delete this.attacks;
+    delete this.attacklist;
+    delete this._attacks;
+    delete this._attacklist;
 };
 
 export function BuildNodeManager(...parentArgs) {
@@ -756,27 +752,36 @@ BuildNodeManager.prototype.update = function (timedelta) {
     this._updateTethers();
 };
 
-function AttackFactory(attackType, originid, manager) {
-    const typeData = manager._getAttackTypeData(attackType);
-    const nodeData = manager.getNodeData(originid);
-    const mesh = typeData.mesh();
-    mesh.userData.setOrigin(manager.getNode(originid)?.position);
+function AttackFactory(attackType, originid, nodeManager) {
+    const typeData = nodeManager._getAttackTypeData(attackType);
+    const nodeData = nodeManager.getNodeData(originid);
+    const attackManager = typeData.manager;
+    const attackid = attackManager.userData.createAttack();
+    const attackUserData = attackManager.getUserData(attackid);
+    const attackOptionData = attackManager.getOptions(attackid);
+
+    attackUserData.setOrigin(nodeManager.getNode(originid)?.position);
     const attack = Object.create({
-        mesh: mesh,
+        data: {
+            options: attackOptionData,
+            userData: attackUserData,
+        },
         _target: undefined,
         origin: originid,
         friendly: nodeData.isFriendly,
-        type: mesh.userData.type,
-        uuid: mesh.uuid,
+        type: attackType,
+        uuid: attackid,
         damage: typeData.damage,
         logic: typeData.logic(),
         active: false,
         get visible() {
-            return this.mesh.visible;
+            return attackOptionData.visible;
         },
         set visible(value) {
-            // boolean
-            this.mesh.visible = value;
+            if (value)
+                attackManager.show(attackid);
+            else
+                attackManager.hide(attackid);
         },
         get target() {
             return this._target;
@@ -785,24 +790,22 @@ function AttackFactory(attackType, originid, manager) {
             this._target = nodeid;
             if (nodeid) {
                 this.active = true;
-                this.mesh.userData.setTarget(manager.getNode(nodeid)?.position);
-                this.mesh.userData.callback = function () {
+                this.data.userData.setTarget(nodeManager.getNode(nodeid)?.position);
+                this.data.options.callback = function (_) {
                     if (attack.active) {
                         try {
                             attack.visible = false;
-                            manager
+                            nodeManager
                                 .getNodeData(attack.target)
                                 .damage(attack.damage);
                             attack.update();
                             if (attack.active) {
-                                const siblings = manager.getNodeData(attack.origin).slots.filter(a => a.type == attack.type);
+                                const siblings = nodeManager.getNodeData(attack.origin).slots.filter(a => a.type == attack.type);
                                 const offset = siblings.map(a => a.uuid).indexOf(attack.uuid) * 650;
                                 setTimeout(
                                     () => {
-                                        attack.visible = true;
-                                        attack.mesh.userData.start()
-                                    },
-                                    offset
+                                        attackManager.restartPlayback(attackid);
+                                    }, offset
                                 );
                             }
                         } catch (err) {
@@ -810,7 +813,7 @@ function AttackFactory(attackType, originid, manager) {
                         }
                     }
                 };
-                this.mesh.userData.start();
+                attackManager.restartPlayback(attackid);
             } else {
                 this.active = false;
                 this.visible = false;
@@ -821,17 +824,17 @@ function AttackFactory(attackType, originid, manager) {
             if (
                 !this.active ||
                 !this.target ||
-                !manager.getNodeData(this.origin)?.canAttack(this.target)
+                !nodeManager.getNodeData(this.origin)?.canAttack(this.target)
             )
                 this.target = this.logic.target(
-                    manager.getNodeData(this.origin)?.attackableNeighbors
+                    nodeManager.getNodeData(this.origin)?.attackableNeighbors
                 );
-            if (this.active) this.mesh.userData.update();
         },
         halt: function () {
             this.active = false;
             this.visible = false;
-            this.mesh.userData.video.pause();
+            attackManager.pause(attackid);
+            attackManager.hide(attackid);
         },
     });
     return attack;

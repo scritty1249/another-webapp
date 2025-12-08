@@ -9,11 +9,13 @@ import { Mouse } from "./cursor.js";
 import { OverlayManager, AttackOverlayManager, BuildOverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
 import { MenuManager } from "./menu.js";
+import { PhaseManager } from "./phases.js";
 import * as UTIL from "./utils.js";
-import * as ATTACKERDATA from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
+import * as ATTACK from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { SelectiveOutlineEffect } from "./renderer.js";
+import { Vector3 } from "../lib/three-js/three.core.js"
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -113,22 +115,13 @@ function mainloop(MenuController) {
 
         // Loading sequence
         const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
-        const NodeController = new NodeManager(scene, renderer, camera, raycaster, TICKSPEED);
+        const NodeController = new NodeManager(scene, renderer, camera, raycaster);
         const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
             document.getElementById("overlay"), MenuController
         );
         const PhysicsController = new PhysicsManager(NodeController,
             shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
         );
-        const Manager = {
-            phase: undefined,
-            Node: undefined,
-            Overlay: undefined,
-            Listener: undefined,
-            set: function (managers) {
-                ({Node: this.Node, Overlay: this.Overlay, Listener: this.Listener} = managers);
-            }
-        };
         const clock = new THREE.Clock();
         document.getElementById("container").appendChild(renderer.domElement);
 
@@ -145,7 +138,7 @@ function mainloop(MenuController) {
         controls.drag.transformGroup = true;
         controls.drag.rotateSpeed = 0;
 
-        const WorldController = new WorldManager(scene, renderer, camera, raycaster, TICKSPEED, MouseController, effect, controls.camera);
+        const WorldController = new WorldManager(scene, renderer, camera, raycaster, MouseController, effect, controls.camera);
 
         // release right click
         controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
@@ -170,44 +163,61 @@ function mainloop(MenuController) {
         light.shadow.camera.near = 1;
         light.shadow.camera.far = 10;
 
+        const PhaseController = new PhaseManager(
+            scene,
+            renderer.domElement,
+            TICKSPEED,
+            controls,
+            {
+                Node: NodeController,
+                Overlay: OverlayController,
+                Physics: PhysicsController,
+                World: WorldController,
+                Mouse: MouseController
+            }
+        );
+
         { // autosave
             const _autosaveHandler = (event) => {
-                if (Manager.phase == "build") {
-                    const currLayout = UTIL.layoutToJsonObj(scene, Manager.Node);
-                    if (Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                if (PhaseController.phase == "build") {
+                    const currLayout = UTIL.layoutToJsonObj(scene, PhaseController.Managers.Node);
+                    if (PhaseController.Managers.Node.validateLayout(maxStepsFromGlobe)) {
                         if (!UTIL.layoutsEqual(currLayout, Storage.get("localLayout"))) {
                             Logger.log("saved changed layout");
                             Storage.set("localLayout", currLayout);
                         }
                     } else
                         event.returnValue = "You have unsaved changes to your network. Are you sure you want to leave?";
-                }
-                if (
-                    Storage.has("localLayout") && (
-                        !Storage.has("lastSavedLayout", true) ||
-                        !UTIL.layoutsEqual(
-                            Storage.get("lastSavedLayout", true),
-                            Storage.get("localLayout")
+
+                    if (
+                        Storage.has("localLayout") && (
+                            !Storage.has("lastSavedLayout", true) ||
+                            !UTIL.layoutsEqual(
+                                Storage.get("lastSavedLayout", true),
+                                Storage.get("localLayout")
+                            )
                         )
-                    )
-                ) {
-                    Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
-                    Session.savegame(Storage.get("localLayout"))
-                        .then(res => {
-                            if (res) {
-                                Logger.info("Saved layout.");
-                            } else {
-                                Logger.warn("Failed to save.");
-                                Storage.set("lastSavedLayout", undefined, true);
-                            }
-                        });
+                    ) {
+                        Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
+                        Session.savegame(Storage.get("localLayout"))
+                            .then(res => {
+                                if (res) {
+                                    Logger.info("Saved layout.");
+                                } else {
+                                    Logger.warn("Failed to save.");
+                                    Storage.set("lastSavedLayout", undefined, true);
+                                }
+                            });
+                    }
                 }
             };
-            window.addEventListener("pagehide", _autosaveHandler);
-            setTimeout(
-                () => setInterval(_autosaveHandler, AUTOSAVE_INTERVAL),
-                AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
-            );
+            if (!(DEBUG_MODE && urlParams.has("nosave"))) {
+                window.addEventListener("pagehide", _autosaveHandler);
+                setTimeout(
+                    () => setInterval(_autosaveHandler, AUTOSAVE_INTERVAL),
+                    AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
+                );
+            }
         }
 
         { // persistent listeners
@@ -227,20 +237,7 @@ function mainloop(MenuController) {
                                     });
                                 } else {
                                     detail.statusElement.text = "Loading profile";
-                                    Manager.set(UTIL.initBuildPhase(
-                                        Storage.get("localLayout"),
-                                        scene,
-                                        renderer.domElement,
-                                        controls,
-                                        {
-                                            Node: NodeController,
-                                            Overlay: OverlayController,
-                                            Physics: PhysicsController,
-                                            Mouse: MouseController,
-                                            Listener: Manager.Listener
-                                        }
-                                    ));
-                                    Manager.phase = phaseType;
+                                    PhaseController.buildPhase(Storage.get("localLayout"));
                                     MenuController.close();
                                 }
                         }, false, true);
@@ -251,28 +248,13 @@ function mainloop(MenuController) {
                             try {
                                 if (targetData) {
                                     detail.statusElement.text = `Tracing Target: ${targetData.username}`;
-                                    const _controllers = UTIL.initAttackPhase(
-                                            {
-                                                target: {
-                                                    username: targetData.username,
-                                                },
-                                                layout: targetData.game,
-                                                nodeTypes: ATTACKERDATA.NodeTypeData,
-                                                attackTypes: ATTACKERDATA.AttackTypeData,
-                                                attacks: ATTACKERDATA.AttackerData
-                                            },
-                                            scene,
-                                            renderer.domElement,
-                                            controls,
-                                            {
-                                                Node: NodeController,
-                                                Overlay: OverlayController,
-                                                Physics: PhysicsController,
-                                                Mouse: MouseController,
-                                                Listener: Manager.Listener
-                                            }
-                                        );
-                                    Manager.set(_controllers);
+                                    PhaseController.attackPhase(
+                                        { username: targetData.username },
+                                        targetData.game,
+                                        AttackerData,
+                                        AttackTypeData,
+                                        NodeTypeData
+                                    );
                                     MenuController.close();
                                 } else {
                                     Logger.alert("Failed to load data for target!");
@@ -280,18 +262,17 @@ function mainloop(MenuController) {
                                 }
                             } catch (err) {
                                 Logger.alert("Failed to load data for target!");
-                                Logger.error(`Something went wrong while loading attack phase on target ${dt.targetid}. Data:`, targetData, "\n" + err.message);
+                                Logger.error(`Something went wrong while loading attack phase on target ${dt.targetid}. Data:`, targetData, "\n" + err.message, "\nTrace:\n", err.stack);
                                 MenuController._dispatch("swapphase", { phase: "build" });
                             }
                         }, false, true);
-                        Manager.phase = phaseType;
                     } else if (phaseType == "select") {
-                        if (Manager.Node && !Manager.Node.validateLayout(maxStepsFromGlobe)) {
+                        if (PhaseController.Managers.Node && !PhaseController.Managers.Node.validateLayout(maxStepsFromGlobe)) {
                             Logger.alert(`You have unsaved changes: All nodes must be connected and within ${maxStepsFromGlobe} steps of a network node!`);
                             MenuController.when("loadmenu", _ => MenuController.close(), false, true);
                         } else {
                             MenuController.when("loadmenu", detail => {
-                                Storage.set("localLayout", UTIL.layoutToJsonObj(scene, NodeController));
+                                Storage.set("localLayout", UTIL.layoutToJsonObj(scene, PhaseController.Managers.Node));
                                 detail.statusElement.text = "Discovering targets";
                                 if (!Storage.has("targets", true) || UTIL.getNowUTCSeconds() - Storage.updated("targets", true) > TARGETS_TTL) {
                                     Session.getAttackTargets()
@@ -301,7 +282,8 @@ function mainloop(MenuController) {
                                         });
                                 } else {
                                     detail.statusElement.text = "Loading global net";
-                                    Manager.set(UTIL.initSelectPhase(
+                                    PhaseController.selectPhase(
+                                        UTIL.getRandomItems(Storage.get("targets", true), WORLD_TARGET_COUNT),
                                         {
                                             Attack: (userid) => {
                                                 MenuController._dispatch("swapphase", {phase: "attack", targetid: userid});
@@ -309,21 +291,8 @@ function mainloop(MenuController) {
                                             Build: () => {
                                                 MenuController._dispatch("swapphase", {phase: "build"});
                                             },
-                                        },
-                                        scene,
-                                        renderer.domElement,
-                                        controls,
-                                        UTIL.getRandomItems(Storage.get("targets", true), WORLD_TARGET_COUNT),
-                                        {
-                                            Node: NodeController,
-                                            Overlay: OverlayController,
-                                            Physics: PhysicsController,
-                                            Mouse: MouseController,
-                                            World: WorldController,
-                                            Listener: Manager.Listener
                                         }
-                                    ));
-                                    Manager.phase = phaseType;
+                                    );
                                     MenuController.close();
                                 }
                             }, false, true);
@@ -406,22 +375,12 @@ function mainloop(MenuController) {
                         scene.add(new THREE.AxesHelper(Number(urlParams.get("axes"))));
                     else
                         scene.add(new THREE.AxesHelper(controls.camera.maxDistance * 2));
-
-                // UTIL.getLocation()
-                //     .then(data => Logger.log(btoa(JSON.stringify(data))))
             }
             // render the stuff
             function animate() {
                 const delta = UTIL.clamp(clock.getDelta(), 0, 1000);
                 //requestIdleCallback(animate)
-                WorldController.update(delta);
-                PhysicsController.update();
-                Manager.Node?.update(delta);
-                Manager.Overlay?.update();
-
-                // required if controls.enableDamping or controls.autoRotate are set to true
-                controls.camera.update(); // must be called after any manual changes to the camera"s transform
-
+                PhaseController.update(delta);
                 FPSCounter.update();
                 effect.render(scene, camera);
             }
@@ -479,3 +438,44 @@ function Framerate (
     }
     return this;
 }
+
+const AttackerData = {
+    attacks: [
+        {
+            type: "particle",
+            amount: 99,
+        },
+    ],
+};
+
+const AttackTypeData = {
+    particle: {
+        mesh: MESH.AttackManagerFactory.Particle,
+        damage: 5,
+        logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
+    },
+    cubedefense: {
+        mesh: MESH.AttackManagerFactory.CubeDefense,
+        damage: 10,
+        logic: ATTACK.AttackLogic.BasicLogicFactory,
+    },
+};
+
+const NodeTypeData = {
+    placeholder: {
+        health: 50,
+        slots: 5,
+    },
+    cube: {
+        health: 100,
+        slots: 6,
+    },
+    scanner: {
+        health: 75,
+        slots: 4,
+    },
+    globe: {
+        health: 0,
+        slots: 3,
+    },
+};
