@@ -1,6 +1,6 @@
 const overlayEl = document.getElementById("overlay");
 window.addEventListener("load", function() {
-    document.getElementById("version").textContent = "v0.0.6"
+    document.getElementById("version").textContent = "v0.0.65"
 });
 window.addEventListener("resize", function (event) {
     document.body.height = window.innerHeight;
