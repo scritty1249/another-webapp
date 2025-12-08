@@ -641,7 +641,7 @@ function Beam (
             });
         });
         controller.update = function (delta) {
-            const result = AttackManager.prototype.update.call(controller, delta)
+            const result = AttackManager.prototype.update.call(controller, delta);
             const instances = controller.getInstances();
             instances.forEach(id => {
                 const userData = controller.getUserData(id);
@@ -649,6 +649,11 @@ function Beam (
             });
             return result;
         }
+        controller.clear = function () {
+            controller.instances.parent.remove(controller.instances);
+            return AttackManager.prototype.clear.call(controller);
+        };
+
         controller.userData.createAttack = function () { // returns a "fresh" instance, if available
             const instanceid = controller.allocateInstance();
             if (!instanceid)
