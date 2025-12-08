@@ -32,10 +32,6 @@ export function NodeManager(
     Object.values(this._proxyHandlers).forEach(
         (handler) => (handler._instance = this)
     );
-    this._nodes = {};
-    this._nodelist = [];
-    this._tethers = {};
-    this._tetherlist = [];
     this.nodes = new Proxy(this._nodes, this._proxyHandlers.nodes);
     this.tethers = new Proxy(this._tethers, this._proxyHandlers.tethers);
     this.nodelist = new Proxy(this._nodelist, this._proxyHandlers.nodelist);

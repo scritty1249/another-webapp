@@ -15,7 +15,6 @@ import * as ATTACK from "./attacker.js"; // [!] testing, temporary module- to be
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { SelectiveOutlineEffect } from "./renderer.js";
-import { Vector3 } from "../lib/three-js/three.core.js"
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
