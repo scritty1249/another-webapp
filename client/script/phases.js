@@ -324,11 +324,9 @@ PhaseManager.prototype._updateTick = function (timedelta) {
 
     const managersToTickUpdate = [];
     this.Managers.Overlay.update();
+    if (this.phase == "build") this.Managers.Physics.update();
     if (this.phase == "select") this.Managers.World.update();
-    else {
-        managersToTickUpdate.push(this.Managers.Physics);
-        this.Managers.Node.update(timedelta); // still needs delta for updating AnimationMixers
-    }
+    else this.Managers.Node.update(timedelta); // still needs delta for updating AnimationMixers
     if (this.phase == "attack") this.Managers.Attacks.forEach(A => A.update(timedelta));
 
     if (this.tick.delta < this.tick.interval) return;
