@@ -9,6 +9,8 @@ import {
     InstancedBufferAttribute,
     ShaderMaterial,
     Vector2,
+    Vector3,
+    Quaternion,
     MathUtils,
     Matrix4,
     DoubleSide,
@@ -18,49 +20,56 @@ export function AttackManager(
     textureAtlas,
     alphaAtlas,
     geometry,
-    frameCount,
     instanceCount,
-    tickspeed,
+    metadata = {
+        fps: 60,
+        frames: 1,
+    },
     textureOptions = {
         repeat: {
             x: 1,
             y: 1,
         },
-        alphaCutoff: 0.3,
     }
 ) {
     const self = this;
     this.attackType = attackType;
+    this.userData = {};
     this._dummy = new Object3D();
-    this._atlas.map = new TextureLoader().load(textureAtlas);
-    this._atlas.alphaMap = new TextureLoader().load(textureAtlas);
-    this.config.frames = frameCount;
-    this.config.repeat = new Vector2(
-        textureOptions?.repeat?.x
-            ? textureOptions?.repeat?.x / this.config.frames
-            : textureOptions?.repeat?.x / this.config.frames,
-        textureOptions?.repeat?.y ? textureOptions?.repeat?.y : 1
-    );
-    this.tick.interval = tickspeed;
-    this.tick.delta = 0;
-    this.config.maxInstances = instanceCount;
+    this._atlas = {
+        map: new TextureLoader().load(textureAtlas),
+        alphaMap: new TextureLoader().load(alphaAtlas),
+    };
+    this.config = {
+        frames: metadata.frames,
+        repeat: new Vector2(
+            textureOptions?.repeat?.x
+                ? textureOptions?.repeat?.x / metadata.frames
+                : 1 / metadata.frames,
+            textureOptions?.repeat?.y ? textureOptions?.repeat?.y : 1
+        ),
+        maxInstances: instanceCount,
+        fps: metadata.fps, // frames per second
+        duration: metadata.frames / metadata.fps, // calculated for internal use. Duration of animation in seconds
+    };
+    this.tick = {
+        interval: this.config.duration / this.config.frames,
+        delta: 0,
+    };
     this._geometry = geometry;
     this._material = new ShaderMaterial({
         vertexShader: this.shader._vert,
         fragmentShader: this.shader._frag,
         transparent: true,
+        depthWrite: false,
         side: DoubleSide,
         uniforms: {
             map: { value: this._atlas.map },
             alphaMap: { value: this._atlas.alphaMap },
             repeat: { value: this.config.repeat },
-            alphaThreshold: {
-                value: textureOptions.alphaCutoff
-                    ? textureOptions.alphaCutoff
-                    : 1.0,
-            },
         },
     });
+    this.instanceAttributes = {};
     this._geometry.setAttribute(
         "tileIdx",
         new InstancedBufferAttribute(new Float32Array(instanceCount).fill(0), 1)
@@ -99,48 +108,36 @@ export function AttackManager(
     );
 
     this.instanceAttributes.options = {};
+    this.instanceAttributes.userData = {};
     for (let i = 0; i < instanceCount; i++) {
-        const uuid = MathUtils.generateUUID();
+        const uuid = this.attackType + MathUtils.generateUUID();
         this.instanceAttributes.options[uuid] = {
+            uuid: uuid,
             callback: undefined, // callable
             visible: true, // changing does not do anything, only for monitoring instance states outside of class
-            _enabled: true,
+            playing: true, // used for pausing an animation without "removing" the instance
+            allocated: false, // used to check if this instance is already being referenced
+            speed: 1,
             _index: i,
         };
+        this.instanceAttributes.userData[uuid] = {};
     }
     return this;
 }
 
 AttackManager.prototype = {
-    attackType: undefined,
-    textureAtlas: undefined,
-    instances: undefined,
-    _dummy: undefined, // for instance transformations
-    _material: undefined,
-    _geometry: undefined,
-    _atlas: {
-        map: undefined,
-        alphaMap: undefined,
-    },
-    instanceAttributes: {
-        _tileIdx: undefined,
-        tileIdx: undefined,
-        options: undefined,
-    },
-    tick: {
-        delta: undefined,
-        interval: undefined,
+    get instancelist () {
+        return Object.values(this.instanceAttributes.options) // [!] expensive...
+            .toSorted((a, b) => a._index - b._index)
     },
     get instanceCount() {
         return this.instances?.count;
     },
     set instanceCount(count) {
-        if (this.instances) this.instances.count = count;
-    },
-    config: {
-        frames: 1,
-        repeat: undefined, // Vector2
-        maxInstances: 0,
+        this.instances.count = Math.min(
+            this.config.maxInstances,
+            Math.max(0, count)
+        );
     },
     shader: {
         uniforms: undefined, // Proxy for shader uniforms attribute
@@ -148,7 +145,6 @@ AttackManager.prototype = {
          	varying vec2 vuv;
             uniform sampler2D map;
             uniform sampler2D alphaMap;
-            uniform float alphaThreshold;
             uniform vec2 repeat;
             varying float mapTileIdx;
             void main() {
@@ -159,7 +155,7 @@ AttackManager.prototype = {
                 vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
                 vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy, duv.zw);
                 float alpha = ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
-                gl_FragColor = vec4(txl, alpha > alphaThreshold ? 1. : alpha);
+                gl_FragColor = vec4(txl, alpha);
             }
         `,
         _vert: `
@@ -176,7 +172,15 @@ AttackManager.prototype = {
     },
 };
 
+AttackManager.prototype.init = function (scene) {
+    scene.add(this.instances);
+    this.pauseAll();
+    this.hideAll();
+};
+
 AttackManager.prototype.clear = function (delta) {
+    this.hideAll(); // prevent any further instance callbacks
+    if (this.instances.parent) this.instances.parent.remove(this.instances);
     this._atlas.map.dispose();
     this._atlas.alphaMap.dispose();
     this._geometry.dispose();
@@ -186,22 +190,62 @@ AttackManager.prototype.clear = function (delta) {
 };
 
 AttackManager.prototype._swapInstances = function (originid, targetid) {
-    const originData = this.getData(originid);
-    const targetData = this.getData(targetid);
-    const originMatrix = new Matrix4();
-    const targetMatrix = new Matrix4();
-    const targetIdx = targetData._index;
-    this.instances.getMatrixAt(originOptions._index, originMatrix);
-    this.instances.getMatrixAt(targetOptions._index, targetMatrix);
-    this.instances.setMatrixAt(originOptions._index, targetMatrix);
-    this.instances.setMatrixAt(targetOptions._index, originMatrix);
-    targetData._index = originData._index;
-    originData._index = targetIdx;
+    // swap transforms
+    const originMatrix = this.getMatrix4(originid);
+    const targetMatrix = this.getMatrix4(targetid);
+    this.setMatrix4(targetid, originMatrix);
+    this.setMatrix4(originid, targetMatrix);
+
+    // swap indexes
+    const originOptions = this.getOptions(originid);
+    const targetOptions = this.getOptions(targetid);
+    const targetIdx = targetOptions._index;
+    targetOptions._index = originOptions._index;
+    originOptions._index = targetIdx;
+
+    // swap userData
+    const targetUserData = this.getUserData(targetid);
+    this.setUserData(targetid, this.getUserData(originid));
+    this.setUserData(originid, targetUserData);
+
+    // swap animation state
+    const targetFrame = this.getFrame(targetid);
+    this.setFrame(targetid, this.getFrame(originid));
+    this.setFrame(originid, targetFrame);
+};
+
+AttackManager.prototype.getInstances = function () {
+    // returns VISIBLE instances (ones included in instanceCount)
+    return Object.values(this.instanceAttributes.options) // [!] expensive...
+        .toSorted((a, b) => a._index - b._index)
+        .slice(0, this.instanceCount)
+        .map((o) => o.uuid);
 };
 
 AttackManager.prototype.getHiddenInstance = function () { // returns the first hidden instance found in list
     if (this.instanceCount == this.config.maxInstances) return undefined; // nothing hidden
-    return this.getInstanceId(this.instanceCount - 1);
+    return this.getInstanceId(this.instanceCount);
+};
+
+AttackManager.prototype.allocateInstance = function () {
+    // returns the first hidden instance found in list
+    if (this.instanceCount >= this.config.maxInstances) return undefined; // nothing hidden
+    const instanceid = Object.values(this.instanceAttributes.options) // [!] expensive...
+        .toSorted((a, b) => a._index - b._index)
+        .slice(this.instanceCount)
+        .filter((o) => !o.allocated)
+        .map((o) => o.uuid)?.[0];
+    if (instanceid) {
+        const options = this.getOptions(instanceid);
+        options.allocated = true;
+    }
+    return instanceid;
+};
+
+AttackManager.unallocateInstance = function (instanceid) {
+    const options = this.getOptions(instanceid);
+    options.allocated = false;
+    this.hide(instanceid);
 };
 
 AttackManager.prototype.hideAll = function () {
@@ -219,26 +263,91 @@ AttackManager.prototype.showAll = function () {
 };
 
 AttackManager.prototype.hide = function (instanceid) {
-    const lastInstanceId = this.getInstanceId(this.instanceCount - 1);
-    if (instanceid == lastInstanceId) {
-        // do nothing
-    } else {
-        this._swapInstances(instanceid, lastInstanceId);
+    const beforeLastInstanceId = this.getInstanceId(
+        this.instanceCount ? this.instanceCount - 1 : 0
+    );
+    const options = this.getOptions(instanceid);
+    if (options.visible) {
+        if (instanceid != beforeLastInstanceId) {
+            this._swapInstances(instanceid, beforeLastInstanceId);
+        }
+        options.visible = false;
+        this.instanceCount -= 1;
     }
-    this.getOptions(instanceid).visible = false;
-    this.instanceCount -= 1;
 };
 
 AttackManager.prototype.show = function (instanceid) {
     if (this.instanceCount == this.config.maxInstances) return; // nothing hidden
-    const firstHiddenInstanceId = this.getInstanceId(this.instanceCount); // +1 from last idx
-    if (instanceid == firstHiddenInstanceId) {
-        // do nothing
-    } else {
-        this._swapInstances(instanceid, firstHiddenInstanceId);
+    const options = this.getOptions(instanceid);
+    if (!options.visible) {
+        const firstHiddenInstanceId = this.getHiddenInstance();
+        if (!(
+            instanceid == firstHiddenInstanceId || // this instance is the first hidden one
+            firstHiddenInstanceId === undefined // this instance is the only one that exists (also the "first" hidden one)
+        )) {
+            this._swapInstances(instanceid, firstHiddenInstanceId);
+        }
+        options.visible = true;
+        this.instanceCount += 1;
     }
-    this.getOptions(instanceid).visible = true;
-    this.instanceCount += 1;
+};
+
+AttackManager.prototype.pauseAll = function () {
+    Object.values(this.instanceAttributes.options).forEach(
+        (options) => (options.playing = false)
+    );
+};
+
+AttackManager.prototype.playAll = function () {
+    Object.values(this.instanceAttributes.options).forEach(
+        (options) => (options.playing = true)
+    );
+};
+
+AttackManager.prototype.play = function (instanceid) {
+    this.getOptions(instanceid).playing = true;
+};
+
+AttackManager.prototype.pause = function (instanceid) {
+    this.getOptions(instanceid).playing = false;
+};
+
+AttackManager.prototype.restartPlayback = function (instanceid) {
+    this.setFrame(instanceid, 0);
+    const options = this.getOptions(instanceid);
+    this.show(instanceid);
+    this.play(instanceid);
+};
+
+AttackManager.prototype.resetInstance = function (instanceid) {
+    this.setFrame(instanceid, 0);
+    const options = this.getOptions(instanceid);
+    options.speed = 1;
+
+    const userData = this.getUserData(instanceid);
+    if (typeof userData?.reset === "function") userData.reset();
+};
+
+AttackManager.prototype.getFrame = function (instanceid) {
+    const index = this.getOptions(instanceid)?._index;
+    return (index !== undefined && index >= 0)
+        ? this.instanceAttributes.tileIdx[index]
+        : undefined;
+};
+
+AttackManager.prototype.setFrame = function (instanceid, frame) {
+    if (frame >= this.config.frames || frame < 0)
+        Logger.throw(
+            new Error(
+                `[AttackManager (${
+                    this.attackType
+                })] | Cannot set instance ${instanceid} to frame ${frame}. Frame is out of bounds (0 - ${
+                    this.config.frames - 1
+                }).`
+            )
+        );
+    const index = this.getOptions(instanceid)?._index;
+    this.instanceAttributes.tileIdx[index] = frame;
 };
 
 AttackManager.prototype.getMatrix4 = function (instanceid) {
@@ -252,6 +361,50 @@ AttackManager.prototype.setMatrix4 = function (instanceid, matrix) {
     const index = this.getOptions(instanceid)?._index;
     this.instances.setMatrixAt(index, matrix);
     this.instances.instanceMatrix.needsUpdate = true;
+};
+
+AttackManager.prototype.setMatrixComposition = function (
+    instanceid,
+    position,
+    rotation,
+    scale
+) {
+    this.setMatrix4(
+        instanceid,
+        this.getMatrix4(instanceid).compose(position, rotation, scale)
+    );
+};
+
+AttackManager.prototype.getMatrixComposition = function (instanceid) {
+    const matrix = this.getMatrix4(instanceid);
+    const position = new Vector3();
+    const rotation = new Quaternion();
+    const scale = new Vector3();
+    matrix.decompose(position, rotation, scale);
+    return [position, rotation, scale];
+};
+
+AttackManager.prototype.setPosition = function (instanceid, position) {
+    const [p, r, s] = this.getMatrixComposition(instanceid);
+    this.setMatrixComposition(instanceid, position, r, s);
+};
+
+AttackManager.prototype.setRotation = function (instanceid, rotation) {
+    // accepts rotation as a Quaternion
+    const [p, r, s] = this.getMatrixComposition(instanceid);
+    this.setMatrixComposition(instanceid, p, rotation, s);
+};
+
+AttackManager.prototype.setScale = function (instanceid, scale) {
+    // accepts scale as Vector3, NOT scalar
+    const [p, r, s] = this.getMatrixComposition(instanceid);
+    this.setMatrixComposition(instanceid, p, r, scale);
+};
+
+AttackManager.prototype.getElapsed = function (instanceid) {
+    // returns animation progress as a float between 0-1
+    const frame = this.getFrame(instanceid);
+    return frame / (this.config.frames - 1);
 };
 
 AttackManager.prototype.getInstanceId = function (index) {
@@ -282,6 +435,21 @@ AttackManager.prototype.getOptions = function (instanceid) {
     return instanceOptions;
 };
 
+AttackManager.prototype.getUserData = function (instanceid) {
+    const userData = this.instanceAttributes.userData[instanceid];
+    if (!userData)
+        Logger.throw(
+            new Error(
+                `[AttackManager (${this.attackType})] | Instance tagged with UUID "${instanceid}" does not exist.`
+            )
+        );
+    return userData;
+};
+
+AttackManager.prototype.setUserData = function (instanceid, data) {
+    this.instanceAttributes.userData[instanceid] = data;
+};
+
 AttackManager.prototype._getData = function (instanceIdx) {
     const instanceOptions = Object.values(
         this.instanceAttributes.options
@@ -295,29 +463,42 @@ AttackManager.prototype._getData = function (instanceIdx) {
     return InstanceDataFactory(this, instanceOptions);
 };
 
-AttackManager.prototype._updateAnimations = function () {
+AttackManager.prototype._updateAnimation = function (instanceid) {
+    // manages it's own timing
     // also handles callbacks, to avoid iterating again
-    const tileIdxes = this.instanceAttributes.tileIdx;
-    const options = this.instanceAttributes.options;
-    for (let i = 0; i < this.instanceCount; i++) {
-        if (tileIdxes[i] >= this.config.frames) {
-            tileIdxes[i] = 0;
-            if (options[i].callback) options[i].callback(options[i]);
-        } else {
-            tileIdxes[i]++;
+    const options = this.getOptions(instanceid);
+    const index = options._index;
+    const intervals = Math.floor(this.tick.delta / (this.tick.interval / options.speed));
+    const currentFrame = this.getFrame(instanceid);
+    for (
+        let _ = 0;
+        _ < intervals;
+        _++
+    ) {
+        if (options.playing) {
+            if (currentFrame >= this.config.frames - 1) {
+                options.playing = false;
+                if (options.callback) options.callback(options);
+            } else {
+                this.setFrame(instanceid, currentFrame + 1);
+            }
         }
-        tileIdxes[i] =
-            tileIdxes[i] >= this.config.frames ? 0 : tileIdxes[i] + 1;
+    }
+};
+
+AttackManager.prototype._updateAnimations = function () {
+    const tileIdxes = this.instanceAttributes.tileIdx;
+    const options = this.getInstances().map((id) => this.getOptions(id));
+    for (let i = 0; i < this.instanceCount && i < options.length; i++) {
+        this._updateAnimation(options[i].uuid);
     }
 };
 
 AttackManager.prototype._updateTick = function (timedelta) {
     this.tick.delta += timedelta;
-    if (this.tick.delta < this.tick.interval) return;
-    for (let i = 0; i < Math.floor(this.tick.delta / this.tick.interval); i++) {
-        this._updateAnimations();
-    }
-    this.tick.delta = this.tick.delta % this.tick.interval;
+    this._updateAnimations();
+    if (this.tick.delta >= this.tick.interval)
+        this.tick.delta = this.tick.delta % this.tick.interval;
 };
 
 AttackManager.prototype.update = function (timedelta) {
@@ -338,10 +519,9 @@ function InstanceDataFactory(manager, instanceid) {
         .filter(
             ([key, desc]) =>
                 !key.startsWith("_") &&
-                key != "options" && (
-                    Array.isArray(desc.value) ||
-                    desc.value instanceof Float32Array
-                )
+                key != "options" &&
+                (Array.isArray(desc.value) ||
+                    desc.value instanceof Float32Array)
         )
         .forEach(([key]) => {
             obj.attributes[key] =
@@ -382,44 +562,5 @@ export const AttackLogic = {
             return them.hp.total - me.hp.total; // sorts from greatest to lowest health
         };
         return self;
-    },
-};
-
-export const AttackerData = {
-    attacks: [
-        {
-            type: "particle",
-            amount: 99,
-        },
-    ],
-};
-
-export const AttackTypeData = {
-    particle: {
-        damage: 5,
-        logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-    },
-    cubedefense: {
-        damage: 10,
-        logic: AttackLogic.BasicLogicFactory,
-    },
-};
-
-export const NodeTypeData = {
-    placeholder: {
-        health: 50,
-        slots: 5,
-    },
-    cube: {
-        health: 100,
-        slots: 6,
-    },
-    scanner: {
-        health: 75,
-        slots: 4,
-    },
-    globe: {
-        health: 0,
-        slots: 3,
     },
 };
