@@ -179,9 +179,8 @@ AttackManager.prototype.init = function (scene) {
     this.hideAll();
 };
 
-AttackManager.prototype.clear = function (delta) {
+AttackManager.prototype.clear = function () {
     this.hideAll(); // prevent any further instance callbacks
-    if (this.instances.parent) this.instances.parent.remove(this.instances);
     this._atlas.map.dispose();
     this._atlas.alphaMap.dispose();
     this._geometry.dispose();

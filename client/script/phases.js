@@ -8,7 +8,6 @@ import {
 import { BuildNodeManager, AttackNodeManager } from "./nodes.js";
 import { layoutFromJsonObj } from "./utils.js";
 import { Color } from "three";
-import { AttackManagerFactory } from "./mesh.js";
 
 const selectPhaseBackground = new Color(0x000000);
 
@@ -31,7 +30,8 @@ export function PhaseManager(
     this._rendererDom = rendererDom;
     this.tick.delta = 0;
     this.tick.interval = tickspeed;
-    this.Managers.Attacks = [];
+    this.Managers.Attacks = new AttackManagerWrapper();
+    this._resetUpdateManagers();
     this._unloadPhase = () => {};
 
     this._constructorArgs.Node = this.Managers.Node._constructorArgs;
@@ -63,6 +63,13 @@ PhaseManager.prototype = {
         Node: undefined,
         Overlay: undefined,
     },
+};
+
+PhaseManager.prototype._resetUpdateManagers = function () {
+    this._updateManagers = {
+        perTick: [],
+        always: [],
+    };
 };
 
 PhaseManager.prototype._validateKeys = function (object, expectedNames = []) {
@@ -137,11 +144,13 @@ PhaseManager.prototype.selectPhase = function (targets, callbacks) {
     this.Managers.Node = undefined;
     this.Managers.Overlay = overlayController;
     this.Managers.Listener = listenerController;
+    this._updateManagers.always.push(this.Managers.World, this.Managers.Overlay);
     this._unloadPhase = () => {
+        this._resetUpdateManagers();
         this._controls.camera.autoRotate = false;
-        this.Managers.Overlay.clear();
         this.Managers.Listener.clear();
         this.Managers.World.clear();
+        this.Managers.Overlay.clear();
     };
     this.phase = "select";
     Logger.log("[PhaseManager] | Loaded Select phase");
@@ -227,13 +236,13 @@ PhaseManager.prototype.attackPhase = function (
     this.Managers.Overlay = overlayController;
     this.Managers.Node = nodeController;
     this.Managers.Listener = listenerController;
-
+    this._updateManagers.always.push(this.Managers.Node, this.Managers.Attacks, this.Managers.Overlay);
     this._unloadPhase = () => {
-        this.Managers.Attacks.forEach(A => A.clear());
-        this.Managers.Attacks = [];
-        this.Managers.Node.clear();
-        this.Managers.Overlay.clear();
+        this._resetUpdateManagers();
         this.Managers.Listener.clear();
+        this.Managers.Overlay.clear();
+        this.Managers.Node.clear();
+        this.Managers.Attacks.clear();
     };
     this.phase = "attack";
     Logger.log("[PhaseManager] | Loaded Attack phase");
@@ -308,12 +317,14 @@ PhaseManager.prototype.buildPhase = function (layout) {
     this.Managers.Node = nodeController;
     this.Managers.Overlay = overlayController;
     this.Managers.Listener = listenerController;
+    this._updateManagers.always.push(this.Managers.Node, this.Managers.Physics, this.Managers.Overlay);
     this._unloadPhase = () => {
+        this._resetUpdateManagers();
         this._controls.drag.enabled = false;
-        this.Managers.Node.clear();
-        this.Managers.Overlay.clear();
         this.Managers.Listener.clear();
+        this.Managers.Overlay.clear();
         this.Managers.Physics.deactivate();
+        this.Managers.Node.clear();
     };
     this.phase = "build";
     Logger.log("[PhaseManager] | Loaded Build phase");
@@ -321,27 +332,35 @@ PhaseManager.prototype.buildPhase = function (layout) {
 
 PhaseManager.prototype._updateTick = function (timedelta) {
     this.tick.delta += timedelta;
-
-    const managersToTickUpdate = [];
-    this.Managers.Overlay.update();
-    if (this.phase == "build") this.Managers.Physics.update();
-    if (this.phase == "select") this.Managers.World.update();
-    else this.Managers.Node.update(timedelta); // still needs delta for updating AnimationMixers
-    if (this.phase == "attack") this.Managers.Attacks.forEach(A => A.update(timedelta));
-
     if (this.tick.delta < this.tick.interval) return;
     for (
         let t = 0;
         t <= Math.floor(this.tick.delta / this.tick.interval);
         t++
     ) {
-        managersToTickUpdate.forEach((m) => m.update());
+        this._updateManagers.perTick.forEach((m) => m.update());
     }
     this.tick.delta = this.tick.delta % this.tick.interval;
 };
 
 PhaseManager.prototype.update = function (timedelta) {
+    this._updateManagers.always.forEach(m => m.update(timedelta));
     this._updateTick(timedelta);
     // required if controls.enableDamping or controls.autoRotate are set to true
     this._controls.camera.update(); // must be called after any manual changes to the camera"s transform
 };
+
+function AttackManagerWrapper() {
+    this._attackManagers = [];
+    this.push = function (...managers) {
+        managers.forEach(m => this._attackManagers.push(m));
+    }
+    this.clear = function () {
+        while (this._attackManagers.length)
+            this._attackManagers.pop().clear();
+    }
+    this.update = function (delta) {
+        this._attackManagers.forEach(m => m.update(delta));
+    }
+    return this;
+}

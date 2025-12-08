@@ -603,3 +603,7 @@ SelectOverlayManager.prototype.init =  function (...args) {
     this.element.menuButton = Button.mainMenu(() => this._menuManager._dispatch("swapphase", {phase: "build"}));
     this.element._overlay.appendChild(this.element.menuButton);
 };
+
+SelectOverlayManager.prototype.update = function () {
+    // do nothing
+};
