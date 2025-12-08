@@ -82,10 +82,8 @@ function directionVector(originPos, targetPos) {
     return targetPos.clone().sub(originPos).normalize();
 }
 
-function directionQuaternion(directonVector) {
-    var mx = new Matrix4().lookAt(directonVector, zeroVector, upVector);
-    var qt = new Quaternion().setFromRotationMatrix(mx);
-    return qt;
+function directionQuaternion(originPos, targetPos) {
+    return new Quaternion().setFromUnitVectors(originPos, targetPos);
 }
 
 function distanceTo(object, point) { // check vertexes, so should go based off edges- more accurate for complex shapes vs. a bounding box
@@ -112,5 +110,6 @@ export {
     raycast,
     directionVector,
     distanceTo,
-    directionQuaternion
+    directionQuaternion,
+    zeroVector
 };

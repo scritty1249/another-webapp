@@ -509,15 +509,16 @@ AttackNodeManager.prototype._proxyHandlers = {
         },
         deleteProperty(target, prop) {
             const attack = target[prop];
-            if (attack)
+            if (attack?.type !== undefined) {
                 attack.halt();
-            // [!] may be optimizied, see if performance is impacted by this
-            this._instance._attacklist.splice(
-                this._instance._attacklist
-                    .map((a) => a.uuid)
-                    .indexOf(attack.uuid),
-                1
-            );
+                // [!] may be optimizied, see if performance is impacted by this
+                this._instance._attacklist.splice(
+                    this._instance._attacklist
+                        .map((a) => a.uuid)
+                        .indexOf(attack.uuid),
+                    1
+                );
+            }
             return Reflect.deleteProperty(target, prop);
         },
     },
@@ -660,12 +661,12 @@ AttackNodeManager.prototype.getAllAttacksTo = function (nodeid) {
 };
 AttackNodeManager.prototype.addAttackToNode = function (attackType, nodeid) {
     const nodeData = this.getNodeData(nodeid);
-    if (nodeData.slots.empty >= 1)
+    if (nodeData.slots.empty >= 1) {
         nodeData.slots.push({
             uuid: this.createAttack(nodeid, attackType),
             type: attackType,
         });
-    else
+    } else
         Logger.warn(
             `[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.slots.length} slots.`
         );
@@ -790,7 +791,6 @@ function AttackFactory(attackType, originid, nodeManager) {
                 this.data.options.callback = function (_) {
                     if (attack.active) {
                         try {
-                            attack.visible = false;
                             nodeManager
                                 .getNodeData(attack.target)
                                 .damage(attack.damage);
@@ -803,6 +803,8 @@ function AttackFactory(attackType, originid, nodeManager) {
                                         attackManager.restartPlayback(attackid);
                                     }, offset
                                 );
+                            } else {
+                                attack.visible = false;
                             }
                         } catch (err) {
                             Logger.warn(err.message);
@@ -828,9 +830,7 @@ function AttackFactory(attackType, originid, nodeManager) {
         },
         halt: function () {
             this.active = false;
-            this.visible = false;
-            attackManager.pause(attackid);
-            attackManager.hide(attackid);
+            attackManager.releaseInstance(attackid);
         },
     });
     return attack;
