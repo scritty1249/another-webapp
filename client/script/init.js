@@ -59,7 +59,7 @@ if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
     const MenuController = new MenuManager(document.getElementById("overlay"));
     // Login
-    if (!CookieJar.has("session") || (DEBUG_MODE && urlParams.has("login"))) {
+    if ((!CookieJar.has("session") || !CookieJar.get("session")) || (DEBUG_MODE && urlParams.has("login"))) {
         MenuController.loginScreen();
         MenuController.when("login", ({username, password, elements}) => {
             elements.forEach(el => el.classList.remove("pointer-events"));
