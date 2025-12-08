@@ -110,7 +110,7 @@ export function AttackManager(
     this.instanceAttributes.options = {};
     this.instanceAttributes.userData = {};
     for (let i = 0; i < instanceCount; i++) {
-        const uuid = this.attackType + MathUtils.generateUUID();
+        const uuid = this.attackType + "-" + MathUtils.generateUUID();
         this.instanceAttributes.options[uuid] = {
             uuid: uuid,
             callback: undefined, // callable
@@ -126,9 +126,10 @@ export function AttackManager(
 }
 
 AttackManager.prototype = {
-    get instancelist () {
+    get instancestack () {
         return Object.values(this.instanceAttributes.options) // [!] expensive...
             .toSorted((a, b) => a._index - b._index)
+            .map((o) => this.getData(o.uuid));
     },
     get instanceCount() {
         return this.instances?.count;
@@ -189,6 +190,14 @@ AttackManager.prototype.clear = function (delta) {
     this.instances = undefined;
 };
 
+AttackManager.prototype._nextTileIdx = function (frame) {
+    return frame >= this.config.frames - 1
+        ? 0
+        : frame < 0
+        ? 0
+        : frame + 1;
+};
+
 AttackManager.prototype._swapInstances = function (originid, targetid) {
     // swap transforms
     const originMatrix = this.getMatrix4(originid);
@@ -203,15 +212,11 @@ AttackManager.prototype._swapInstances = function (originid, targetid) {
     targetOptions._index = originOptions._index;
     originOptions._index = targetIdx;
 
-    // swap userData
-    const targetUserData = this.getUserData(targetid);
-    this.setUserData(targetid, this.getUserData(originid));
-    this.setUserData(originid, targetUserData);
-
     // swap animation state
     const targetFrame = this.getFrame(targetid);
-    this.setFrame(targetid, this.getFrame(originid));
+    const originFrame = this.getFrame(originid);
     this.setFrame(originid, targetFrame);
+    this.setFrame(targetid, originFrame);
 };
 
 AttackManager.prototype.getInstances = function () {
@@ -242,10 +247,12 @@ AttackManager.prototype.allocateInstance = function () {
     return instanceid;
 };
 
-AttackManager.unallocateInstance = function (instanceid) {
+AttackManager.prototype.releaseInstance = function (instanceid) {
     const options = this.getOptions(instanceid);
     options.allocated = false;
     this.hide(instanceid);
+    this.pause(instanceid);
+    this.resetInstance(instanceid);
 };
 
 AttackManager.prototype.hideAll = function () {
@@ -322,7 +329,7 @@ AttackManager.prototype.restartPlayback = function (instanceid) {
 AttackManager.prototype.resetInstance = function (instanceid) {
     this.setFrame(instanceid, 0);
     const options = this.getOptions(instanceid);
-    options.speed = 1;
+    // options.speed = 1;
 
     const userData = this.getUserData(instanceid);
     if (typeof userData?.reset === "function") userData.reset();
@@ -371,7 +378,7 @@ AttackManager.prototype.setMatrixComposition = function (
 ) {
     this.setMatrix4(
         instanceid,
-        this.getMatrix4(instanceid).compose(position, rotation, scale)
+        new Matrix4().compose(position, rotation, scale)
     );
 };
 
@@ -450,14 +457,12 @@ AttackManager.prototype.setUserData = function (instanceid, data) {
     this.instanceAttributes.userData[instanceid] = data;
 };
 
-AttackManager.prototype._getData = function (instanceIdx) {
-    const instanceOptions = Object.values(
-        this.instanceAttributes.options
-    ).filter((o) => o._index == instanceIdx)?.[0];
+AttackManager.prototype.getData = function (instanceid) {
+    const instanceOptions = this.getOptions(instanceid);
     if (!instanceOptions)
         Logger.throw(
             new Error(
-                `[AttackManager (${this.attackType})] | Instance at index ${instanceIdx} does not exist.`
+                `[AttackManager (${this.attackType})] | Instance with UUID ${instanceid} does not exist.`
             )
         );
     return InstanceDataFactory(this, instanceOptions);
@@ -506,9 +511,13 @@ AttackManager.prototype.update = function (timedelta) {
 };
 
 function InstanceDataFactory(manager, instanceid) {
-    const options = manager.getOptions(instanceid);
+    const options = manager.getOptions( // [!] hacky solution until I can figure out how manager.instacestack keeps passing in object instead of object attribute
+        instanceid.uuid
+        ? instanceid.uuid
+        : instanceid
+    );
     const obj = {
-        uuid: instanceid,
+        uuid: options.uuid,
         options: options,
         attributes: {},
     };
@@ -522,8 +531,7 @@ function InstanceDataFactory(manager, instanceid) {
                 key != "options" &&
                 (Array.isArray(desc.value) ||
                     desc.value instanceof Float32Array)
-        )
-        .forEach(([key]) => {
+        ).forEach(([key]) => {
             obj.attributes[key] =
                 manager.instanceAttributes[key][options._index];
         });
@@ -532,8 +540,11 @@ function InstanceDataFactory(manager, instanceid) {
             !key.startsWith("_") &&
             key != "options" &&
             typeof desc.value === "object" &&
-            desc.value.hasOwnProperty(instanceid)
-    );
+            desc.value.hasOwnProperty(options.uuid)
+        ).forEach(([key]) => {
+            obj.attributes[key] =
+                manager.instanceAttributes[key][options.uuid];
+        });
 
     return obj;
 }

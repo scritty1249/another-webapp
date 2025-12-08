@@ -619,12 +619,7 @@ function Beam (
                 setVectors: function (originVector, targetVector) {
                     this.position.start.copy(originVector);
                     this.position.end.copy(targetVector);
-                    controller.setPosition(id, originVector);
-                    const rotation = new Quaternion().setFromUnitVectors(
-                        controller.instances.up,
-                        this.position.direction
-                    );
-                    controller.setRotation(id, rotation);
+                    this.update();
                 },
                 setOrigin: function (originVector) {
                     this.setVectors(originVector, this.position.end);
@@ -632,20 +627,27 @@ function Beam (
                 setTarget: function (targetVector) {
                     this.setVectors(this.position.start, targetVector);
                 },
+                update: function () {
+                    const [pos, rot, sca] = controller.getMatrixComposition(id);
+                    controller.setMatrixComposition(id,
+                        this.position.current,
+                        THREEUTIL.directionQuaternion(controller.instances.up, this.position.direction),
+                        sca
+                    );
+                },
+                reset: function () {
+                    this.setVectors(THREEUTIL.zeroVector, THREEUTIL.zeroVector);
+                },
             });
         });
         controller.update = function (delta) {
+            const result = AttackManager.prototype.update.call(controller, delta)
             const instances = controller.getInstances();
             instances.forEach(id => {
                 const userData = controller.getUserData(id);
-                const [pos, rot, sca] = controller.getMatrixComposition(id);
-                controller.setMatrixComposition(id,
-                    userData.position.current,
-                    rot,
-                    sca
-                );
+                userData?.update();
             });
-            return AttackManager.prototype.update.call(controller, delta);
+            return result;
         }
         controller.userData.createAttack = function () { // returns a "fresh" instance, if available
             const instanceid = controller.allocateInstance();
