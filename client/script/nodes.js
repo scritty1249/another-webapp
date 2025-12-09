@@ -769,6 +769,7 @@ function AttackFactory(attackType, originid, nodeManager) {
         type: attackType,
         uuid: attackid,
         damage: typeData.damage,
+        cooldown: typeData.cooldown, // ms
         logic: typeData.logic(),
         active: false,
         get visible() {
@@ -787,6 +788,7 @@ function AttackFactory(attackType, originid, nodeManager) {
             this._target = nodeid;
             if (nodeid) {
                 this.active = true;
+                nodeData.lastAttackedMs = Date.now();
                 this.data.userData.setTarget(nodeManager.getNode(nodeid)?.position);
                 this.data.options.callback = function (_) {
                     if (attack.active) {
@@ -797,11 +799,13 @@ function AttackFactory(attackType, originid, nodeManager) {
                             attack.update();
                             if (attack.active) {
                                 const siblings = nodeManager.getNodeData(attack.origin).slots.filter(a => a.type == attack.type);
-                                const offset = siblings.map(a => a.uuid).indexOf(attack.uuid) * 650;
+                                const offset = siblings.map(a => a.uuid).indexOf(attack.uuid) * attack.cooldown;
+                                const waitTime = Math.max(0, offset - (Date.now() - nodeData.lastAttackedMs));
                                 setTimeout(
                                     () => {
+                                        nodeData.lastAttackedMs = Date.now();
                                         attackManager.restartPlayback(attackid);
-                                    }, offset
+                                    }, waitTime
                                 );
                             } else {
                                 attack.visible = false;
@@ -888,7 +892,9 @@ function NodeDataFactory(nodeid, manager) {
             }
             return false;
         },
+
         uuid: nodeid,
+        lastAttackedMs: 0, 
         friendly: node.userData.type == "globe",
         hp: NodeHealthFactory(typeData?.health),
         _numSlots: typeData?.slots,

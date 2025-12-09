@@ -188,7 +188,8 @@ PhaseManager.prototype.attackPhase = function (
         attackerTypeData[_attackType] = {
             manager: attackTypes[_attackType].mesh(cubeCount),
             damage: attackTypes[_attackType].damage,
-            logic: attackTypes[_attackType].logic
+            logic: attackTypes[_attackType].logic,
+            cooldown: attackTypes[_attackType].cooldown
         };
     }
     // init attack managers
