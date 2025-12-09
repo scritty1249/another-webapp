@@ -320,7 +320,6 @@ AttackManager.prototype.pause = function (instanceid) {
 
 AttackManager.prototype.restartPlayback = function (instanceid) {
     this.setFrame(instanceid, 0);
-    const options = this.getOptions(instanceid);
     this.show(instanceid);
     this.play(instanceid);
 };

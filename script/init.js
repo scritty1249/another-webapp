@@ -451,11 +451,13 @@ const AttackTypeData = {
     particle: {
         mesh: MESH.AttackManagerFactory.Particle,
         damage: 5,
+        cooldown: 650, // ms
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
     },
     cubedefense: {
         mesh: MESH.AttackManagerFactory.CubeDefense,
-        damage: 10,
+        damage: 12,
+        cooldown: 1500, // ms
         logic: ATTACK.AttackLogic.BasicLogicFactory,
     },
 };
