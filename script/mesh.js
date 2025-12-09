@@ -8,7 +8,6 @@ import {
     MeshPhysicalMaterial,
     CylinderGeometry,
     PlaneGeometry,
-    PlaneGeometry,
     FrontSide,
     Object3D,
     SphereGeometry,
