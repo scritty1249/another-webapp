@@ -460,6 +460,12 @@ const AttackTypeData = {
         cooldown: 1500, // ms
         logic: ATTACK.AttackLogic.BasicLogicFactory,
     },
+    pascualcannon: {
+        mesh: MESH.AttackManagerFactory.PascualCannon,
+        damage: 10,
+        cooldown: 1000, // ms
+        logic: ATTACK.AttackLogic.BasicLogicFactory
+    },
 };
 
 const NodeTypeData = {
