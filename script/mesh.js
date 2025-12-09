@@ -567,7 +567,8 @@ function Beam (
         maskpath: undefined,
         fps: undefined,
         frames: undefined
-    }
+    },
+    playbackSpeed = 1
 ) {
     const aniMeta = { // animation metadata
         fps: animation.fps,
@@ -599,6 +600,7 @@ function Beam (
     
     { // adding Beam specific methods
         Object.keys(controller.instanceAttributes.userData).forEach(id => {
+            controller.getOptions(id).speed = playbackSpeed;
             controller.setUserData(id, {
                 position: {
                     start: new Vector3(),
@@ -685,7 +687,8 @@ const AttackManagerFactory = {
                 maskpath: "./source/attacks/particle/attack-mask.png",
                 fps: 30,
                 frames: 121
-            }
+            },
+            2
         );
 
         return ParticleController;
