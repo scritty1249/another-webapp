@@ -868,8 +868,6 @@ function Beam (
             return result;
         };
 
-        };
-
         controller.clear = function () {
             controller.instances.parent.remove(controller.instances);
             return AttackManager.prototype.clear.call(controller);
