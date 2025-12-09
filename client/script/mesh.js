@@ -1,6 +1,5 @@
 import {
     Vector3,
-    Quaternion,
     AnimationMixer,
     Group,
     Mesh,
@@ -8,21 +7,14 @@ import {
     MeshBasicMaterial,
     MeshPhysicalMaterial,
     CylinderGeometry,
-    VideoTexture,
-    RGBAFormat,
-    RepeatWrapping,
-    DoubleSide,
+    PlaneGeometry,
     FrontSide,
-    BackSide,
     Object3D,
-    Color,
     SphereGeometry,
 } from "three";
-import * as THREE from 'three';
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import * as SceneUtils from 'three/addons/utils/SceneUtils.js';
 import * as UTIL from "./utils.js";
 import * as THREEUTIL from "./three-utils.js";
 import { AttackManager } from "./attacker.js";
@@ -556,6 +548,118 @@ const Nodes = {
     },
 };
 
+function Projectile ( // not using a sprites. PlaneGeometry updated to always face camera
+    type,
+    camera,
+    size,
+    instanceCount,
+    animation = {
+        mappath: undefined,
+        maskpath: undefined,
+        fps: undefined,
+        frames: undefined
+    },
+    playbackSpeed = 1
+) {
+    const aniMeta = { // animation metadata
+        fps: animation.fps,
+        frames: animation.frames
+    };
+    const texOptions = {
+        repeat: {
+            x: 1,
+            y: 1
+        },
+    };
+    const geometry = new PlaneGeometry(size, size);
+
+    const controller = new AttackManager(
+        type,
+        animation.mappath,
+        animation.maskpath,
+        geometry,
+        instanceCount,
+        aniMeta,
+        texOptions
+    );
+
+    { // adding Projectile specific methods
+        Object.keys(controller.instanceAttributes.userData).forEach(id => {
+            controller.getOptions(id).speed = playbackSpeed;
+            controller.setUserData(id, {
+                position: {
+                    start: new Vector3(),
+                    end: new Vector3(),
+                    get direction() {
+                        return this.current.sub(camera.position).normalize();
+                    },
+                    get current() {
+                        return this.end
+                            .clone()
+                            .sub(this.start)
+                            .multiplyScalar(
+                                controller.getElapsed(id)
+                            )
+                            .add(this.start);
+                    },
+                },
+                setVectors: function (originVector, targetVector) {
+                    this.position.start.copy(originVector);
+                    this.position.end.copy(targetVector);
+                    this.update();
+                },
+                setOrigin: function (originVector) {
+                    this.setVectors(originVector, this.position.end);
+                },
+                setTarget: function (targetVector) {
+                    this.setVectors(this.position.start, targetVector);
+                },
+                update: function () {
+                    const [pos, rot, sca] = controller.getMatrixComposition(id);
+                    controller.setMatrixComposition(id,
+                        this.position.current,
+                        THREEUTIL.directionQuaternion(controller.instances.up, this.position.direction),
+                        sca
+                    );
+                },
+                reset: function () {
+                    this.setVectors(THREEUTIL.zeroVector, THREEUTIL.zeroVector);
+                },
+            });
+        });
+        controller.update = function (delta) {
+            const result = AttackManager.prototype.update.call(controller, delta);
+            const instances = controller.getInstances();
+            instances.forEach(id => {
+                const userData = controller.getUserData(id);
+                userData?.update();
+            });
+            return result;
+        };
+
+        controller.clear = function () {
+            controller.instances.parent.remove(controller.instances);
+            return AttackManager.prototype.clear.call(controller);
+        };
+
+        ontroller.userData.createAttack = function () { // returns a "fresh" instance, if available
+            const instanceid = controller.allocateInstance();
+            if (!instanceid)
+                Logger.throw(new Error(`[ProjectileAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`));
+            controller.play(instanceid);
+            controller.show(instanceid);
+            return instanceid;
+        };
+
+        controller.userData.removeAttack = function (instanceid) {
+            controller.resetInstance(instanceid);
+            controller.hide(instanceid);
+        };
+    }
+
+    return controller;
+}
+
 function Beam (
     type,
     thickness = 0.5,
@@ -579,7 +683,6 @@ function Beam (
             x: repeatSides,
             y: 1
         },
-        alphaCutoff: 0.3
     };
     const geometry = new CylinderGeometry(
         thickness, thickness, thickness,
@@ -650,7 +753,8 @@ function Beam (
                 userData?.update();
             });
             return result;
-        }
+        };
+
         controller.clear = function () {
             controller.instances.parent.remove(controller.instances);
             return AttackManager.prototype.clear.call(controller);
@@ -710,7 +814,23 @@ const AttackManagerFactory = {
 
         return CubeDefenseController;
     },
+    PascualCannon: function (camera, count) {
+        const PCannonController = Projectile(
+            "pascualcannon",
+            camera,
+            0.6,
+            count,
+            { // animation data
+                mappath: "./source/attacks/particle/attack.png", // [!] placeholder
+                maskpath: "./source/attacks/particle/attack-mask.png", // [!] placeholder
+                fps: 30,
+                frames: 121
+            },
+            0.8
+        );
 
+        return PCannonController;
+    },
 };
 
 export { Tether, Nodes, Node, AttackManagerFactory, SelectionGlobe, WorldMarker };
