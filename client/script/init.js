@@ -481,9 +481,10 @@ const AttackTypeData = {
             const _purp = 0xCC8899;
             const attack = nodeManager.getAttack(attackid);
             const targetData = nodeManager.getNodeData(attack.target);
+            const targetid = attack.target;
             nodeManager.setNodeColorTint(attack.target, _purp, 0.8);
             targetData.state.disabled.set(true, 1800, () => {
-                nodeManager.resetNodeColorTint(attack.target);
+                nodeManager.resetNodeColorTint(targetid);
             }, true);
         },
         canAdd: (nodeData) => {
