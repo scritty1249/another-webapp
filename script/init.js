@@ -230,6 +230,10 @@ function mainloop(MenuController) {
                                 detail.statusElement.text = "Contacting Server";
                                 Session.getsave()
                                     .then(res => {
+                                        if (!res) { // Session token expired
+                                            CookieJar.remove("session");
+                                            window.location.reload();
+                                        }
                                         Storage.set("localLayout", res);
                                         Storage.set("lastSavedLayout", res, true);
                                         MenuController._dispatch("swapphase", { phase: "build" });
