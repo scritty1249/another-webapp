@@ -444,6 +444,10 @@ const AttackerData = {
             type: "particle",
             amount: 99,
         },
+        {
+            type: "pascualcannon",
+            amount: 99,
+        },
     ],
 };
 
@@ -453,18 +457,38 @@ const AttackTypeData = {
         damage: 5,
         cooldown: 650, // ms
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
+        effect: (nodeManager, attackid) => {},
+        canAdd: (nodeData) => {
+            return nodeData.isFriendly;
+        }
     },
     cubedefense: {
         mesh: MESH.AttackManagerFactory.CubeDefense,
         damage: 12,
         cooldown: 1500, // ms
         logic: ATTACK.AttackLogic.BasicLogicFactory,
+        effect: (nodeManager, attackid) => {},
+        canAdd: (nodeData) => {
+            return !nodeData.isFriendly;
+        }
     },
     pascualcannon: {
-        mesh: MESH.AttackManagerFactory.PascualCannon,
+        mesh: (a) => MESH.AttackManagerFactory.PascualCannon(camera, a),
         damage: 10,
         cooldown: 1000, // ms
-        logic: ATTACK.AttackLogic.BasicLogicFactory
+        logic: ATTACK.AttackLogic.BasicLogicFactory,
+        effect: (nodeManager, attackid) => {
+            const _purp = 0xCC8899;
+            const attack = nodeManager.getAttack(attackid);
+            const targetData = nodeManager.getNodeData(attack.target);
+            nodeManager.setNodeColorTint(attack.target, _purp, 0.8);
+            targetData.state.disabled.set(true, 1800, () => {
+                nodeManager.resetNodeColorTint(attack.target);
+            }, true);
+        },
+        canAdd: (nodeData) => {
+            return nodeData.isFriendly && nodeData.attackers.length == 0;
+        }
     },
 };
 

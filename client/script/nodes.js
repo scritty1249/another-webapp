@@ -162,6 +162,46 @@ NodeManager.prototype = {
         ];
     },
 };
+NodeManager.prototype.setNodeEmissive = function (nodeid, emissive) {
+    const node = this.getNode(nodeid);
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.emissive) {
+            if (!mesh.userData.oldEmissive)
+                mesh.userData.oldEmissive = mesh.material.emissive.clone();
+            mesh.material.emissive.set(emissive);
+        }
+    });
+};
+NodeManager.prototype.resetNodeEmissive = function (nodeid) {
+    const node = this.getNode(nodeid);
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.emissive && mesh.userData.oldEmissive) {
+            mesh.material.emissive.set(mesh.userData.oldEmissive);
+        }
+    });
+};
+NodeManager.prototype.setNodeColorTint = function (nodeid, color, strength = 0.65) {
+    const node = this.getNode(nodeid);
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.color) {
+            if (!mesh.userData.oldColor)
+                mesh.userData.oldColor = mesh.material.color.clone();
+            mesh.material.color.lerpColors(
+                mesh.userData.oldColor,
+                new Color(color),
+                strength
+            );
+        }
+    });
+};
+NodeManager.prototype.resetNodeColorTint = function (nodeid) {
+    const node = this.getNode(nodeid);
+    node.userData.traverseMesh(function (mesh) {
+        if (mesh.material.color && mesh.userData.oldColor) {
+            mesh.material.color.set(mesh.userData.oldColor);
+        }
+    });
+};
 NodeManager.prototype.centerNodes = function () {
     // get mean node location
     const mean = new Vector3();
@@ -577,12 +617,9 @@ AttackNodeManager.prototype.getAttack = function (attackid) {
         );
     return attack;
 };
-AttackNodeManager.prototype.createAttack = function (originid, attackType) {
-    const attack = AttackFactory(attackType, originid, this);
+AttackNodeManager.prototype.createAttack = function (originid, typeData) {
+    const attack = AttackFactory(typeData, originid, this);
     this.attacks[attack.uuid] = attack;
-    Logger.debug(
-        `[AttackNodeManager] | Created new Attack (${attackType}): ${attack.uuid}`
-    );
     return attack.uuid;
 };
 AttackNodeManager.prototype.getNodeData = function (nodeid) {
@@ -601,7 +638,7 @@ AttackNodeManager.prototype.getNodeData = function (nodeid) {
     return nodeData;
 };
 AttackNodeManager.prototype._getNodeTypeData = function (nodeType) {
-    if (!Object.keys(this._nodeTypeData).includes(nodeType))
+    if (!this._nodeTypeData.hasOwnProperty(nodeType))
         Logger.throw(
             new Error(
                 `[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`
@@ -610,7 +647,7 @@ AttackNodeManager.prototype._getNodeTypeData = function (nodeType) {
     return this._nodeTypeData[nodeType];
 };
 AttackNodeManager.prototype._getAttackTypeData = function (attackType) {
-    if (!Object.keys(this._attackTypeData).includes(attackType))
+    if (!this._attackTypeData.hasOwnProperty(attackType))
         Logger.throw(
             new Error(
                 `[AttackNodeManager] | Could not retrieve attack data for type "${attackType}"`
@@ -661,15 +698,22 @@ AttackNodeManager.prototype.getAllAttacksTo = function (nodeid) {
 };
 AttackNodeManager.prototype.addAttackToNode = function (attackType, nodeid) {
     const nodeData = this.getNodeData(nodeid);
+    const typeData = this._getAttackTypeData(attackType);
     if (nodeData.slots.empty >= 1) {
-        nodeData.slots.push({
-            uuid: this.createAttack(nodeid, attackType),
-            type: attackType,
-        });
+        if (typeData.canAdd(nodeData)) {
+            nodeData.slots.push({
+                uuid: this.createAttack(nodeid, typeData),
+                type: attackType,
+            });
+            Logger.debug(
+                `[AttackNodeManager] | Added new Attack (${nodeData.slots.at(-1).uuid}) to Node (${nodeid})`
+            );
+            return true;
+        } else
+            Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) state does not meet attacker prerequisites.`)
     } else
-        Logger.warn(
-            `[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.slots.length} slots.`
-        );
+        Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.slots.length} slots.`);
+    return false;
 };
 AttackNodeManager.prototype._updateAnimations = function (timedelta) {
     this.nodelist.forEach((node) => {
@@ -720,37 +764,12 @@ BuildNodeManager.prototype.untetherNode = function (nodeid) {
 BuildNodeManager.prototype.removeNode = function (nodeid) {
     delete this.nodes[nodeid];
 };
-BuildNodeManager.prototype._setNodeEmissive = function (node, emissive) {
-    node.userData.traverseMesh(function (mesh) {
-        if (mesh.material.emissive) mesh.material.emissive.set(emissive);
-    });
-};
-BuildNodeManager.prototype.highlightNode = function (nodeid) {
-    const node = this.getNode(nodeid);
-    node.userData.traverseMesh(function (mesh) {
-        if (
-            mesh.material.emissive &&
-            !mesh.material.emissive.equals(emissiveValue)
-        ) {
-            mesh.userData.oldEmissive = mesh.material.emissive.clone();
-            mesh.material.emissive.set(emissiveValue);
-        }
-    });
-};
-BuildNodeManager.prototype.unhighlightNode = function (nodeid) {
-    const node = this.getNode(nodeid);
-    node.userData.traverseMesh(function (mesh) {
-        if (mesh.material.emissive && mesh.userData.oldEmissive)
-            mesh.material.emissive.set(mesh.userData.oldEmissive);
-    });
-};
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);
     this._updateTethers();
 };
 
-function AttackFactory(attackType, originid, nodeManager) {
-    const typeData = nodeManager._getAttackTypeData(attackType);
+function AttackFactory(typeData, originid, nodeManager) {
     const nodeData = nodeManager.getNodeData(originid);
     const attackManager = typeData.manager;
     const attackid = attackManager.userData.createAttack();
@@ -764,14 +783,15 @@ function AttackFactory(attackType, originid, nodeManager) {
             userData: attackUserData,
         },
         _target: undefined,
+        type: attackManager.attackType,
         origin: originid,
         friendly: nodeData.isFriendly,
-        type: attackType,
         uuid: attackid,
         damage: typeData.damage,
         cooldown: typeData.cooldown, // ms
         logic: typeData.logic(),
         active: false,
+        waitCooldown: false,
         get visible() {
             return attackOptionData.visible;
         },
@@ -788,27 +808,23 @@ function AttackFactory(attackType, originid, nodeManager) {
             this._target = nodeid;
             if (nodeid) {
                 this.active = true;
-                nodeData.lastAttackedMs = Date.now();
                 this.data.userData.setTarget(nodeManager.getNode(nodeid)?.position);
                 this.data.options.callback = function (_) {
                     if (attack.active) {
                         try {
-                            nodeManager
-                                .getNodeData(attack.target)
-                                .damage(attack.damage);
+                            const targetData = nodeManager.getNodeData(attack.target);
+                            targetData.damage(attack.damage);
+                            typeData.effect(nodeManager, attackid);
                             attack.update();
                             if (attack.active) {
-                                const siblings = nodeManager.getNodeData(attack.origin).slots.filter(a => a.type == attack.type);
-                                const offset = siblings.map(a => a.uuid).indexOf(attack.uuid) * attack.cooldown;
-                                const waitTime = Math.max(0, offset - (Date.now() - nodeData.lastAttackedMs));
+                                attack.visible = false;
+                                const wait = attack.waitCooldown ? attack.cooldown : 0;
                                 setTimeout(
                                     () => {
-                                        nodeData.lastAttackedMs = Date.now();
-                                        attackManager.restartPlayback(attackid);
-                                    }, waitTime
+                                        if (attack.active)
+                                            attackManager.restartPlayback(attackid);
+                                    }, wait
                                 );
-                            } else {
-                                attack.visible = false;
                             }
                         } catch (err) {
                             Logger.warn(err.message);
@@ -816,9 +832,11 @@ function AttackFactory(attackType, originid, nodeManager) {
                     }
                 };
                 attackManager.restartPlayback(attackid);
+                attack.waitCooldown = true;
             } else {
                 this.active = false;
                 this.visible = false;
+                this.waitCooldown = false;
             }
         },
         update: function () {
@@ -834,7 +852,7 @@ function AttackFactory(attackType, originid, nodeManager) {
         },
         halt: function () {
             this.active = false;
-            attackManager.releaseInstance(attackid);
+            attackManager.userData.removeAttack(attackid);
         },
     });
     return attack;
@@ -844,6 +862,9 @@ function NodeDataFactory(nodeid, manager) {
     const node = manager.getNode(nodeid);
     const typeData = manager._getNodeTypeData(node.userData.type);
     const obj = Object.create({
+        state: {
+            disabled: StatusEffectFactory()
+        },
         get neighbors() {
             // gets nodedata only
             try {
@@ -868,9 +889,11 @@ function NodeDataFactory(nodeid, manager) {
             );
         },
         get attackableNeighbors() {
-            return this.neighbors.filter(
-                (nd) => nd.isFriendly != this.isFriendly && !nd.isDead
-            );
+            return this.state.disabled.active
+                ? []
+                : this.neighbors.filter(
+                    (nd) => nd.isFriendly != this.isFriendly && !nd.isDead
+                );
         },
         canAttack: function (targetid) {
             return (
@@ -894,7 +917,6 @@ function NodeDataFactory(nodeid, manager) {
         },
 
         uuid: nodeid,
-        lastAttackedMs: 0, 
         friendly: node.userData.type == "globe",
         hp: NodeHealthFactory(typeData?.health),
         _numSlots: typeData?.slots,
@@ -1023,4 +1045,44 @@ function NodeHealthFactory(maxHealth) {
             this.shield += shield;
         },
     });
+}
+
+function StatusEffectFactory () {
+    const obj = Object.create({
+        _timer: undefined,
+        active: false,
+        _callback: {
+            func: undefined,
+            callOnReset: false,
+            run: function () {
+                this.func();
+                this.func = undefined;
+                this.callOnReset = false;
+            }
+        },
+        _overrided: function () { // call when state was set already, and is going to be set again
+            clearTimeout(this._timer);
+            if (this._callback.func !== undefined && this._callback.callOnReset)
+                this._callback.run();
+        },
+        set: function (state, durationMs, callback = undefined, callbackWhenReset = false) {
+            if (this._timer !== undefined)
+                this._overrided();
+            if (callback !== undefined) {
+                this._callback.func = callback;
+                this._callback.callOnReset = callbackWhenReset;
+            }
+            if (durationMs < 0)
+                this._timer = undefined;
+            else
+                this._timer = setTimeout(() => {
+                    this.active = !state;
+                    if (this._callback.func !== undefined)
+                        this._callback.run();
+                }, durationMs);
+            this.active = state;
+        }
+    });
+
+    return obj;
 }

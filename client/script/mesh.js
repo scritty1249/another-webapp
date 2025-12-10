@@ -32,22 +32,19 @@ function recurseMeshChildren(mesh, maxDepth, callback, ...args) {
         );
     }
 }
-function WorldMarker( startPos, endPos, lineOptions = {} ) {
+function WorldMarker(startPos, endPos, lineOptions = {}) {
     const material = new LineMaterial({
         ...{
             color: 0xffffff,
             linewidth: 0.7,
             alphaToCoverage: true,
-        }, ...lineOptions
+        },
+        ...lineOptions,
     });
     const newStart = new Vector3();
     const newEnd = endPos.clone().sub(startPos);
-    const geometry = new LineGeometry()
-        .setFromPoints([
-            newStart,
-            newEnd
-        ]);
-    
+    const geometry = new LineGeometry().setFromPoints([newStart, newEnd]);
+
     const headmat = new MeshBasicMaterial({
         color: material.color,
     });
@@ -60,11 +57,11 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
 
     marker.userData = {
         head: head,
-        get origin () {
+        get origin() {
             const origin = new Vector3(
                 marker.geometry.attributes.position.array[0],
                 marker.geometry.attributes.position.array[1],
-                marker.geometry.attributes.position.array[2],
+                marker.geometry.attributes.position.array[2]
             );
             origin.set = function (x, y, z) {
                 marker.geometry.attributes.position.array[0] = x;
@@ -74,7 +71,7 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
                 origin.y = y;
                 origin.z = z;
                 marker.geometry.attributes.position.needsUpdate = true;
-            }
+            };
             origin.add = function (vec) {
                 origin.set(
                     origin.x + vec.x,
@@ -82,7 +79,7 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
                     origin.z + vec.z
                 );
                 return origin;
-            }
+            };
             origin.sub = function (vec) {
                 origin.set(
                     origin.x - vec.x,
@@ -90,20 +87,20 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
                     origin.z - vec.z
                 );
                 return origin;
-            }
+            };
             origin.copy = function (vec) {
                 origin.set(vec.x, vec.y, vec.z);
-            }
+            };
             origin.clone = function () {
                 return new Vector3(origin.x, origin.y, origin.z);
-            }
+            };
             return origin;
         },
-        get target () {
+        get target() {
             const target = new Vector3(
                 marker.geometry.attributes.position.array[3],
                 marker.geometry.attributes.position.array[4],
-                marker.geometry.attributes.position.array[5],
+                marker.geometry.attributes.position.array[5]
             );
             target.set = function (x, y, z) {
                 marker.geometry.attributes.position.array[3] = x;
@@ -113,7 +110,7 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
                 target.y = y;
                 target.z = z;
                 marker.geometry.attributes.position.needsUpdate = true;
-            }
+            };
             target.add = function (vec) {
                 target.set(
                     target.x + vec.x,
@@ -121,7 +118,7 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
                     target.z + vec.z
                 );
                 return target;
-            }
+            };
             target.sub = function (vec) {
                 target.set(
                     target.x - vec.x,
@@ -129,27 +126,30 @@ function WorldMarker( startPos, endPos, lineOptions = {} ) {
                     target.z - vec.z
                 );
                 return target;
-            }
+            };
             target.copy = function (vec) {
                 target.set(vec.x, vec.y, vec.z);
-            }
+            };
             target.clone = function () {
                 return new Vector3(target.x, target.y, target.z);
-            }
+            };
             return target;
         },
-        get direction () {
-            return THREEUTIL.directionVector(marker.userData.origin, marker.userData.target);
-        },
-        set length (value) {
-            const origin = marker.userData.origin;
-            marker.userData.target.copy(
-                origin.clone().add(
-                    marker.userData.direction.multiplyScalar(value)
-                )
+        get direction() {
+            return THREEUTIL.directionVector(
+                marker.userData.origin,
+                marker.userData.target
             );
         },
-        get length () {
+        set length(value) {
+            const origin = marker.userData.origin;
+            marker.userData.target.copy(
+                origin
+                    .clone()
+                    .add(marker.userData.direction.multiplyScalar(value))
+            );
+        },
+        get length() {
             return marker.userData.origin.distanceTo(marker.userData.target);
         },
     };
@@ -223,9 +223,9 @@ function SelectionGlobe(sceneData, scale) {
     });
     const CORE_SCALE = 0.95; // from model file
     wrapper.add(sceneData.mesh.children[0].clone()); // core
-    wrapper.add(countriesWrapper); 
+    wrapper.add(countriesWrapper);
     sceneData.mesh.children[1].children // countries wrapper
-        .forEach(child => {
+        .forEach((child) => {
             const kid = new Mesh(child.geometry.clone(), matt);
             kid.position.copy(child.position);
             kid.rotation.copy(child.rotation);
@@ -235,19 +235,24 @@ function SelectionGlobe(sceneData, scale) {
         });
 
     wrapper.scale.setScalar(scale);
-    wrapper.userData = {...wrapper.userData,
+    wrapper.userData = {
+        ...wrapper.userData,
         rotation: wrapper.children[1].rotation.clone(),
         core: wrapper.children[0],
-        get radius () {
+        get radius() {
             return wrapper.scale.x * CORE_SCALE; // should all be the same anyways
         },
-        get children () {
+        get children() {
             return wrapper.children[1].children;
         },
         _reset: function (callback = (objs) => {}) {
-            const s = wrapper.userData.children.map(child => child.scale.clone());
-            const p = wrapper.userData.children.map(child => child.position.clone());
-            wrapper.userData.children.forEach(child => {
+            const s = wrapper.userData.children.map((child) =>
+                child.scale.clone()
+            );
+            const p = wrapper.userData.children.map((child) =>
+                child.position.clone()
+            );
+            wrapper.userData.children.forEach((child) => {
                 if (child.userData.position?.origin)
                     child.position.copy(child.userData.position.origin);
                 if (child.userData.scale?.origin)
@@ -272,8 +277,9 @@ function SelectionGlobe(sceneData, scale) {
         thickness: 0.1,
     });
     wrapper.userData.core.material.needsUpdate = true;
-    wrapper.userData.children.forEach(child => {
-        child.userData = {...child.userData,
+    wrapper.userData.children.forEach((child) => {
+        child.userData = {
+            ...child.userData,
             position: {
                 origin: child.position.clone(),
                 target: child.position.clone(),
@@ -285,7 +291,11 @@ function SelectionGlobe(sceneData, scale) {
                     if (child.position.distanceTo(this.target) <= 0.01)
                         child.position.copy(this.target); // snap to distnace
                     else
-                        child.position.lerpVectors(child.position, this.target, this.lerpSpeed);
+                        child.position.lerpVectors(
+                            child.position,
+                            this.target,
+                            this.lerpSpeed
+                        );
                 },
             },
             scale: {
@@ -299,24 +309,27 @@ function SelectionGlobe(sceneData, scale) {
                     if (child.scale.distanceTo(this.target) <= 0.01)
                         child.scale.copy(this.target); // snap to distnace
                     else
-                        child.scale.lerpVectors(child.scale, this.target, this.lerpSpeed);
-                }, 
+                        child.scale.lerpVectors(
+                            child.scale,
+                            this.target,
+                            this.lerpSpeed
+                        );
+                },
             },
             update: function () {
-                if (this.scale.needsUpdate)
-                    this.scale.update();
-                if (this.position.needsUpdate)
-                    this.position.update();
+                if (this.scale.needsUpdate) this.scale.update();
+                if (this.position.needsUpdate) this.position.update();
             },
             scaleTo: function (targetScale, lerpSpeed = undefined) {
-                this.scale.target.copy(this.scale.origin.clone().multiplyScalar(targetScale));
-                if (lerpSpeed)
-                    this.scale.lerpSpeed = lerpSpeed;
+                this.scale.target.copy(
+                    this.scale.origin.clone().multiplyScalar(targetScale)
+                );
+                if (lerpSpeed) this.scale.lerpSpeed = lerpSpeed;
             },
-            moveTo: function (targetPos, lerpSpeed = undefined) { // expects Vector3
+            moveTo: function (targetPos, lerpSpeed = undefined) {
+                // expects Vector3
                 this.position.target.copy(targetPos);
-                if (lerpSpeed)
-                    this.position.lerpSpeed = lerpSpeed;
+                if (lerpSpeed) this.position.lerpSpeed = lerpSpeed;
             },
             revert: function (lerpSpeed = undefined) {
                 this.scaleTo(1, lerpSpeed);
@@ -325,7 +338,7 @@ function SelectionGlobe(sceneData, scale) {
             _reset: function (callback = (obj) => {}) {
                 const [scale, pos] = [
                     child.scale.clone(),
-                    child.position.clone()
+                    child.position.clone(),
                 ];
                 child.position.copy(child.userData.position.origin);
                 child.scale.copy(child.userData.scale.origin);
@@ -548,7 +561,7 @@ const Nodes = {
     },
 };
 
-function Projectile ( // not using a sprites. PlaneGeometry updated to always face camera
+function Projectile( // not using a sprites. PlaneGeometry updated to always face camera
     type,
     camera,
     size,
@@ -557,18 +570,19 @@ function Projectile ( // not using a sprites. PlaneGeometry updated to always fa
         mappath: undefined,
         maskpath: undefined,
         fps: undefined,
-        frames: undefined
+        frames: undefined,
     },
     playbackSpeed = 1
 ) {
-    const aniMeta = { // animation metadata
+    const aniMeta = {
+        // animation metadata
         fps: animation.fps,
-        frames: animation.frames
+        frames: animation.frames,
     };
     const texOptions = {
         repeat: {
             x: 1,
-            y: 1
+            y: 1,
         },
     };
     const geometry = new PlaneGeometry(size, size);
@@ -583,23 +597,22 @@ function Projectile ( // not using a sprites. PlaneGeometry updated to always fa
         texOptions
     );
 
-    { // adding Projectile specific methods
-        Object.keys(controller.instanceAttributes.userData).forEach(id => {
+    {
+        // adding Projectile specific methods
+        Object.keys(controller.instanceAttributes.userData).forEach((id) => {
             controller.getOptions(id).speed = playbackSpeed;
             controller.setUserData(id, {
                 position: {
                     start: new Vector3(),
                     end: new Vector3(),
                     get direction() {
-                        return this.current.sub(camera.position).normalize();
+                        return camera.quaternion;
                     },
                     get current() {
                         return this.end
                             .clone()
                             .sub(this.start)
-                            .multiplyScalar(
-                                controller.getElapsed(id)
-                            )
+                            .multiplyScalar(controller.getElapsed(id))
                             .add(this.start);
                     },
                 },
@@ -616,9 +629,10 @@ function Projectile ( // not using a sprites. PlaneGeometry updated to always fa
                 },
                 update: function () {
                     const [pos, rot, sca] = controller.getMatrixComposition(id);
-                    controller.setMatrixComposition(id,
+                    controller.setMatrixComposition(
+                        id,
                         this.position.current,
-                        THREEUTIL.directionQuaternion(controller.instances.up, this.position.direction),
+                        this.position.direction,
                         sca
                     );
                 },
@@ -628,9 +642,12 @@ function Projectile ( // not using a sprites. PlaneGeometry updated to always fa
             });
         });
         controller.update = function (delta) {
-            const result = AttackManager.prototype.update.call(controller, delta);
+            const result = AttackManager.prototype.update.call(
+                controller,
+                delta
+            );
             const instances = controller.getInstances();
-            instances.forEach(id => {
+            instances.forEach((id) => {
                 const userData = controller.getUserData(id);
                 userData?.update();
             });
@@ -642,25 +659,29 @@ function Projectile ( // not using a sprites. PlaneGeometry updated to always fa
             return AttackManager.prototype.clear.call(controller);
         };
 
-        ontroller.userData.createAttack = function () { // returns a "fresh" instance, if available
+        controller.userData.createAttack = function () {
+            // returns a "fresh" instance, if available
             const instanceid = controller.allocateInstance();
             if (!instanceid)
-                Logger.throw(new Error(`[ProjectileAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`));
+                Logger.throw(
+                    new Error(
+                        `[ProjectileAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`
+                    )
+                );
             controller.play(instanceid);
             controller.show(instanceid);
             return instanceid;
         };
 
         controller.userData.removeAttack = function (instanceid) {
-            controller.resetInstance(instanceid);
-            controller.hide(instanceid);
+            controller.releaseInstance(instanceid);
         };
     }
 
     return controller;
 }
 
-function Beam (
+function Beam(
     type,
     thickness = 0.5,
     faces = 16,
@@ -670,22 +691,25 @@ function Beam (
         mappath: undefined,
         maskpath: undefined,
         fps: undefined,
-        frames: undefined
+        frames: undefined,
     },
     playbackSpeed = 1
 ) {
-    const aniMeta = { // animation metadata
+    const aniMeta = {
+        // animation metadata
         fps: animation.fps,
-        frames: animation.frames
+        frames: animation.frames,
     };
     const texOptions = {
         repeat: {
             x: repeatSides,
-            y: 1
+            y: 1,
         },
     };
     const geometry = new CylinderGeometry(
-        thickness, thickness, thickness,
+        thickness,
+        thickness,
+        thickness,
         faces,
         1,
         true // open-ended
@@ -700,24 +724,26 @@ function Beam (
         aniMeta,
         texOptions
     );
-    
-    { // adding Beam specific methods
-        Object.keys(controller.instanceAttributes.userData).forEach(id => {
+
+    {
+        // adding Beam specific methods
+        Object.keys(controller.instanceAttributes.userData).forEach((id) => {
             controller.getOptions(id).speed = playbackSpeed;
             controller.setUserData(id, {
                 position: {
                     start: new Vector3(),
                     end: new Vector3(),
                     get direction() {
-                        return this.start.clone().sub(this.end).normalize();
+                        return THREEUTIL.directionQuaternion(
+                            controller.instances.up,
+                            this.start.clone().sub(this.end).normalize()
+                        );
                     },
                     get current() {
                         return this.end
                             .clone()
                             .sub(this.start)
-                            .multiplyScalar(
-                                controller.getElapsed(id)
-                            )
+                            .multiplyScalar(controller.getElapsed(id))
                             .add(this.start);
                     },
                 },
@@ -734,9 +760,10 @@ function Beam (
                 },
                 update: function () {
                     const [pos, rot, sca] = controller.getMatrixComposition(id);
-                    controller.setMatrixComposition(id,
+                    controller.setMatrixComposition(
+                        id,
                         this.position.current,
-                        THREEUTIL.directionQuaternion(controller.instances.up, this.position.direction),
+                        this.position.direction,
                         sca
                     );
                 },
@@ -746,9 +773,12 @@ function Beam (
             });
         });
         controller.update = function (delta) {
-            const result = AttackManager.prototype.update.call(controller, delta);
+            const result = AttackManager.prototype.update.call(
+                controller,
+                delta
+            );
             const instances = controller.getInstances();
-            instances.forEach(id => {
+            instances.forEach((id) => {
                 const userData = controller.getUserData(id);
                 userData?.update();
             });
@@ -760,21 +790,25 @@ function Beam (
             return AttackManager.prototype.clear.call(controller);
         };
 
-        controller.userData.createAttack = function () { // returns a "fresh" instance, if available
+        controller.userData.createAttack = function () {
+            // returns a "fresh" instance, if available
             const instanceid = controller.allocateInstance();
             if (!instanceid)
-                Logger.throw(new Error(`[BeamAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`));
+                Logger.throw(
+                    new Error(
+                        `[BeamAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`
+                    )
+                );
             controller.play(instanceid);
             controller.show(instanceid);
             return instanceid;
         };
 
         controller.userData.removeAttack = function (instanceid) {
-            controller.resetInstance(instanceid);
-            controller.hide(instanceid);
+            controller.releaseInstance(instanceid);
         };
     }
-    
+
     return controller;
 }
 
@@ -786,11 +820,12 @@ const AttackManagerFactory = {
             16,
             3,
             count,
-            { // animation data
+            {
+                // animation data
                 mappath: "./source/attacks/particle/attack.png",
                 maskpath: "./source/attacks/particle/attack-mask.png",
                 fps: 30,
-                frames: 121
+                frames: 121,
             },
             2
         );
@@ -798,19 +833,13 @@ const AttackManagerFactory = {
         return ParticleController;
     },
     CubeDefense: function (count) {
-        const CubeDefenseController = Beam(
-            "cubedefense",
-            0.65,
-            16,
-            1,
-            count,
-            { // animation data
-                mappath: "./source/attacks/particle/attack.png",
-                maskpath: "./source/attacks/particle/attack-mask.png",
-                fps: 30,
-                frames: 121
-            }
-        );
+        const CubeDefenseController = Beam("cubedefense", 0.65, 16, 1, count, {
+            // animation data
+            mappath: "./source/attacks/particle/attack.png",
+            maskpath: "./source/attacks/particle/attack-mask.png",
+            fps: 30,
+            frames: 121,
+        });
 
         return CubeDefenseController;
     },
@@ -820,17 +849,25 @@ const AttackManagerFactory = {
             camera,
             0.6,
             count,
-            { // animation data
-                mappath: "./source/attacks/particle/attack.png", // [!] placeholder
-                maskpath: "./source/attacks/particle/attack-mask.png", // [!] placeholder
+            {
+                // animation data
+                mappath: "./source/attacks/pascualcannon/attack.png",
+                maskpath: "./source/attacks/pascualcannon/attack-mask.png",
                 fps: 30,
-                frames: 121
+                frames: 61,
             },
-            0.8
+            1
         );
 
         return PCannonController;
     },
 };
 
-export { Tether, Nodes, Node, AttackManagerFactory, SelectionGlobe, WorldMarker };
+export {
+    Tether,
+    Nodes,
+    Node,
+    AttackManagerFactory,
+    SelectionGlobe,
+    WorldMarker,
+};
