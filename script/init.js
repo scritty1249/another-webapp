@@ -463,7 +463,7 @@ const AttackTypeData = {
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
-            return nodeData.isFriendly;
+            return nodeData.isFriendly && !nodeData.attackers.some((a => a.type == "pascualcannon"));
         }
     },
     laser: {
@@ -473,7 +473,7 @@ const AttackTypeData = {
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
-            return nodeData.isFriendly;
+            return nodeData.isFriendly && !nodeData.attackers.some((a => a.type == "pascualcannon"));
         }
     },
     pascualcannon: {
