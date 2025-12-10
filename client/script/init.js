@@ -232,6 +232,7 @@ function mainloop(MenuController) {
                                     .then(res => {
                                         if (!res) { // Session token expired
                                             CookieJar.remove("session");
+                                            Logger.alert("Session expired, please log in again.");
                                             window.location.reload();
                                         }
                                         Storage.set("localLayout", res);
@@ -280,6 +281,11 @@ function mainloop(MenuController) {
                                 if (!Storage.has("targets", true) || UTIL.getNowUTCSeconds() - Storage.updated("targets", true) > TARGETS_TTL) {
                                     Session.getAttackTargets()
                                         .then(targets => {
+                                            if (!targets) { // Session token expired
+                                                CookieJar.remove("session");
+                                                Logger.alert("Session expired, please log in again.");
+                                                window.location.reload();
+                                            }
                                             Storage.set("targets", targets, true);
                                             MenuController._dispatch("swapphase", { phase: "select" });
                                         });
