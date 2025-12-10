@@ -117,8 +117,19 @@ export function AttackManager(
             visible: true, // changing does not do anything, only for monitoring instance states outside of class
             playing: true, // used for pausing an animation without "removing" the instance
             allocated: false, // used to check if this instance is already being referenced
-            speed: 1,
+            _speed: 1,
             _index: i,
+            get speed () {
+                return this._speed;
+            },
+            set speed (val) {
+                // >1 speed causes animation glitching, I assume because of JS floating-point BS. (Extra delay before playing, stuttering)
+                if (val < 1) {
+                    Logger.warn(`[AttackManager] | Speeds cannot be less than one. Flooring ${val} to 1.`);
+                    this._speed = 1;
+                } else
+                    this._speed = val;
+            },
         };
         this.instanceAttributes.userData[uuid] = {};
     }

@@ -178,7 +178,10 @@ PhaseManager.prototype.attackPhase = function (
         attackerTypeData[attack.type] = {
             manager: attackTypes[attack.type].mesh(attack.amount),
             damage: attackTypes[attack.type].damage,
-            logic: attackTypes[attack.type].logic
+            logic: attackTypes[attack.type].logic,
+            cooldown: attackTypes[attack.type].cooldown,
+            canAdd: attackTypes[attack.type].canAdd,
+            effect: attackTypes[attack.type].effect
         };
     });
     // Defender attacks
@@ -189,7 +192,9 @@ PhaseManager.prototype.attackPhase = function (
             manager: attackTypes[_attackType].mesh(cubeCount),
             damage: attackTypes[_attackType].damage,
             logic: attackTypes[_attackType].logic,
-            cooldown: attackTypes[_attackType].cooldown
+            cooldown: attackTypes[_attackType].cooldown,
+            canAdd: attackTypes[_attackType].canAdd,
+            effect: attackTypes[_attackType].effect
         };
     }
     // init attack managers
@@ -276,16 +281,6 @@ PhaseManager.prototype.buildPhase = function (layout) {
         .add("dragstart", function (event) {
             self._controls.camera.enabled = false;
             event.object.userData.dragged = true;
-            try {
-                nodeController.highlightNode(event.object.uuid);
-            } catch {
-                Logger.error(
-                    "DragControls selected a bad node: ",
-                    event.object,
-                    self._controls.drag.objects,
-                    self.Managers.Node.nodelist
-                );
-            }
         })
         .add("dragend", function (event) {
             self._controls.camera.enabled = true;

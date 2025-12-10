@@ -391,7 +391,6 @@ BuildOverlayManager.prototype._createFocusMenuElement =  function () {
     return BuildFocusMenu.createMenuElement(
         () => { // link button
             if (!this.state.targeting) {
-                // this._nodeManager.highlightNode(this.focusedNodeId);
                 this.state.targeting = true;
                 this._mouseManager.getNextEvent("clicked").then(event => {
                     if (this.state.targeting) {
