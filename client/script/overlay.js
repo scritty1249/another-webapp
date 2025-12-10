@@ -98,7 +98,8 @@ const AttackFocusMenu = {
         el.dataset.attackType = attackType
         if (attackType == "particle") {
             el.style.backgroundImage = `url("./source/particle-attack-icon.png")`;
-            
+        } else if (attackType !== undefined) {
+            el.style.backgroundImage = `url("./source/unknown-attack-icon.png")`;
         } else {
             el.style.backgroundImage = `url("./source/blank-attack-icon.png")`;
         }
