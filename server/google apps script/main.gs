@@ -9,6 +9,10 @@ const TABLES = {
     tokens: "LiveTokens",
     instances: "InstanceTokens",
 };
+const REFRESH_HANDLER = "refreshServer";
+const LAST_REFRESH_KEY = "lastRefresh";
+const REFRESH_INTERVAL_S = 900; // 15 minutes
+const REFRESH_DELAY_S = 5;
 
 function atob(b64str) {
     const bytes = Utilities.base64Decode(b64str);
@@ -30,6 +34,66 @@ function processCookies(e) {
         cookieJar[cookie.slice(7)] = params[cookie];
     });
     return cookieJar;
+}
+
+function tryCreateTrigger(functionName, executeDelayMs = 1000) {
+    const triggers = ScriptApp.getProjectTriggers();
+
+    for (let i = 0; i < triggers.length; i++)
+        if (
+            triggers[i].getHandlerFunction() === functionName &&
+            triggers[i].getEventType() === ScriptApp.EventType.CLOCK
+        )
+            return false;
+
+    ScriptApp.newTrigger(functionName)
+        .timeBased()
+        .after(executeDelayMs)
+        .create();
+    return true;
+}
+
+function deleteTrigger(functionName) {
+    var triggers = ScriptApp.getProjectTriggers();
+    for (let i = 0; i < triggers.length; i++) {
+        if (
+            triggers[i].getHandlerFunction() == functionName &&
+            triggers[i].getEventType() === ScriptApp.EventType.CLOCK
+        ) {
+            ScriptApp.deleteTrigger(triggers[i]);
+            return true;
+        }
+    }
+    return false;
+}
+
+function runInterval() {
+    const scriptProps = PropertiesService.getScriptProperties();
+    const lastRefresh = scriptProps.getProperty(LAST_REFRESH_KEY);
+    const nowUtc = Server.getNowUTCSeconds();
+    if (
+        lastRefresh &&
+        nowUtc < parseInt(lastRefresh) + REFRESH_INTERVAL_S + REFRESH_DELAY_S
+    )
+        return;
+    scriptProps.setProperty(
+        LAST_REFRESH_KEY,
+        (nowUtc + REFRESH_INTERVAL_S + REFRESH_DELAY_S).toString()
+    );
+    tryCreateTrigger(REFRESH_HANDLER, REFRESH_DELAY_S * 1000);
+}
+
+function refreshServer() {
+    // run this at regular intervals, or just during active periods
+    try {
+        const conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
+        Server.clearLoginTokens(conn);
+        conn.commit();
+    } catch (err) {
+        console.error(err);
+    } finally {
+        deleteTrigger(REFRESH_HANDLER);
+    }
 }
 
 // API handlers
@@ -196,7 +260,7 @@ const Server = {
         const gamedata = {
             id: conn._getColumnAt(1, gameBlankRow),
             backdrop: conn._getColumnAt(2, gameBlankRow),
-            layout: conn._getColumnAt(3, gameBlankRow)
+            layout: conn._getColumnAt(3, gameBlankRow),
         };
         if (blankRow && ids.length > blankRow) {
             ids.splice(blankRow);
@@ -219,8 +283,8 @@ const Server = {
                     geo: geos[idx],
                     game: {
                         backdrop: gamedata.backdrop[i],
-                        layout: gamedata.layout[i]
-                    }
+                        layout: gamedata.layout[i],
+                    },
                 });
         });
         return data;
@@ -238,7 +302,10 @@ const Server = {
     },
     createToken: function (conn, userid, expires = 0, instance = false) {
         const table = instance ? TABLES.instances : TABLES.tokens;
-        const exp = expires <= 0 ? this.maxExpirationUTC() : this.getNowUTCSeconds() + expires;
+        const exp =
+            expires <= 0
+                ? this.maxExpirationUTC()
+                : this.getNowUTCSeconds() + expires;
         const token = this.token();
         conn.insertEntry(table, token, userid, exp);
         return {
@@ -273,6 +340,43 @@ const Server = {
         if (result) conn.deleteEntry(table, tokenData.token);
         return result;
     },
+    clearLoginTokens: function (conn) {
+        // collect ids
+        conn._selectTable(TABLES.users);
+        const _ubr = conn._findBlankRow() - 2;
+        const validIds = new Set(conn._getColumnAt(1, _ubr));
+        // collect rows
+        conn._selectTable(TABLES.tokens);
+        const rowCount = conn.activeTable.getMaxRows();
+        const range = conn.activeTable.getRange(2, 1, rowCount - 1, 3);
+        const rangeValues = range.getValues();
+        // collect valid tokens
+        const newRows = [];
+        const nowUtc = this.getNowUTCSeconds();
+        const sessions = {};
+        const ids = new Set(rangeValues.map((r) => r[1])).intersection(
+            validIds
+        );
+        ids.forEach(
+            (id) =>
+                (sessions[id] = rangeValues
+                    .filter((r) => r[1] == id)
+                    .map((r) => [r[0], r[1], parseInt(r[2])]))
+        );
+        Object.values(sessions).forEach((rows) => {
+            // wipe out all duplicates, keep the newest one
+            const winner = rows
+                .filter((r) => r[2] > nowUtc)
+                .sort((a, b) => b[2] - a[2])?.[0];
+            if (winner) newRows.push(winner);
+        });
+        // wipe all rows, add back the valid ones
+        range.clearContent();
+        if (newRows.length)
+            conn.activeTable
+                .getRange(2, 1, newRows.length, 3)
+                .setValues(newRows);
+    },
     // utils
     _matchValue: function (conn, userid, tableName, key, value) {
         return (
@@ -301,7 +405,7 @@ const Server = {
         return Math.floor(now.getTime() / 1000);
     },
     getNowUTCSeconds: function () {
-        return new Date().getUTCSeconds();
+        return Math.floor(new Date().getTime() / 1000);
     },
     token: function () {
         // time based, since that's how it'll be used
@@ -346,7 +450,11 @@ DatabaseConnection.prototype = {
 DatabaseConnection.prototype.open = function () {
     this.lock = LockService.getScriptLock();
     if (!this.lock.tryLock(this.connTimeout))
-        throw new Error(`[DatabaseConnection] | Timed out waiting for connection thread lock after ${this.connTimeout / 1000} seconds.`);
+        throw new Error(
+            `[DatabaseConnection] | Timed out waiting for connection thread lock after ${
+                this.connTimeout / 1000
+            } seconds.`
+        );
 };
 DatabaseConnection.prototype.commit = function () {
     SpreadsheetApp.flush();
@@ -418,106 +526,3 @@ DatabaseConnection.prototype.deleteEntry = function (tableName, id) {
     this._selectTable(tableName);
     this.activeTable.deleteRow(this._findRow(id));
 };
-
-// Executed automatically upon webapp GET request
-function doGet(e) {
-    let conn;
-    try {
-        const params = e.parameters;
-        const cookies = processCookies(e);
-        const path = params.path?.[0];
-        let response;
-        conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
-        conn.open();
-        switch (path) {
-            case ".api.debug":
-                response = Handlers._debug(e);
-                break;
-            case ".api.login":
-                response = Handlers.login(conn, params);
-                break;
-            case ".game.load":
-                response = Handlers.loadGameData(conn, cookies);
-                break;
-            case ".api.refresh":
-                response = Handlers.refreshSession(conn, cookies);
-                break;
-            case ".attack.select":
-                response = Handlers.getTargets(conn, params, cookies);
-                break;
-            default:
-                response = Server.createErrorResponse(
-                    2,
-                    "Unknown GET endpoint"
-                );
-        }
-        conn.commit();
-        return response;
-    } catch (err) {
-        console.error(err);
-        return Server.createErrorResponse(
-            4,
-            err.message +
-                "\nDump:\n" +
-                JSON.stringify(e) +
-                "\nTrace:\n" +
-                err.stack
-        );
-    } finally {
-        if (conn && conn.lock)
-            conn.close();
-    }
-}
-
-// Executed automatically upon webapp POST request
-function doPost(e) {
-    let conn;
-    try {
-        const params = e.parameters;
-        const cookies = processCookies(e);
-        const path = params.path?.[0];
-        const payload = JSON.parse(e.postData.contents);
-        let response;
-        conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
-        conn.open();
-        switch (path) {
-            case ".api.debug":
-                response = Handlers._debug(e);
-                break;
-            case ".api.newlogin":
-                response = Handlers.newUser(
-                    conn,
-                    payload.username,
-                    payload.password,
-                    payload.geo
-                );
-                break;
-            case ".attack.result":
-                response = Server.createSuccessResponse();
-                break;
-            case ".game.save":
-                response = Handlers.saveGameData(conn, payload, cookies);
-                break;
-            default:
-                response = Server.createErrorResponse(
-                    2,
-                    "Unknown POST endpoint"
-                );
-        }
-        conn.commit();
-        return response;
-    } catch (err) {
-        console.error(err);
-        return Server.createErrorResponse(
-            4,
-            err.message +
-                "\nDump:\n" +
-                JSON.stringify(e) +
-                "\nTrace:\n" +
-                err.stack
-        );
-    } finally {
-        if (conn && conn.lock)
-            conn.close();
-    }
-}
