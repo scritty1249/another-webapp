@@ -448,18 +448,51 @@ const AttackerData = {
             type: "pascualcannon",
             amount: 99,
         },
+        {
+            type: "laser",
+            amount: 99,
+        },
     ],
 };
 
 const AttackTypeData = {
     particle: {
         mesh: MESH.AttackManagerFactory.Particle,
-        damage: 5,
+        damage: 8,
         cooldown: 650, // ms
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
             return nodeData.isFriendly;
+        }
+    },
+    laser: {
+        mesh: MESH.AttackManagerFactory.Laser,
+        damage: 5,
+        cooldown: 0, // ms
+        logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
+        effect: (nodeManager, attackid) => {},
+        canAdd: (nodeData) => {
+            return nodeData.isFriendly;
+        }
+    },
+    pascualcannon: {
+        mesh: (a) => MESH.AttackManagerFactory.PascualCannon(camera, a),
+        damage: 10,
+        cooldown: 1000, // ms
+        logic: ATTACK.AttackLogic.BasicLogicFactory,
+        effect: (nodeManager, attackid) => {
+            const _purp = 0x341539;
+            const attack = nodeManager.getAttack(attackid);
+            const targetData = nodeManager.getNodeData(attack.target);
+            const targetid = attack.target;
+            nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
+            targetData.state.disabled.set(true, 1800, () => {
+                nodeManager.resetNodeColorTint(targetid);
+            }, true);
+        },
+        canAdd: (nodeData) => {
+            return nodeData.isFriendly && nodeData.attackers.length == 0;
         }
     },
     cubedefense: {
@@ -470,25 +503,6 @@ const AttackTypeData = {
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
             return !nodeData.isFriendly;
-        }
-    },
-    pascualcannon: {
-        mesh: (a) => MESH.AttackManagerFactory.PascualCannon(camera, a),
-        damage: 10,
-        cooldown: 1000, // ms
-        logic: ATTACK.AttackLogic.BasicLogicFactory,
-        effect: (nodeManager, attackid) => {
-            const _purp = 0xCC8899;
-            const attack = nodeManager.getAttack(attackid);
-            const targetData = nodeManager.getNodeData(attack.target);
-            const targetid = attack.target;
-            nodeManager.setNodeColorTint(attack.target, _purp, 0.8);
-            targetData.state.disabled.set(true, 1800, () => {
-                nodeManager.resetNodeColorTint(targetid);
-            }, true);
-        },
-        canAdd: (nodeData) => {
-            return nodeData.isFriendly && nodeData.attackers.length == 0;
         }
     },
 };

@@ -1,8 +1,7 @@
 import { Vector3, Color } from "three";
 import * as UTIL from "./utils.js";
 
-const emissiveValue = new Color(0xdedede);
-const colorValue = new Color(0xaa0000);
+const friendlyEmissiveColor = new Color(0xaa0000);
 
 export function NodeManager(
     scene,
@@ -663,15 +662,8 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
     if (node.userData.type != "globe") {
         nodeData.friendly = true;
         nodeData.hp.set(nodeTypeData.health / 2);
-        node.userData.traverseMesh(function (mesh) {
-            if (
-                mesh.material.emissive &&
-                !mesh.material.emissive.equals(colorValue)
-            ) {
-                mesh.userData.oldEmissive = mesh.material.color.clone();
-                mesh.material.emissive.set(colorValue);
-            }
-        });
+        nodeData.state.reset();
+        this.setNodeEmissive(nodeid, friendlyEmissiveColor);
     }
 };
 AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
@@ -684,10 +676,9 @@ AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
     if (node.userData.type != "globe") {
         nodeData.friendly = false;
         nodeData.hp.set(nodeTypeData.health);
-        node.userData.traverseMesh(function (mesh) {
-            if (mesh.material.emissive && mesh.userData.oldEmissive)
-                mesh.material.emissive.set(mesh.userData.oldEmissive);
-        });
+        nodeData.state.reset();
+        this.resetNodeColorTint(nodeid);
+        this.resetNodeEmissive(nodeid);
     }
 };
 AttackNodeManager.prototype.getAllAttacksFrom = function (nodeid) {
@@ -719,10 +710,11 @@ AttackNodeManager.prototype._updateAnimations = function (timedelta) {
     this.nodelist.forEach((node) => {
         if (node.userData.updateAnimations) {
             const data = this.getNodeData(node.uuid);
-            node.userData.updateAnimations(
-                (data.isFriendly && node.userData.type != "globe" ? 0.4 : 1) *
-                    timedelta
-            );
+            if (!data.state.disabled.active)
+                node.userData.updateAnimations(
+                    (data.isFriendly && node.userData.type != "globe" ? 0.4 : 1) *
+                        timedelta
+                );
         }
     });
 };
@@ -863,7 +855,10 @@ function NodeDataFactory(nodeid, manager) {
     const typeData = manager._getNodeTypeData(node.userData.type);
     const obj = Object.create({
         state: {
-            disabled: StatusEffectFactory()
+            disabled: StatusEffectFactory(),
+            reset: function () {
+                this.disabled.reset();
+            }
         },
         get neighbors() {
             // gets nodedata only
@@ -1047,10 +1042,10 @@ function NodeHealthFactory(maxHealth) {
     });
 }
 
-function StatusEffectFactory () {
+function StatusEffectFactory (defaultActive = false) {
     const obj = Object.create({
         _timer: undefined,
-        active: false,
+        active: defaultActive,
         _callback: {
             func: undefined,
             callOnReset: false,
@@ -1060,10 +1055,22 @@ function StatusEffectFactory () {
                 this.callOnReset = false;
             }
         },
+        _wipeTimer: function () {
+            if (this._timer) {
+                clearTimeout(this._timer);
+                this._timer = undefined;
+            }
+        },
         _overrided: function () { // call when state was set already, and is going to be set again
-            clearTimeout(this._timer);
+            this._wipeTimer();
             if (this._callback.func !== undefined && this._callback.callOnReset)
                 this._callback.run();
+        },
+        reset: function () { // ignores callback, clears everything
+            this._wipeTimer();
+            this.active = defaultActive;
+            this._callback.callOnReset = false;
+            this._callback.func = undefined;
         },
         set: function (state, durationMs, callback = undefined, callbackWhenReset = false) {
             if (this._timer !== undefined)

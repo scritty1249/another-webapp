@@ -561,7 +561,7 @@ const Nodes = {
     },
 };
 
-function Projectile( // not using a sprites. PlaneGeometry updated to always face camera
+function SpriteProjectile( // not actaully using sprites. PlaneGeometry updated to always face camera
     type,
     camera,
     size,
@@ -665,7 +665,7 @@ function Projectile( // not using a sprites. PlaneGeometry updated to always fac
             if (!instanceid)
                 Logger.throw(
                     new Error(
-                        `[ProjectileAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`
+                        `[SpriteProjectileAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`
                     )
                 );
             controller.play(instanceid);
@@ -681,11 +681,12 @@ function Projectile( // not using a sprites. PlaneGeometry updated to always fac
     return controller;
 }
 
-function Beam(
+function WrappedProjectile(
     type,
     thickness = 0.5,
     faces = 16,
-    repeatSides = 1,
+    repeatX,
+    repeatY,
     instanceCount,
     animation = {
         mappath: undefined,
@@ -702,8 +703,8 @@ function Beam(
     };
     const texOptions = {
         repeat: {
-            x: repeatSides,
-            y: 1,
+            x: repeatX,
+            y: repeatY,
         },
     };
     const geometry = new CylinderGeometry(
@@ -796,6 +797,139 @@ function Beam(
             if (!instanceid)
                 Logger.throw(
                     new Error(
+                        `[WrappedProjectileAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`
+                    )
+                );
+            controller.play(instanceid);
+            controller.show(instanceid);
+            return instanceid;
+        };
+
+        controller.userData.removeAttack = function (instanceid) {
+            controller.releaseInstance(instanceid);
+        };
+    }
+
+    return controller;
+}
+
+function Beam (
+    type,
+    thickness = 0.5,
+    faces = 16,
+    repeatX,
+    instanceCount,
+    animation = {
+        mappath: undefined,
+        maskpath: undefined,
+        fps: undefined,
+        frames: undefined,
+    },
+    playbackSpeed = 1
+) {
+    const aniMeta = {
+        // animation metadata
+        fps: animation.fps,
+        frames: animation.frames,
+    };
+    const texOptions = {
+        repeat: {
+            x: repeatX,
+            y: 1,
+        },
+    };
+    const geometry = new CylinderGeometry(
+        thickness,
+        thickness,
+        thickness,
+        faces,
+        1,
+        true // open-ended
+    );
+
+    const controller = new AttackManager(
+        type,
+        animation.mappath,
+        animation.maskpath,
+        geometry,
+        instanceCount,
+        aniMeta,
+        texOptions
+    );
+
+    {
+        // adding Beam specific methods
+        Object.keys(controller.instanceAttributes.userData).forEach((id) => {
+            controller.getOptions(id).speed = playbackSpeed;
+            controller.setUserData(id, {
+                position: {
+                    start: new Vector3(),
+                    end: new Vector3(),
+                    get direction() {
+                        return THREEUTIL.directionQuaternion(
+                            controller.instances.up,
+                            this.start.clone().sub(this.end).normalize()
+                        );
+                    },
+                    get current() {
+                        return this.start
+                            .clone()
+                            .lerp(this.end, 0.5);
+                    },
+                    get scale() {
+                        return new Vector3(1, Math.abs(this.start.distanceTo(this.end)) / geometry.parameters.height, 1);
+                    },
+                },
+                setVectors: function (originVector, targetVector) {
+                    this.position.start.copy(originVector);
+                    this.position.end.copy(targetVector);
+                    const scale = this.position.scale;
+                    controller.setMatrixComposition(
+                        id,
+                        this.position.current,
+                        this.position.direction,
+                        scale
+                    );
+                    controller.setRepeatY(id, scale.y);
+                },
+                setOrigin: function (originVector) {
+                    this.setVectors(originVector, this.position.end);
+                },
+                setTarget: function (targetVector) {
+                    this.setVectors(this.position.start, targetVector);
+                },
+                update: function () {
+                    // do nothing
+                },
+                reset: function () {
+                    this.setVectors(THREEUTIL.zeroVector, THREEUTIL.zeroVector);
+                },
+            });
+        });
+        controller.update = function (delta) {
+            const result = AttackManager.prototype.update.call(
+                controller,
+                delta
+            );
+            const instances = controller.getInstances();
+            instances.forEach((id) => {
+                const userData = controller.getUserData(id);
+                userData?.update();
+            });
+            return result;
+        };
+
+        controller.clear = function () {
+            controller.instances.parent.remove(controller.instances);
+            return AttackManager.prototype.clear.call(controller);
+        };
+
+        controller.userData.createAttack = function () {
+            // returns a "fresh" instance, if available
+            const instanceid = controller.allocateInstance();
+            if (!instanceid)
+                Logger.throw(
+                    new Error(
                         `[BeamAttack (${controller.attackType})] | Failed to create new attack: max instances already created (${controller.config.maxInstances})`
                     )
                 );
@@ -814,11 +948,12 @@ function Beam(
 
 const AttackManagerFactory = {
     Particle: function (count) {
-        const ParticleController = Beam(
+        const ParticleController = WrappedProjectile(
             "particle",
             0.55,
             16,
             3,
+            1,
             count,
             {
                 // animation data
@@ -833,7 +968,7 @@ const AttackManagerFactory = {
         return ParticleController;
     },
     CubeDefense: function (count) {
-        const CubeDefenseController = Beam("cubedefense", 0.65, 16, 1, count, {
+        const CubeDefenseController = WrappedProjectile("cubedefense", 0.65, 16, 1, 1, count, {
             // animation data
             mappath: "./source/attacks/particle/attack.png",
             maskpath: "./source/attacks/particle/attack-mask.png",
@@ -843,8 +978,19 @@ const AttackManagerFactory = {
 
         return CubeDefenseController;
     },
+    Laser: function (count) {
+        const LaserController = Beam("cubedefense", 0.25, 3, 3, count, {
+            // animation data
+            mappath: "./source/attacks/laser/attack.png",
+            maskpath: "./source/attacks/laser/attack-mask.png",
+            fps: 30,
+            frames: 31,
+        });
+
+        return LaserController;
+    },
     PascualCannon: function (camera, count) {
-        const PCannonController = Projectile(
+        const PCannonController = SpriteProjectile(
             "pascualcannon",
             camera,
             0.6,

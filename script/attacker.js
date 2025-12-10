@@ -3,7 +3,6 @@
 import * as MESH from "./mesh.js";
 import {
     TextureLoader,
-    MeshLambertMaterial,
     InstancedMesh,
     Object3D,
     InstancedBufferAttribute,
@@ -42,12 +41,6 @@ export function AttackManager(
     };
     this.config = {
         frames: metadata.frames,
-        repeat: new Vector2(
-            textureOptions?.repeat?.x
-                ? textureOptions?.repeat?.x / metadata.frames
-                : 1 / metadata.frames,
-            textureOptions?.repeat?.y ? textureOptions?.repeat?.y : 1
-        ),
         maxInstances: instanceCount,
         fps: metadata.fps, // frames per second
         duration: metadata.frames / metadata.fps, // calculated for internal use. Duration of animation in seconds
@@ -66,7 +59,6 @@ export function AttackManager(
         uniforms: {
             map: { value: this._atlas.map },
             alphaMap: { value: this._atlas.alphaMap },
-            repeat: { value: this.config.repeat },
         },
     });
     this.instanceAttributes = {};
@@ -74,6 +66,17 @@ export function AttackManager(
         "tileIdx",
         new InstancedBufferAttribute(new Float32Array(instanceCount).fill(0), 1)
     );
+    {
+        const repeatArray = new Float32Array(instanceCount * 2);
+        for (let i = 0; i < instanceCount; i++) {
+            repeatArray[i * 2] = textureOptions.repeat.x / this.config.frames;
+            repeatArray[(i * 2) + 1] = textureOptions.repeat.y;
+        }
+        this._geometry.setAttribute(
+            "repeat",
+            new InstancedBufferAttribute(repeatArray, 2)
+        );
+    }
 
     this._material.defines = { USE_UV: "" };
     this.instances = new InstancedMesh(
@@ -102,6 +105,21 @@ export function AttackManager(
             set(target, prop, val, receiver) {
                 const result = Reflect.set(target, prop, val, receiver);
                 if (result) self.instanceAttributes._tileIdx.needsUpdate = true;
+                return result;
+            },
+        }
+    );
+    this.instanceAttributes._repeat =
+        this.instances.geometry.getAttribute("repeat");
+    this.instanceAttributes.repeat = new Proxy(
+        this.instanceAttributes._repeat.array,
+        {
+            get(target, prop, receiver) {
+                return {x: Reflect.get(target, prop * 2, receiver) * self.config.frames, y: Reflect.get(target, (prop * 2) + 1, receiver)};
+            },
+            set(target, prop, val, receiver) {
+                const result = Reflect.set(target, prop * 2, val.x / self.config.frames, receiver) && Reflect.set(target, (prop * 2) + 1, val.y, receiver);
+                if (result) self.instanceAttributes._repeat.needsUpdate = true;
                 return result;
             },
         }
@@ -157,12 +175,12 @@ AttackManager.prototype = {
          	varying vec2 vuv;
             uniform sampler2D map;
             uniform sampler2D alphaMap;
-            uniform vec2 repeat;
+            varying vec2 repeatXY;
             varying float mapTileIdx;
             void main() {
                 vec2 uv = vuv;
-                uv = fract((uv + mapTileIdx) * repeat);
-                vec2 smooth_uv = repeat * vuv;
+                uv = fract((uv + mapTileIdx) * repeatXY);
+                vec2 smooth_uv = repeatXY * vuv;
                 vec4 duv = vec4(dFdx(smooth_uv), dFdy(smooth_uv));
                 vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
                 vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy, duv.zw);
@@ -172,12 +190,15 @@ AttackManager.prototype = {
         `,
         _vert: `
             attribute float tileIdx;
+            attribute vec2 repeat;
             varying float mapTileIdx;
+            varying vec2 repeatXY;
             varying vec2 vuv;
             void main() {
                 vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
                 gl_Position = projectionMatrix * mvPosition;
                 mapTileIdx = tileIdx;
+                repeatXY = repeat;
                 vuv = uv;
             }
         `,
@@ -327,6 +348,21 @@ AttackManager.prototype.play = function (instanceid) {
 
 AttackManager.prototype.pause = function (instanceid) {
     this.getOptions(instanceid).playing = false;
+};
+
+AttackManager.prototype.setRepeat = function (instanceid, repeat) {
+    const index = this.getOptions(instanceid)?._index;
+    this.instanceAttributes.repeat[index] = repeat;
+};
+
+AttackManager.prototype.setRepeatX = function (instanceid, repeat) {
+    const index = this.getOptions(instanceid)?._index;
+    this.instanceAttributes.repeat[index] = {x: repeat, y: this.instanceAttributes.repeat[index].y};
+};
+
+AttackManager.prototype.setRepeatY = function (instanceid, repeat) {
+    const index = this.getOptions(instanceid)?._index;
+    this.instanceAttributes.repeat[index] = {x: this.instanceAttributes.repeat[index].x, y: repeat};
 };
 
 AttackManager.prototype.restartPlayback = function (instanceid) {
@@ -549,6 +585,7 @@ function InstanceDataFactory(manager, instanceid) {
             !key.startsWith("_") &&
             key != "options" &&
             typeof desc.value === "object" &&
+            typeof desc.value.hasOwnProperty === "function" &&
             desc.value.hasOwnProperty(options.uuid)
         ).forEach(([key]) => {
             obj.attributes[key] =
