@@ -424,12 +424,17 @@ BuildOverlayManager.prototype._createFocusMenuElement =  function () {
             }
         },
         () => { // info button
-            const node = this._nodeManager.getNode(this.focusedNodeId);
-            Logger.log(node);
+            if (!this.state.stopFocusing) {
+                const node = this._nodeManager.getNode(this.focusedNodeId);
+                Logger.log(node);
+            }
         },
         () => { // remove button
-            this._nodeManager.removeNode(this.focusedNodeId);
-            this.unfocusNode();
+            if (!this.state.stopFocusing) {
+                const nodeid = this.focusedNodeId;
+                this.unfocusNode();
+                this._nodeManager.removeNode(nodeid);
+            }
         }
     );
 };
