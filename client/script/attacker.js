@@ -1,6 +1,6 @@
 // Attack Data / Manager. Stores attack data for attack phase and used as reference between Managers.
 
-import * as MESH from "./mesh.js";
+import * as UTIL from "./utils.js";
 import {
     TextureLoader,
     InstancedMesh,
@@ -164,10 +164,7 @@ AttackManager.prototype = {
         return this.instances?.count;
     },
     set instanceCount(count) {
-        this.instances.count = Math.min(
-            this.config.maxInstances,
-            Math.max(0, count)
-        );
+        this.instances.count = UTIL.clamp(count, 0, this.config.maxInstances);
     },
     shader: {
         uniforms: undefined, // Proxy for shader uniforms attribute

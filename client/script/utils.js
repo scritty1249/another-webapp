@@ -258,10 +258,14 @@ export function layoutToJsonObj(scene, nodeManager) {
         const posData = node.position.clone().round();
         data.layout.nodes.push(
             new NodeObject(node.userData.type, `${i}`, [
-                posData.x,
-                posData.y,
-                posData.z,
-            ])
+                    posData.x,
+                    posData.y,
+                    posData.z,
+                ],
+                node.userData?.exportData
+                ? node.userData.exportData
+                : {}
+            )
         );
         newIds[node.uuid] = i;
     });

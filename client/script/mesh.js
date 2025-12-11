@@ -11,6 +11,9 @@ import {
     FrontSide,
     Object3D,
     SphereGeometry,
+    ShaderMaterial,
+    BufferAttribute,
+    TextureLoader,
 } from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -211,6 +214,126 @@ function Node(mesh, animations = []) {
     );
     return wrapper;
 }
+function CurrencyNode(
+    nodeMesh,
+    currencyMeshData, // expects (name: { mesh: Mesh, offset: Vector3, tiles: Int })
+    nodeAnimations = [],
+    currencyData = {} // expects: {type: str, amount: int, max: int, rate: float, lastUpdated: int (utcseconds)}
+) {
+    const node = Node(nodeMesh, animations);
+    const overlay = NodeSpriteOverlay(node);
+    Object.entries(currencyMeshData).forEach(([key, value]) => {
+        overlay.userData.addChild(key, value.mesh, value.offset, value.tiles);
+    });
+    node.userData.exportData = {
+        overlay: overlay,
+        currency: {
+            type: currencyData?.type,
+            amount: currencyData?.amount ? currencyData.amount : 0,
+            max: currencyData?.max ? currencyData.max : 1,
+            rate: currencyData?.rate ? currencyData.rate : 0, // per hour
+            lastUpdated: currencyData?.lastUpdated,
+        },
+    };
+    return node;
+}
+function currencyMeshDataFactory(map, alphaMap) { // [!] fix naming- just creates the overhead bar mesh
+    const material = SpriteSheet(map, alphaMap);
+    const geometry = new PlaneGeometry(1.5, 0.45);
+    const mesh = new Mesh(geometry, material);
+    return mesh;
+}
+function SpriteSheet(map, alphaMap) {
+    const fragShader = `
+        varying vec2 vuv;
+        uniform sampler2D map;
+        uniform sampler2D alphaMap;
+        uniform float tileIdx;
+        void main() {
+            vec2 uv = vuv;
+            uv = fract(uv + tileIdx);
+            vec4 duv = vec4(dFdx(vuv), dFdy(vuv));
+            vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
+            vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy, duv.zw);
+            float alpha = ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
+            gl_FragColor = vec4(txl, alpha);
+        }
+    `;
+    const vertShader = `
+        varying vec2 vuv;
+        void main() {
+            vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            vuv = uv;
+        }
+    `;
+    const material = new ShaderMaterial({
+        vertexShader: vertShader,
+        fragmentShader: fragShader,
+        uniforms: {
+            tileIdx: { value: 0 },
+            map: { value: new TextureLoader().load(map) },
+            alphaMap: {
+                value: new TextureLoader().load(alphaMap),
+            },
+        },
+    });
+    return material;
+}
+
+function NodeSpriteOverlay(targetMesh) { // [!] fix naming
+    const wrapper = new Group();
+    wrapper.userData = {
+        children: {},
+        target: targetMesh,
+        update: function (camera) {
+            wrapper.quaternion.copy(camera.quaternion);
+            this.target.getWorldPosition(wrapper.position);
+            Object.values(this.children).forEach((child) => {
+                if (!child.needsUpdate) return;
+                child.mesh.position.copy(child.offset);
+                child.needsUpdate = false;
+            });
+        },
+        addChild: function (name, mesh, offset, tiles) {
+            this.children[name] = NodeSpriteOverlayChildFactory(
+                mesh,
+                offset,
+                tiles
+            );
+            this.update();
+        },
+    };
+    return wrapper;
+}
+
+function NodeSpriteOverlayChildFactory(mesh, offset, tiles) {
+    // [!] fix naming
+    const obj = Object.create({
+        mesh: mesh,
+        _offset: offset.clone(),
+        needsUpdate: true,
+        tileCount: tiles,
+        get offset() {
+            return this._offset;
+        },
+        set offset(value) {
+            this._offset.copy(value);
+            this.needsUpdate = true;
+        },
+        get tileIdx() {
+            return this.mesh.material.uniforms.tileIdx.value;
+        },
+        set tileIdx(value) {
+            this.mesh.material.uniforms.tileIdx.value = UTIL.clamp(
+                value,
+                0,
+                this.tileCount
+            );
+        },
+    });
+    return obj;
+}
 
 function SelectionGlobe(sceneData, scale) {
     const wrapper = new Group();
@@ -396,6 +519,20 @@ function Tether(origin, target, color = 0xc0c0c0) {
     return tether;
 }
 const Nodes = {
+    CashFarm: function (
+        sceneData,
+        currencyData,
+        animationOptions = { idle: true, randomize: true },
+    ) {
+        const farm = CurrencyNode(
+            sceneData.mesh,
+            currencyData.mesh,
+            sceneData.animations,
+            currencyData.cash
+        );
+
+        return farm;
+    },
     Cube: function (
         sceneData,
         animationOptions = { idle: true, randomize: true }
@@ -813,7 +950,7 @@ function WrappedProjectile(
     return controller;
 }
 
-function Beam (
+function Beam(
     type,
     thickness = 0.5,
     faces = 16,
@@ -872,12 +1009,15 @@ function Beam (
                         );
                     },
                     get current() {
-                        return this.start
-                            .clone()
-                            .lerp(this.end, 0.5);
+                        return this.start.clone().lerp(this.end, 0.5);
                     },
                     get scale() {
-                        return new Vector3(1, Math.abs(this.start.distanceTo(this.end)) / geometry.parameters.height, 1);
+                        return new Vector3(
+                            1,
+                            Math.abs(this.start.distanceTo(this.end)) /
+                                geometry.parameters.height,
+                            1
+                        );
                     },
                 },
                 setVectors: function (originVector, targetVector) {
@@ -968,13 +1108,21 @@ const AttackManagerFactory = {
         return ParticleController;
     },
     CubeDefense: function (count) {
-        const CubeDefenseController = WrappedProjectile("cubedefense", 0.65, 16, 1, 1, count, {
-            // animation data
-            mappath: "./source/attacks/particle/attack.png",
-            maskpath: "./source/attacks/particle/attack-mask.png",
-            fps: 30,
-            frames: 121,
-        });
+        const CubeDefenseController = WrappedProjectile(
+            "cubedefense",
+            0.65,
+            16,
+            1,
+            1,
+            count,
+            {
+                // animation data
+                mappath: "./source/attacks/particle/attack.png",
+                maskpath: "./source/attacks/particle/attack-mask.png",
+                fps: 30,
+                frames: 121,
+            }
+        );
 
         return CubeDefenseController;
     },
@@ -1012,8 +1160,9 @@ const AttackManagerFactory = {
 export {
     Tether,
     Nodes,
-    Node,
     AttackManagerFactory,
     SelectionGlobe,
     WorldMarker,
+    SpriteSheet,
+    currencyMeshDataFactory,
 };
