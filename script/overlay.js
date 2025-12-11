@@ -468,6 +468,8 @@ BuildOverlayManager.prototype._hideNodeMenu = function () {
     oldElement.classList.add("hide");
     oldElement.addEventListener("transitionend", (event) => {
         oldElement.remove();
+        if (oldElement?.isSameNode(this.element.focusMenu))
+            this.element.focusMenu = undefined;
     }, { once: true });
 };
 BuildOverlayManager.prototype.focusNode =  function (nodeid) {
