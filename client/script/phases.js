@@ -10,6 +10,7 @@ import { layoutFromJsonObj } from "./utils.js";
 import { Color } from "three";
 
 const selectPhaseBackground = new Color(0x000000);
+const nodeDraggedEmissive = new Color(0xFF8888);
 
 export function PhaseManager(
     scene,
@@ -254,14 +255,14 @@ PhaseManager.prototype.attackPhase = function (
     Logger.log("[PhaseManager] | Loaded Attack phase");
 };
 
-PhaseManager.prototype.buildPhase = function (layout) {
+PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Build phase");
     this._unloadPhase();
     this.Managers.Physics.activate();
     this._controls.drag.enabled = true;
 
-    const nodeController = new BuildNodeManager(...this._constructorArgs.Node);
+    const nodeController = new BuildNodeManager(nodeOverlayData, ...this._constructorArgs.Node);
     const overlayController = new BuildOverlayManager(
         ...this._constructorArgs.Overlay
     );
@@ -281,15 +282,25 @@ PhaseManager.prototype.buildPhase = function (layout) {
         .add("dragstart", function (event) {
             self._controls.camera.enabled = false;
             event.object.userData.dragged = true;
+            try {
+                nodeController.setNodeEmissive(event.object.uuid, nodeDraggedEmissive);
+            } catch {
+                Logger.error(
+                    "DragControls selected a bad node (dragstart): ",
+                    event.object,
+                    self._controls.drag.objects,
+                    self.Managers.Node.nodelist
+                );
+            }
         })
         .add("dragend", function (event) {
             self._controls.camera.enabled = true;
             event.object.userData.dragged = false;
             try {
-                nodeController.unhighlightNode(event.object.uuid);
+                nodeController.resetNodeEmissive(event.object.uuid);
             } catch {
                 Logger.error(
-                    "DragControls selected a bad node: ",
+                    "DragControls selected a bad node (dragend): ",
                     event.object,
                     self._controls.drag.objects,
                     self.Managers.Node.nodelist

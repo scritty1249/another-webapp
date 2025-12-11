@@ -4,9 +4,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import * as MESH from "./mesh.js";
 import * as THREEUTILS from "./three-utils.js";
-import { NodeManager, BuildNodeManager, AttackNodeManager } from "./nodes.js";
+import { NodeManager } from "./nodes.js";
 import { Mouse } from "./cursor.js";
-import { OverlayManager, AttackOverlayManager, BuildOverlayManager } from "./overlay.js";
+import { OverlayManager } from "./overlay.js";
 import { PhysicsManager } from "./physics.js";
 import { MenuManager } from "./menu.js";
 import { PhaseManager } from "./phases.js";
@@ -15,6 +15,7 @@ import * as ATTACK from "./attacker.js"; // [!] testing, temporary module- to be
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { SelectiveOutlineEffect } from "./renderer.js";
+import { SSMaterialType } from "./spritesheet.js";
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -241,7 +242,7 @@ function mainloop(MenuController) {
                                     });
                                 } else {
                                     detail.statusElement.text = "Loading profile";
-                                    PhaseController.buildPhase(Storage.get("localLayout"));
+                                    PhaseController.buildPhase(Storage.get("localLayout"), NodeOverlayData);
                                     MenuController.close();
                                 }
                         }, false, true);
@@ -339,14 +340,9 @@ function mainloop(MenuController) {
             THREEUTILS.loadGLTFShape("./source/globe.glb"),
             THREEUTILS.loadGLTFShape("./source/scanner.glb"),
             THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
-            Promise.resolve(MESH.currencyMeshDataFactory(
-                "map",
-                "alphaMap",
-                1
-            )),
         ]);
         gtlfData.then(data => {
-            const [ placeholderData, cubeData, globeData, eyeData, worldData, currencyBarData, ..._] = data;
+            const [ placeholderData, cubeData, globeData, eyeData, worldData, ..._] = data;
             Logger.info("Finished loading shape data:", data);        
 
             NodeController.addMeshData({
@@ -355,20 +351,6 @@ function mainloop(MenuController) {
                 globe: () => MESH.Nodes.Globe(globeData),
                 scanner: () => MESH.Nodes.Scanner(eyeData),
                 tether: (o, t) => MESH.Tether(o, t),
-                cashFarm: () => MESH.Nodes.CashFarm(placeholderData, {
-                    cash: {
-                        type: "cash",
-                        amount: 0,
-                        max: 1,
-                        rate: 0,
-                        lastUpdated: 0
-                    },
-                    mesh: {
-                        mesh: currencyBarData.clone(),
-                        offset: new THREE.Vector3(0, 1, 0),
-                        tiles: 1
-                    }
-                }),
             });
             WorldController.addMeshData(
                 MESH.SelectionGlobe(worldData, 4)
@@ -552,5 +534,25 @@ const NodeTypeData = {
     globe: {
         health: 0,
         slots: 3,
+    },
+};
+
+const NodeOverlayData = {
+    slots: {
+        tiles: 1,
+        offset: new THREE.Vector3(-1, -1, 0),
+        geometry: new THREE.PlaneGeometry(2, 2),
+        material: SSMaterialType.Frames(
+            "./source/slots.png",
+            "./source/slots-mask.png"
+        ),
+    },
+    cash: {
+        offset: new THREE.Vector3(0, 1, 0),
+        geometry: new THREE.PlaneGeometry(.9, .3),
+        material: SSMaterialType.Mask(
+            "./source/currency-bar.png",
+            "./source/currency-bar-mask.png"
+        ),
     },
 };

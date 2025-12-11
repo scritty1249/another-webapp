@@ -10,9 +10,9 @@ import * as THREE from "three";
 
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
-
+const DEFAULT_BACKGROUND = "./source/bg/";
 export const BLANK_LAYOUT_OBJ = {
-    background: "./source/bg/",
+    background: DEFAULT_BACKGROUND,
     layout: {
         neighbors: [],
         nodes: [{ uuid: "0", type: "globe", position: [0, 0, 0], _data: {} }],
@@ -246,8 +246,9 @@ export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does no
 }
 
 export function layoutToJsonObj(scene, nodeManager) {
+    const _bgSrc = scene.background?.images?.[0]?.src;
     const data = {
-        background: "./source/bg/", // [!] disabled for now
+        background: _bgSrc ? _bgSrc.slice(0, _bgSrc.lastIndexOf("/")) + "/" : "",
         layout: {
             nodes: [],
             neighbors: [],
@@ -300,9 +301,10 @@ export function layoutFromJsonObj(jsonObj, scene, dragControls, nodeManager) {
                     `Failed to load background from source: ${jsonObj.background}`
                 );
                 Logger.error(error);
+                scene.background = loadTextureCube(DEFAULT_BACKGROUND);
             }
         jsonObj.layout.nodes.forEach((node) => {
-            const newId = nodeManager.createNode(node.type, node.position);
+            const newId = nodeManager.createNode(node.type, node.position, node._data);
             newIds[node.uuid] = newId;
         });
         jsonObj.layout.neighbors.forEach((tether) =>

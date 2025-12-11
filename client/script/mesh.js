@@ -11,9 +11,6 @@ import {
     FrontSide,
     Object3D,
     SphereGeometry,
-    ShaderMaterial,
-    BufferAttribute,
-    TextureLoader,
 } from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
 import { LineMaterial } from "three/addons/lines/LineMaterial.js";
@@ -161,50 +158,50 @@ function WorldMarker(startPos, endPos, lineOptions = {}) {
 function Node(mesh, animations = []) {
     const wrapper = new Group();
     wrapper.add(mesh.clone());
-    wrapper.userData.dragged = false;
-    wrapper.userData.mixer = new AnimationMixer(wrapper);
-    wrapper.userData.animations = {};
-    wrapper.userData.tethers = {
-        origin: {},
-        target: {},
-    };
-    Object.defineProperty(wrapper.userData, "tetherlist", {
-        get: function () {
+    wrapper.userData = {
+        exportData: {},
+        animations: {},
+        dragged: false,
+        mixer: new AnimationMixer(wrapper),
+        tethers: {
+            origin: {},
+            target: {},
+        },
+        get tetherlist () {
             return [
-                ...Object.values(wrapper.userData.tethers.origin),
-                ...Object.values(wrapper.userData.tethers.target),
+                ...Object.values(this.tethers.origin),
+                ...Object.values(this.tethers.target),
             ];
         },
-    });
-    wrapper.userData.traverseMesh = function (callback, ...args) {
-        wrapper.children.forEach((parentMesh) =>
-            recurseMeshChildren(parentMesh, 3, callback, ...args)
-        );
-    };
-    wrapper.userData.addAnimation = function (animation, secDelay = 0) {
-        wrapper.userData.animations[animation.name] =
-            wrapper.userData.mixer.clipAction(animation);
-        wrapper.userData.animations[animation.name].startAt(
-            wrapper.userData.mixer.time + secDelay
-        );
-        return wrapper.userData.animations[animation.name];
-    };
-    wrapper.userData.updateAnimations = function (timedelta) {
-        Object.values(wrapper.userData.animations).forEach(
-            (animationAction) =>
-                (animationAction.clampWhenFinished = wrapper.userData.dragged)
-        );
-        if (wrapper.userData.mixer) {
-            wrapper.userData.mixer.update(timedelta);
-        }
-    };
-    wrapper.userData.children = function (name) {
-        const child = wrapper.children.filter((c) => c.name == name);
-        return child ? child.at(0) : undefined;
+        traverseMesh: function (callback, ...args) {
+            wrapper.children.forEach((parentMesh) =>
+                recurseMeshChildren(parentMesh, 3, callback, ...args)
+            );
+        },
+        addAnimation: function (animation, secDelay = 0) {
+            this.animations[animation.name] =
+                this.mixer.clipAction(animation);
+            this.animations[animation.name].startAt(
+                this.mixer.time + secDelay
+            );
+            return this.animations[animation.name];
+        },
+        updateAnimations: function (timedelta) {
+            Object.values(this.animations).forEach(
+                (animationAction) =>
+                    (animationAction.clampWhenFinished = this.dragged)
+            );
+            if (this.mixer)
+                this.mixer.update(timedelta);
+        },
+        child: function (name) {
+            const child = wrapper.children.filter((c) => c.name == name);
+            return child ? child.at(0) : undefined;
+        },
     };
     wrapper.userData.traverseMesh(function (mesh) {
         mesh.userData.nodeid = wrapper.uuid;
-        mesh.userData.children = function (name) {
+        mesh.userData.child = function (name) {
             const child = mesh.children.filter((c) => c.name == name);
             return child ? child.at(0) : undefined;
         };
@@ -213,126 +210,6 @@ function Node(mesh, animations = []) {
         wrapper.userData.addAnimation(animation)
     );
     return wrapper;
-}
-function CurrencyNode(
-    nodeMesh,
-    currencyMeshData, // expects (name: { mesh: Mesh, offset: Vector3, tiles: Int })
-    nodeAnimations = [],
-    currencyData = {} // expects: {type: str, amount: int, max: int, rate: float, lastUpdated: int (utcseconds)}
-) {
-    const node = Node(nodeMesh, animations);
-    const overlay = NodeSpriteOverlay(node);
-    Object.entries(currencyMeshData).forEach(([key, value]) => {
-        overlay.userData.addChild(key, value.mesh, value.offset, value.tiles);
-    });
-    node.userData.exportData = {
-        overlay: overlay,
-        currency: {
-            type: currencyData?.type,
-            amount: currencyData?.amount ? currencyData.amount : 0,
-            max: currencyData?.max ? currencyData.max : 1,
-            rate: currencyData?.rate ? currencyData.rate : 0, // per hour
-            lastUpdated: currencyData?.lastUpdated,
-        },
-    };
-    return node;
-}
-function currencyMeshDataFactory(map, alphaMap) { // [!] fix naming- just creates the overhead bar mesh
-    const material = SpriteSheet(map, alphaMap);
-    const geometry = new PlaneGeometry(1.5, 0.45);
-    const mesh = new Mesh(geometry, material);
-    return mesh;
-}
-function SpriteSheet(map, alphaMap) {
-    const fragShader = `
-        varying vec2 vuv;
-        uniform sampler2D map;
-        uniform sampler2D alphaMap;
-        uniform float tileIdx;
-        void main() {
-            vec2 uv = vuv;
-            uv = fract(uv + tileIdx);
-            vec4 duv = vec4(dFdx(vuv), dFdy(vuv));
-            vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
-            vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy, duv.zw);
-            float alpha = ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
-            gl_FragColor = vec4(txl, alpha);
-        }
-    `;
-    const vertShader = `
-        varying vec2 vuv;
-        void main() {
-            vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-            gl_Position = projectionMatrix * mvPosition;
-            vuv = uv;
-        }
-    `;
-    const material = new ShaderMaterial({
-        vertexShader: vertShader,
-        fragmentShader: fragShader,
-        uniforms: {
-            tileIdx: { value: 0 },
-            map: { value: new TextureLoader().load(map) },
-            alphaMap: {
-                value: new TextureLoader().load(alphaMap),
-            },
-        },
-    });
-    return material;
-}
-
-function NodeSpriteOverlay(targetMesh) { // [!] fix naming
-    const wrapper = new Group();
-    wrapper.userData = {
-        children: {},
-        target: targetMesh,
-        update: function (camera) {
-            wrapper.quaternion.copy(camera.quaternion);
-            this.target.getWorldPosition(wrapper.position);
-            Object.values(this.children).forEach((child) => {
-                if (!child.needsUpdate) return;
-                child.mesh.position.copy(child.offset);
-                child.needsUpdate = false;
-            });
-        },
-        addChild: function (name, mesh, offset, tiles) {
-            this.children[name] = NodeSpriteOverlayChildFactory(
-                mesh,
-                offset,
-                tiles
-            );
-            this.update();
-        },
-    };
-    return wrapper;
-}
-
-function NodeSpriteOverlayChildFactory(mesh, offset, tiles) {
-    // [!] fix naming
-    const obj = Object.create({
-        mesh: mesh,
-        _offset: offset.clone(),
-        needsUpdate: true,
-        tileCount: tiles,
-        get offset() {
-            return this._offset;
-        },
-        set offset(value) {
-            this._offset.copy(value);
-            this.needsUpdate = true;
-        },
-        get tileIdx() {
-            return this.mesh.material.uniforms.tileIdx.value;
-        },
-        set tileIdx(value) {
-            this.mesh.material.uniforms.tileIdx.value = UTIL.clamp(
-                value,
-                0,
-                this.tileCount
-            );
-        },
-    });
-    return obj;
 }
 
 function SelectionGlobe(sceneData, scale) {
@@ -478,6 +355,30 @@ function SelectionGlobe(sceneData, scale) {
     return wrapper;
 }
 
+function CurrencyNode(
+    nodeMesh,
+    currencyMeshData, // expects (name: { mesh: Mesh, offset: Vector3, tiles: Int })
+    nodeAnimations = [],
+    currencyData = {} // expects: {type: str, amount: int, max: int, rate: float, lastUpdated: int (utcseconds)}
+) {
+    const node = Node(nodeMesh, animations);
+    const overlay = NodeSpriteOverlay(node);
+    Object.entries(currencyMeshData).forEach(([key, value]) => {
+        overlay.userData.addChild(key, value.mesh, value.offset, value.tiles);
+    });
+    node.userData.exportData = {
+        overlay: overlay,
+        currency: {
+            type: currencyData?.type,
+            amount: currencyData?.amount ? currencyData.amount : 0,
+            max: currencyData?.max ? currencyData.max : 1,
+            rate: currencyData?.rate ? currencyData.rate : 0, // per hour
+            lastUpdated: currencyData?.lastUpdated,
+        },
+    };
+    return node;
+}
+
 function Tether(origin, target, color = 0xc0c0c0) {
     const material = new LineMaterial({
         color: color,
@@ -530,6 +431,9 @@ const Nodes = {
             sceneData.animations,
             currencyData.cash
         );
+        if (animationOptions) {
+
+        }
 
         return farm;
     },
@@ -538,10 +442,11 @@ const Nodes = {
         animationOptions = { idle: true, randomize: true }
     ) {
         const cube = Node(sceneData.mesh, sceneData.animations);
-        cube.userData.children("cube").material = new MeshPhongMaterial({
+        cube.userData.child("cube").material = new MeshPhongMaterial({
             color: 0x000000,
         });
         cube.userData.type = "cube";
+        cube.userData.exportData
         cube.userData.state = {
             setLowPerformance: function () {},
             setHighPerformance: function () {},
@@ -573,38 +478,38 @@ const Nodes = {
             transmission: 0.9,
             roughness: 0.2,
         });
-        globe.userData.children("globe").material = InvisibleMat;
-        globe.userData.children("globe").userData.children("frame").material =
+        globe.userData.child("globe").material = InvisibleMat;
+        globe.userData.child("globe").userData.child("frame").material =
             new MeshPhongMaterial({
                 color: 0x880101,
                 specular: 0xff0000,
                 shininess: 100,
             });
-        globe.userData.children("globe").userData.children("ball").material =
+        globe.userData.child("globe").userData.child("ball").material =
             highPerfMat;
         globe.userData.state = {
             setLowPerformance: function () {
                 globe.userData
-                    .children("globe")
-                    .userData.children("ball").material = lowPerfMat;
+                    .child("globe")
+                    .userData.child("ball").material = lowPerfMat;
                 globe.userData
-                    .children("globe")
-                    .userData.children("ball").material.needsUpdate = true;
+                    .child("globe")
+                    .userData.child("ball").material.needsUpdate = true;
             },
             setHighPerformance: function () {
                 globe.userData
-                    .children("globe")
-                    .userData.children("ball").material = highPerfMat;
+                    .child("globe")
+                    .userData.child("ball").material = highPerfMat;
                 globe.userData
-                    .children("globe")
-                    .userData.children("ball").material.needsUpdate = true;
+                    .child("globe")
+                    .userData.child("ball").material.needsUpdate = true;
             },
         };
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
         globe.userData
-            .children("globe")
-            .userData.children("frame").renderOrder = 1;
-        globe.userData.children("globe").renderOrder = 1;
+            .child("globe")
+            .userData.child("frame").renderOrder = 1;
+        globe.userData.child("globe").renderOrder = 1;
         globe.userData.type = "globe";
         globe.scale.setScalar(0.65);
         if (animationOptions) {
@@ -637,8 +542,8 @@ const Nodes = {
             setLowPerformance: function () {},
             setHighPerformance: function () {},
         };
-        scanner.userData.children("ball").material = ballMat;
-        scanner.userData.children("ball").userData.children("pupil").material =
+        scanner.userData.child("ball").material = ballMat;
+        scanner.userData.child("ball").userData.child("pupil").material =
             pupilMat;
         scanner.userData.type = "scanner";
         scanner.scale.setScalar(0.7);
@@ -672,15 +577,15 @@ const Nodes = {
         });
         cube.userData.state = {
             setLowPerformance: function () {
-                cube.userData.children("Cube").material = lowPerfMat;
-                cube.userData.children("Cube").material.needsUpdate = true;
+                cube.userData.child("Cube").material = lowPerfMat;
+                cube.userData.child("Cube").material.needsUpdate = true;
             },
             setHighPerformance: function () {
-                cube.userData.children("Cube").material = highPerfMat;
-                cube.userData.children("Cube").material.needsUpdate = true;
+                cube.userData.child("Cube").material = highPerfMat;
+                cube.userData.child("Cube").material.needsUpdate = true;
             },
         };
-        cube.userData.children("Cube").material = highPerfMat;
+        cube.userData.child("Cube").material = highPerfMat;
         cube.userData.type = "placeholder";
         cube.scale.setScalar(0.45);
         if (animationOptions) {
@@ -1163,6 +1068,4 @@ export {
     AttackManagerFactory,
     SelectionGlobe,
     WorldMarker,
-    SpriteSheet,
-    currencyMeshDataFactory,
 };

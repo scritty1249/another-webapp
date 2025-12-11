@@ -1,5 +1,6 @@
 import { Vector3, Color } from "three";
 import * as UTIL from "./utils.js";
+import { NodeSSOverlay, SSFramesMesh, SSMaskMesh } from "./spritesheet.js";
 
 const friendlyEmissiveColor = new Color(0xaa0000);
 
@@ -274,8 +275,10 @@ NodeManager.prototype.getNode = function (nodeid) {
         );
     return node;
 };
-NodeManager.prototype.createNode = function (nodeType, position = [0, 0, 0]) {
+NodeManager.prototype.createNode = function (nodeType, position = [0, 0, 0], exportData = {}) {
     const newNode = this._getMesh(nodeType);
+    if (newNode.userData.exportData) newNode.userData.exportData = {...newNode.userData.exportData, ...exportData};
+    else newNode.userData.exportData = exportData;
     if (position.x) newNode.position.set(position.x, position.y, position.z);
     else newNode.position.set(...position);
     this.nodes[newNode.uuid] = newNode;
@@ -729,22 +732,60 @@ AttackNodeManager.prototype.clear = function () {
     NodeManager.prototype.clear.call(this);
     this.attacklist.forEach((a) => delete this.attacks[a.uuid]);
     delete this._nodeTypeData;
-    this._nodeTypeData = {};
     delete this._attackTypeData;
-    this._attackTypeData = {};
     delete this._nodedata;
-    this._nodedata = {};
     delete this.attacks;
     delete this.attacklist;
     delete this._attacks;
     delete this._attacklist;
 };
 
-export function BuildNodeManager(...parentArgs) {
+export function BuildNodeManager(nodeOverlayData, ...parentArgs) {
     NodeManager.call(this, ...parentArgs);
+    this._nodeOverlayData = nodeOverlayData;
+    this._overlay = {};
+    this._overlaylist = [];
+    this.overlay = new Proxy(this._overlay, this._proxyHandlers.overlay);
+    this.overlaylist = new Proxy(this._overlaylist, this._proxyHandlers.overlaylist);
 }
 BuildNodeManager.prototype = Object.create(NodeManager.prototype);
 BuildNodeManager.prototype.constructor = BuildNodeManager;
+BuildNodeManager.prototype._proxyHandlers = {...BuildNodeManager.prototype._proxyHandlers,
+    overlay: {
+        set (target, prop, val, receiver) {
+            this._instance._overlaylist.push(val);
+            this._instance._scene.add(val);
+            return Reflect.set(target, prop, val, receiver);
+        },
+        deleteProperty(target, prop) {
+            const overlay = target[prop];
+            if (overlay !== undefined) {
+                this._instance._scene.remove(overlay);
+                // [!] may be optimizied, see if performance is impacted by this
+                this._instance._overlaylist.splice(
+                    this._instance._overlaylist
+                        .map((o) => o.uuid)
+                        .indexOf(overlay.uuid),
+                    1
+                );
+            }
+            return Reflect.deleteProperty(target, prop);
+        },
+    },
+    overlaylist: {
+        set(target, prop, val, receiver) {
+            if (typeof property === "number") {
+                Logger.throw(
+                    new Error(
+                        `[BuildNodeManager] | Setting specific index of read-only overlaylist is forbidden.`
+                    )
+                );
+                return false;
+            }
+            return Reflect.set(target, prop, val, receiver);
+        },
+    },
+};
 BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
     const tether = this._getTetherFromNodes(originid, targetid);
     delete this.tethers[tether.uuid];
@@ -753,12 +794,58 @@ BuildNodeManager.prototype.untetherNode = function (nodeid) {
     const node = this.getNode(nodeid);
     node.userData.tetherlist.forEach((t) => delete this.tethers[t.uuid]);
 };
+BuildNodeManager.prototype.getOverlay = function (overlayid) {
+    const overlay = this.overlay[overlayid];
+    if (!overlay)
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Overlay of UUID ${overlayid} does not exist.`
+            )
+        );
+    return overlay;
+};
+BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
+    const overlay = this.overlaylist.filter(o => o.target.uuid == targetid)?.[0];
+    if (!overlay)
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
+            )
+        );
+    return overlay;
+};
+BuildNodeManager.prototype.createNode = function (...args) {
+    const nodeid = NodeManager.prototype.createNode.call(this, ...args);
+    const node = this.getNode(nodeid);
+    const overlay = NodeSSOverlay(node);
+
+    if (true) {
+        const oMoneyBarMesh = SSMaskMesh(this._nodeOverlayData.cash.geometry, this._nodeOverlayData.cash.material);
+        overlay.userData.addChild("bar", oMoneyBarMesh, this._nodeOverlayData.cash.offset);
+        // overlay.userData.children.bar.userData.maskOffset.x += 100;
+    }
+    const oSlotsMesh = SSFramesMesh(this._nodeOverlayData.slots.geometry, this._nodeOverlayData.slots.material, this._nodeOverlayData.slots.tiles);
+    overlay.userData.addChild("slots", oSlotsMesh, this._nodeOverlayData.slots.offset);
+
+    this.overlay[overlay.uuid] = overlay;
+    return nodeid;
+};
+BuildNodeManager.prototype._updateOverlays = function () {
+    this.overlaylist.forEach(overlay => {
+        overlay.userData.update(this._camera);
+    });
+};
 BuildNodeManager.prototype.removeNode = function (nodeid) {
     delete this.nodes[nodeid];
 };
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);
+    this._updateOverlays();
     this._updateTethers();
+};
+BuildNodeManager.prototype.clear = function () {
+    NodeManager.prototype.clear.call(this);
+    delete this._nodeOverlayData;
 };
 
 function AttackFactory(typeData, originid, nodeManager) {
