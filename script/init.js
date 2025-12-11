@@ -339,9 +339,14 @@ function mainloop(MenuController) {
             THREEUTILS.loadGLTFShape("./source/globe.glb"),
             THREEUTILS.loadGLTFShape("./source/scanner.glb"),
             THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
+            Promise.resolve(MESH.currencyMeshDataFactory(
+                "map",
+                "alphaMap",
+                1
+            )),
         ]);
         gtlfData.then(data => {
-            const [ placeholderData, cubeData, globeData, eyeData, worldData, ..._] = data;
+            const [ placeholderData, cubeData, globeData, eyeData, worldData, currencyBarData, ..._] = data;
             Logger.info("Finished loading shape data:", data);        
 
             NodeController.addMeshData({
@@ -349,7 +354,21 @@ function mainloop(MenuController) {
                 cube: () => MESH.Nodes.Cube(cubeData),
                 globe: () => MESH.Nodes.Globe(globeData),
                 scanner: () => MESH.Nodes.Scanner(eyeData),
-                tether: (o, t) => MESH.Tether(o, t)
+                tether: (o, t) => MESH.Tether(o, t),
+                cashFarm: () => MESH.Nodes.CashFarm(placeholderData, {
+                    cash: {
+                        type: "cash",
+                        amount: 0,
+                        max: 1,
+                        rate: 0,
+                        lastUpdated: 0
+                    },
+                    mesh: {
+                        mesh: currencyBarData.clone(),
+                        offset: new THREE.Vector3(0, 1, 0),
+                        tiles: 1
+                    }
+                }),
             });
             WorldController.addMeshData(
                 MESH.SelectionGlobe(worldData, 4)
