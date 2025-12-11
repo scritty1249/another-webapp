@@ -1,4 +1,4 @@
-import { Vector3, Matrix4, Quaternion, CubeTextureLoader, TextureLoader, Raycaster } from "three";
+import { Vector3, Quaternion, CubeTextureLoader, TextureLoader, Raycaster } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
 const zeroVector = new Vector3();
