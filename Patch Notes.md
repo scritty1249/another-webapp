@@ -3,8 +3,8 @@
 ## 12/12/2025
 ### Features Planned
 - Stealing currency from enemy nodes
- - Update target layout data with deducted currnecy amounts
-  - Prevent attacks on online users to avoid gamedata desync
+  - Update target layout data with deducted currnecy amounts
+    - Prevent attacks on currently online users to avoid gamedata desync
 - Actual background
 - Display Node Detail menu when purchasing new Nodes
 ### Known Bugs
