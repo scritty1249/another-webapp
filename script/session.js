@@ -97,11 +97,11 @@ export function getsave () {
     });
 }
 
-export function savegame (layoutObj, bankData) { // [!] currency data not implemented yet
+export function savegame (layoutObj) { // [!] currency data not implemented yet
     if (!CookieJar.has("session")) {
         Logger.error("[Session] | Cannot load game data: No session token found!");
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.saveGameAsync(sessionToken, layoutObj.background, layoutObj.layout, bankData.cash, bankData.crypto);
+    return API.saveGameAsync(sessionToken, layoutObj.background, layoutObj.layout);
 }

@@ -82,10 +82,6 @@ export function saveGame (sessionToken, backdrop, layout, ...currency) {
         game: {
             backdrop: backdrop,
             layout: layout
-        },
-        bank: {
-            cash: currency[0],
-            crypto: currency[1]
         }
     }, {session: sessionToken})
         .then(data => Boolean(data?.success));
@@ -96,10 +92,6 @@ export function saveGameAsync (sessionToken, backdrop, layout, ...currency) {
         game: {
             backdrop: backdrop,
             layout: layout
-        },
-        bank: {
-            cash: currency[0],
-            crypto: currency[1]
         }
     }, {session: sessionToken}, true)
         .then(data => Boolean(data?.success));

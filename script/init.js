@@ -346,7 +346,8 @@ function mainloop(MenuController) {
                                             PhaseController.buildPhase(
                                                 Storage.get("localLayout"),
                                                 NodeOverlayData,
-                                                NodeDetailedInfo
+                                                NodeDetailedInfo,
+                                                detail?.metadata ? detail.metadata : {}
                                             );
                                             MenuController.close();
                                         }
