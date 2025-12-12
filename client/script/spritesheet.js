@@ -54,17 +54,20 @@ export const SSMaterialType = {
         });
         return material;
     },
-    Mask: function (map, alphaMap) {
+    Mask: function (map, alphaMap, mapSize, alphaMapSize) {
         const fragShader = `
             varying vec2 vuv;
             uniform sampler2D map;
             uniform sampler2D alphaMap;
             uniform vec2 maskOffset;
+            uniform vec2 mapSizeRatio;
             void main() {
                 vec2 uv = fract(vuv);
+                vec2 alphaUv = fract((vuv + maskOffset) * mapSizeRatio);
                 vec4 duv = vec4(dFdx(vuv), dFdy(vuv));
+                vec4 alphaDuv = vec4(dFdx(vuv * mapSizeRatio), dFdy(vuv * mapSizeRatio));
                 vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
-                vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy + maskOffset, duv.zw);
+                vec4 alphaTxl = textureGrad(alphaMap, alphaUv, alphaDuv.xy, alphaDuv.zw);
                 float alpha = ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
                 gl_FragColor = vec4(txl, alpha);
             }
@@ -84,50 +87,8 @@ export const SSMaterialType = {
             depthWrite: false,
             side: FrontSide,
             uniforms: {
+                mapSizeRatio: { value: mapSize.clone().divide(alphaMapSize) },
                 maskOffset: { value: new Vector2() },
-                map: { value: new TextureLoader().load(map) },
-                alphaMap: {
-                    value: new TextureLoader().load(alphaMap),
-                },
-            },
-        });
-        return material;
-    },
-    NodeSlots: function (map, alphaMap, tileSize, mapSize) {
-        const fragShader = `
-            varying vec2 vuv;
-            uniform sampler2D map;
-            uniform sampler2D alphaMap;
-            uniform vec2 tileIdx;
-            uniform vec2 tileSize;
-            void main() {
-                vec2 uv = vuv;
-                uv = fract((uv + tileIdx) * tileSize);
-                vec2 smooth_uv = tileSize * vuv;
-                vec4 duv = vec4(dFdx(smooth_uv), dFdy(smooth_uv));
-                vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
-                vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy, duv.zw);
-                float alpha = ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
-                gl_FragColor = vec4(txl, alpha);
-            }
-        `;
-        const vertShader = `
-            varying vec2 vuv;
-            void main() {
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_Position = projectionMatrix * mvPosition;
-                vuv = uv;
-            }
-        `;
-        const material = new ShaderMaterial({
-            vertexShader: vertShader,
-            fragmentShader: fragShader,
-            transparent: true,
-            depthWrite: false,
-            side: FrontSide,
-            uniforms: {
-                tileSize: { value: tileSize.clone().divide(mapSize)},
-                tileIdx: { value: new Vector2() },
                 map: { value: new TextureLoader().load(map) },
                 alphaMap: {
                     value: new TextureLoader().load(alphaMap),
@@ -223,10 +184,10 @@ export function SSNodeSlotsMesh(geometry, material, slots) {
                         `[SpriteSheetNodeSlotsMesh] | Error: cannot set number of slots to less than 1 or more than ${slots}.`
                     )
                 );
-            material.uniforms.tileIdx.value.y = value - 1;
+            material.uniforms.maskOffset.value.y = value - 1;
         },
         get slots () {
-            return material.uniforms.tileIdx.value.y -1;
+            return material.uniforms.maskOffset.value.y - 1;
         },
         set filled (value) {
             if (value > slots + 1 || value < 0)
@@ -235,10 +196,10 @@ export function SSNodeSlotsMesh(geometry, material, slots) {
                         `[SpriteSheetNodeSlotsMesh] | Error: cannot set number of filled slots to less than 0 or more than ${slots}.`
                     )
                 );
-            material.uniforms.tileIdx.value.x = value;
+            material.uniforms.maskOffset.value.x = value;
         }, 
         get filled () {
-            return material.uniforms.tileIdx.value.x;
+            return material.uniforms.maskOffset.value.x;
         },
     };
     return spriteSheetNodeSlotsMesh;

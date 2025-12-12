@@ -18,6 +18,10 @@ export const BLANK_LAYOUT_OBJ = {
         nodes: [{ uuid: "0", type: "globe", position: [0, 0, 0], _data: {} }],
     },
 };
+export const BLANK_BANK = {
+    cash: 300,
+    crypto: 15
+};
 
 export const DEFAULT_GEO = {
     // lol
@@ -95,6 +99,15 @@ function videoReadyPromise(element) {
             { once: true }
         );
     });
+}
+
+export function banksEqual (me, them) {
+    const myKeys = Object.keys(me);
+    const theirKeys = Object.keys(them);
+    return (
+        new Set(myKeys).symmetricDifference(new Set(theirKeys)).size === 0 &&
+        myKeys.every(key => me[key] == them[key])
+    )
 }
 
 export function download(filename, text) {
@@ -247,8 +260,9 @@ export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does no
 
 export function layoutToJsonObj(scene, nodeManager) {
     const _bgSrc = scene.background?.images?.[0]?.src;
+    const _bgPath = _bgSrc ? "." + new URL(_bgSrc).pathname : "";
     const data = {
-        background: _bgSrc ? _bgSrc.slice(0, _bgSrc.lastIndexOf("/")) + "/" : "",
+        background: _bgPath.slice(0, _bgPath.lastIndexOf("/") + 1),
         layout: {
             nodes: [],
             neighbors: [],

@@ -1,6 +1,11 @@
 import { Vector3, Color } from "three";
 import * as UTIL from "./utils.js";
-import { NodeSSOverlay, SSFramesMesh, SSMaskMesh, SSNodeSlotsMesh } from "./spritesheet.js";
+import {
+    NodeSSOverlay,
+    SSFramesMesh,
+    SSMaskMesh,
+    SSNodeSlotsMesh,
+} from "./spritesheet.js";
 
 const friendlyEmissiveColor = new Color(0xaa0000);
 
@@ -20,7 +25,6 @@ export function NodeManager(
         Object.getPrototypeOf(this) === NodeManager.prototype && // don't reinitalize these when subclassing
         this._constructorArgs.some((arg) => arg === undefined)
     ) {
-
     }
     Object.getOwnPropertyNames(Object.getPrototypeOf(this))
         .filter(
@@ -180,7 +184,11 @@ NodeManager.prototype.resetNodeEmissive = function (nodeid) {
         }
     });
 };
-NodeManager.prototype.setNodeColorTint = function (nodeid, color, strength = 0.65) {
+NodeManager.prototype.setNodeColorTint = function (
+    nodeid,
+    color,
+    strength = 0.65
+) {
     const node = this.getNode(nodeid);
     node.userData.traverseMesh(function (mesh) {
         if (mesh.material.color) {
@@ -251,7 +259,7 @@ NodeManager.prototype.getNeighbors = function (nodeid) {
         ...Object.values(node.userData.tethers.target).map(
             (t) => t.userData.origin
         ),
-    ].filter(n => n);
+    ].filter((n) => n);
 };
 NodeManager.prototype.getNodes = function (...nodeids) {
     return nodeids.map((nodeid) => this.getNode(nodeid));
@@ -275,9 +283,17 @@ NodeManager.prototype.getNode = function (nodeid) {
         );
     return node;
 };
-NodeManager.prototype.createNode = function (nodeType, position = [0, 0, 0], exportData = {}) {
+NodeManager.prototype.createNode = function (
+    nodeType,
+    position = [0, 0, 0],
+    exportData = {}
+) {
     const newNode = this._getMesh(nodeType);
-    if (newNode.userData.exportData) newNode.userData.exportData = {...newNode.userData.exportData, ...exportData};
+    if (newNode.userData.exportData)
+        newNode.userData.exportData = {
+            ...newNode.userData.exportData,
+            ...exportData,
+        };
     else newNode.userData.exportData = exportData;
     newNode.userData._neighborCount = 0;
     if (position.x) newNode.position.set(position.x, position.y, position.z);
@@ -352,11 +368,15 @@ NodeManager.prototype.clear = function () {
 };
 NodeManager.prototype._tetherNodes = function (origin, target) {
     if (this.isNeighbor(origin.uuid, target.uuid))
-        Logger.throw(new Error(
-            `[NodeManager] | Error: Tether already exists between Nodes ${originid} and ${targetid}`
-        ));
+        Logger.throw(
+            new Error(
+                `[NodeManager] | Error: Tether already exists between Nodes ${originid} and ${targetid}`
+            )
+        );
     else if (origin.uuid == target.uuid)
-        Logger.throw(new Error(`[NodeManager] | Error: Cannot tether a Node to itself`));
+        Logger.throw(
+            new Error(`[NodeManager] | Error: Cannot tether a Node to itself`)
+        );
     const tether = this._getMesh("tether", origin, target);
     this.tethers[tether.uuid] = tether;
     return tether;
@@ -364,14 +384,12 @@ NodeManager.prototype._tetherNodes = function (origin, target) {
 NodeManager.prototype.tetherNodes = function (originid, targetid) {
     const [origin, target] = this.getNodes(originid, targetid);
     if (
-        (
-            origin.userData.exportData?.maxConnections === undefined ||
-            this.getNeighbors(originid).length < origin.userData.exportData.maxConnections
-        ) &&
-        (
-            target.userData.exportData?.maxConnections === undefined ||
-            this.getNeighbors(targetid).length < target.userData.exportData.maxConnections
-        )
+        (origin.userData.exportData?.maxConnections === undefined ||
+            this.getNeighbors(originid).length <
+                origin.userData.exportData.maxConnections) &&
+        (target.userData.exportData?.maxConnections === undefined ||
+            this.getNeighbors(targetid).length <
+                target.userData.exportData.maxConnections)
     ) {
         const tether = this._tetherNodes(origin, target);
         if (origin?.userData?._neighborCount !== undefined)
@@ -380,10 +398,11 @@ NodeManager.prototype.tetherNodes = function (originid, targetid) {
             target.userData._neighborCount++;
         return tether.uuid;
     } else {
-        Logger.warn(`[NodeManager] | Cannot tether nodes ${originid} (${origin.userData.type}) and ${targetid} (${target.userData.type}): Connection limit reached for node.`);
+        Logger.warn(
+            `[NodeManager] | Cannot tether nodes ${originid} (${origin.userData.type}) and ${targetid} (${target.userData.type}): Connection limit reached for node.`
+        );
         return undefined;
     }
-    
 };
 NodeManager.prototype.removeTether = function (tetherid) {
     const [origin, target] = this._getNodesFromTether(this.tethers[tetherid]);
@@ -446,12 +465,12 @@ NodeManager.prototype._updateTethers = function () {
 NodeManager.prototype._BFSNode = function (nodeid) {
     const visited = new Set();
     const queue = [nodeid];
-    const distances = {[nodeid]: 0};
+    const distances = { [nodeid]: 0 };
     let dist = 0;
     visited.add(nodeid);
     while (queue.length > 0) {
         const curr = queue.shift();
-        for (const neighbor of this.getNeighbors(curr).map(node => node.uuid))
+        for (const neighbor of this.getNeighbors(curr).map((node) => node.uuid))
             if (!visited.has(neighbor)) {
                 distances[neighbor] = dist;
                 visited.add(neighbor);
@@ -461,26 +480,41 @@ NodeManager.prototype._BFSNode = function (nodeid) {
     }
     return distances;
 };
+NodeManager.prototype.isCurrencyNode = function (nodeid) {
+    const node = this.getNode(nodeid);
+    if (node?.userData.exportData?.currency !== undefined)
+        return node.userData.exportData.currency.type;
+    return undefined;
+};
+NodeManager.prototype.getCurrencyData = function (nodeid) {
+    if (!this.isCurrencyNode(nodeid))
+        Logger.throw(
+            new Error(
+                `[NodeManager] | Failed to get currency data from node ${nodeid}: Not a currency node.`
+            )
+        );
+    const node = this.getNode(nodeid);
+    return node.userData.exportData.currency;
+};
 NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
     // why are we back to BFS bro wtf
     const commonObj = {};
     const objs = Array.from(
-        this.nodelist
-            .filter(n => n.userData.type == "globe"),
-        n => this._BFSNode(n.uuid));
-    objs.forEach(obj => {
+        this.nodelist.filter((n) => n.userData.type == "globe"),
+        (n) => this._BFSNode(n.uuid)
+    );
+    objs.forEach((obj) => {
         for (const key of Object.keys(obj))
             if (commonObj.hasOwnProperty(key))
                 commonObj[key] = Math.min(commonObj[key], obj[key]);
-            else
-                commonObj[key] = obj[key];
+            else commonObj[key] = obj[key];
     });
-    const allNodes = this.nodelist.map(n => n.uuid);
+    const allNodes = this.nodelist.map((n) => n.uuid);
     const allFound = Object.keys(commonObj);
     return (
         allFound.length == allNodes.length &&
-        allFound.every(nodeid => allNodes.includes(nodeid)) &&
-        Object.values(commonObj).every(dist => dist <= maxGlobeDistance)
+        allFound.every((nodeid) => allNodes.includes(nodeid)) &&
+        Object.values(commonObj).every((dist) => dist <= maxGlobeDistance)
     );
 };
 
@@ -725,13 +759,19 @@ AttackNodeManager.prototype.addAttackToNode = function (attackType, nodeid) {
                 type: attackType,
             });
             Logger.debug(
-                `[AttackNodeManager] | Added new Attack (${nodeData.slots.at(-1).uuid}) to Node (${nodeid})`
+                `[AttackNodeManager] | Added new Attack (${
+                    nodeData.slots.at(-1).uuid
+                }) to Node (${nodeid})`
             );
             return true;
         } else
-            Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) state does not meet attacker prerequisites.`)
+            Logger.warn(
+                `[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) state does not meet attacker prerequisites.`
+            );
     } else
-        Logger.warn(`[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.slots.length} slots.`);
+        Logger.warn(
+            `[AttackNodeManager] | Cannot add attacker: Node (${nodeid}) is limited to ${nodeData.slots.length} slots.`
+        );
     return false;
 };
 AttackNodeManager.prototype._updateAnimations = function (timedelta) {
@@ -740,8 +780,9 @@ AttackNodeManager.prototype._updateAnimations = function (timedelta) {
             const data = this.getNodeData(node.uuid);
             if (!data.state.disabled.active)
                 node.userData.updateAnimations(
-                    (data.isFriendly && node.userData.type != "globe" ? 0.4 : 1) *
-                        timedelta
+                    (data.isFriendly && node.userData.type != "globe"
+                        ? 0.4
+                        : 1) * timedelta
                 );
         }
     });
@@ -771,13 +812,17 @@ export function BuildNodeManager(nodeOverlayData, ...parentArgs) {
     this._overlay = {};
     this._overlaylist = [];
     this.overlay = new Proxy(this._overlay, this._proxyHandlers.overlay);
-    this.overlaylist = new Proxy(this._overlaylist, this._proxyHandlers.overlaylist);
+    this.overlaylist = new Proxy(
+        this._overlaylist,
+        this._proxyHandlers.overlaylist
+    );
 }
 BuildNodeManager.prototype = Object.create(NodeManager.prototype);
 BuildNodeManager.prototype.constructor = BuildNodeManager;
-BuildNodeManager.prototype._proxyHandlers = {...BuildNodeManager.prototype._proxyHandlers,
+BuildNodeManager.prototype._proxyHandlers = {
+    ...BuildNodeManager.prototype._proxyHandlers,
     overlay: {
-        set (target, prop, val, receiver) {
+        set(target, prop, val, receiver) {
             this._instance._overlaylist.push(val);
             this._instance._scene.add(val);
             return Reflect.set(target, prop, val, receiver);
@@ -830,7 +875,9 @@ BuildNodeManager.prototype.getOverlay = function (overlayid) {
     return overlay;
 };
 BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
-    const overlay = this.overlaylist.filter(o => o.userData.target.uuid == targetid)?.[0];
+    const overlay = this.overlaylist.filter(
+        (o) => o.userData.target.uuid == targetid
+    )?.[0];
     if (!overlay)
         Logger.throw(
             new Error(
@@ -841,35 +888,110 @@ BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
 };
 BuildNodeManager.prototype.createNode = function (...args) {
     const nodeid = NodeManager.prototype.createNode.call(this, ...args);
-    const node = this.getNode(nodeid);
-    const overlay = NodeSSOverlay(node);
-
-    if (node.userData.type == "cashfarm") {
-        const oMoneyBarMesh = SSMaskMesh(this._nodeOverlayData.cash.geometry, this._nodeOverlayData.cash.material);
-        overlay.userData.addChild("bar", oMoneyBarMesh, this._nodeOverlayData.cash.offset);
-        // overlay.userData.children.bar.userData.maskOffset.x += 100;
+    try {
+        const node = this.getNode(nodeid);
+        const overlay = NodeSSOverlay(node);
+        const currencyType = this.isCurrencyNode(nodeid); // may be undefined (intentional), this function returns a string of currency type instead of just true.
+        if (currencyType) {
+            const oMoneyBarMesh = SSMaskMesh(
+                this._nodeOverlayData[currencyType].geometry,
+                this._nodeOverlayData[currencyType].material
+            );
+            overlay.userData.addChild(
+                "bar",
+                oMoneyBarMesh,
+                this._nodeOverlayData[currencyType].offset
+            );
+        }
+        const oSlotsMesh = SSNodeSlotsMesh(
+            this._nodeOverlayData.slots.geometry,
+            this._nodeOverlayData.slots.material.clone(),
+            this._nodeOverlayData.slots.tiles
+        );
+        if (node.userData.exportData?.maxConnections)
+            oSlotsMesh.userData.slots = node.userData.exportData.maxConnections;
+        overlay.userData.addChild(
+            "slots",
+            oSlotsMesh,
+            this._nodeOverlayData.slots.offset
+        );
+        this.overlay[overlay.uuid] = overlay;
+    } catch {
+        Logger.error(`[BuildNodeManager] | Failed to create overlay for currency node ${nodeid}: Missing node overlay data from `, this._nodeOverlayData);
+    } finally {
+        return nodeid;
     }
-    const oSlotsMesh = SSNodeSlotsMesh(this._nodeOverlayData.slots.geometry, this._nodeOverlayData.slots.material.clone(), this._nodeOverlayData.slots.tiles);
-    if (node.userData.exportData?.maxConnections)
-        oSlotsMesh.userData.slots = node.userData.exportData.maxConnections;
-    overlay.userData.addChild("slots", oSlotsMesh, this._nodeOverlayData.slots.offset);
-    this.overlay[overlay.uuid] = overlay;
-    return nodeid;
 };
 BuildNodeManager.prototype._updateOverlays = function () {
-    this.overlaylist.forEach(overlay => {
-        overlay.userData.children.slots.userData.filled = overlay.userData.target.userData._neighborCount;
+    this.overlaylist.forEach((overlay) => {
+        const node = overlay.userData.target;
+        overlay.userData.children.slots.userData.filled =
+            overlay.userData.target.userData._neighborCount;
+        if (this.isCurrencyNode(node.uuid))
+            overlay.userData.children.bar.userData.maskOffset.x =
+                1 -
+                node.userData.exportData.currency.amount /
+                    node.userData.exportData.currency.max;
         overlay.userData.update(this._camera);
     });
 };
+BuildNodeManager.prototype._updateCurrencyNodes = function () {
+    // doesn't go off of timedelta- more accurate / convienient just use current time
+    const nodes = this.getCurrencyNodes();
+    const now = UTIL.getNowUTCSeconds();
+    nodes.forEach((node) => {
+        const currencyData = node.userData.exportData.currency;
+        if (currencyData.amount != currencyData.max && currencyData.rate) {
+            const elapsedSeconds = Math.max(0, now - currencyData.lastUpdated);
+            const ratePerSecond = currencyData.rate / 60 / 60; // stored rate is per hour
+            const amountGenerated = Math.floor(elapsedSeconds * ratePerSecond); // avoid floating points for sanity
+            const newAmount = Math.min(
+                currencyData.max,
+                currencyData.amount + amountGenerated
+            );
+            if (newAmount != currencyData.amount) {
+                currencyData.amount = newAmount;
+                currencyData.lastUpdated = now;
+            }
+        }
+    });
+};
+BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
+    // returns the amount, then sets the amount to zero.
+    const node = this.getNode(nodeid);
+    if (!this.isCurrencyNode(nodeid))
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Cannot collect from node ${nodeid} (${node.userData.type}): Not a currency Node.`
+            )
+        );
+    const currencyData = node.userData.exportData.currency;
+    const amount = currencyData.amount;
+    if (amount > 0) {
+        currencyData.amount = 0;
+        currencyData.lastUpdated = UTIL.getNowUTCSeconds();
+    }
+    return amount;
+};
+
+BuildNodeManager.prototype.getCurrencyNodes = function (
+    currencyType = undefined
+) {
+    if (currencyType)
+        return this.nodelist.filter(
+            (n) => n.userData.exportData?.currency == currencyType
+        );
+    return this.nodelist.filter((n) => n.userData.exportData?.currency);
+};
+
 BuildNodeManager.prototype.removeNode = function (nodeid) {
     const overlay = this.getOverlayByTarget(nodeid);
-    if (overlay)
-        delete this.overlay[overlay.uuid];
+    if (overlay) delete this.overlay[overlay.uuid];
     delete this.nodes[nodeid];
 };
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);
+    this._updateCurrencyNodes();
     this._updateOverlays();
     this._updateTethers();
 };
@@ -907,10 +1029,8 @@ function AttackFactory(typeData, originid, nodeManager) {
             return attackOptionData.visible;
         },
         set visible(value) {
-            if (value)
-                attackManager.show(attackid);
-            else
-                attackManager.hide(attackid);
+            if (value) attackManager.show(attackid);
+            else attackManager.hide(attackid);
         },
         get target() {
             return this._target;
@@ -919,23 +1039,27 @@ function AttackFactory(typeData, originid, nodeManager) {
             this._target = nodeid;
             if (nodeid) {
                 this.active = true;
-                this.data.userData.setTarget(nodeManager.getNode(nodeid)?.position);
+                this.data.userData.setTarget(
+                    nodeManager.getNode(nodeid)?.position
+                );
                 this.data.options.callback = function (_) {
                     if (attack.active) {
                         try {
-                            const targetData = nodeManager.getNodeData(attack.target);
+                            const targetData = nodeManager.getNodeData(
+                                attack.target
+                            );
                             targetData.damage(attack.damage);
                             typeData.effect(nodeManager, attackid);
                             attack.update();
                             if (attack.active) {
                                 attack.visible = false;
-                                const wait = attack.waitCooldown ? attack.cooldown : 0;
-                                setTimeout(
-                                    () => {
-                                        if (attack.active)
-                                            attackManager.restartPlayback(attackid);
-                                    }, wait
-                                );
+                                const wait = attack.waitCooldown
+                                    ? attack.cooldown
+                                    : 0;
+                                setTimeout(() => {
+                                    if (attack.active)
+                                        attackManager.restartPlayback(attackid);
+                                }, wait);
                             }
                         } catch (err) {
                             Logger.warn(err.message);
@@ -977,7 +1101,7 @@ function NodeDataFactory(nodeid, manager) {
             disabled: StatusEffectFactory(),
             reset: function () {
                 this.disabled.reset();
-            }
+            },
         },
         get neighbors() {
             // gets nodedata only
@@ -1006,8 +1130,8 @@ function NodeDataFactory(nodeid, manager) {
             return this.state.disabled.active
                 ? []
                 : this.neighbors.filter(
-                    (nd) => nd.isFriendly != this.isFriendly && !nd.isDead
-                );
+                      (nd) => nd.isFriendly != this.isFriendly && !nd.isDead
+                  );
         },
         canAttack: function (targetid) {
             return (
@@ -1045,7 +1169,7 @@ function NodeDataFactory(nodeid, manager) {
             else if (oldlength < this._numSlots) this.slots.fillempty();
         },
         get attackers() {
-            return this.slots.filter(a => a.uuid != undefined);
+            return this.slots.filter((a) => a.uuid != undefined);
         },
         slots: Array.from({ length: typeData?.slots }, () => {
             return { uuid: undefined, type: undefined };
@@ -1053,12 +1177,12 @@ function NodeDataFactory(nodeid, manager) {
     });
     Object.defineProperty(obj.slots, "empty", {
         get: function () {
-            return obj.slots.filter(a => a.uuid == undefined).length;
+            return obj.slots.filter((a) => a.uuid == undefined).length;
         },
     });
     Object.defineProperty(obj.slots, "filled", {
         get: function () {
-            return obj.slots.filter(a => a.uuid != undefined).length;
+            return obj.slots.filter((a) => a.uuid != undefined).length;
         },
     });
     obj.slots.pop = function (index) {
@@ -1078,7 +1202,7 @@ function NodeDataFactory(nodeid, manager) {
         if (args.length + obj.slots.filled <= obj.numSlots)
             args.forEach((arg, i) => (obj.slots[obj.slots.filled + i] = arg));
         else {
-            args.forEach(arg => delete manager.attacks[arg.uuid]);
+            args.forEach((arg) => delete manager.attacks[arg.uuid]);
             Logger.error(
                 `Cannot add attacker(s): Node is limited to ${obj.numSlots} slots.`
             );
@@ -1161,7 +1285,7 @@ function NodeHealthFactory(maxHealth) {
     });
 }
 
-function StatusEffectFactory (defaultActive = false) {
+function StatusEffectFactory(defaultActive = false) {
     const obj = Object.create({
         _timer: undefined,
         active: defaultActive,
@@ -1172,7 +1296,7 @@ function StatusEffectFactory (defaultActive = false) {
                 this.func();
                 this.func = undefined;
                 this.callOnReset = false;
-            }
+            },
         },
         _wipeTimer: function () {
             if (this._timer) {
@@ -1180,34 +1304,38 @@ function StatusEffectFactory (defaultActive = false) {
                 this._timer = undefined;
             }
         },
-        _overrided: function () { // call when state was set already, and is going to be set again
+        _overrided: function () {
+            // call when state was set already, and is going to be set again
             this._wipeTimer();
             if (this._callback.func !== undefined && this._callback.callOnReset)
                 this._callback.run();
         },
-        reset: function () { // ignores callback, clears everything
+        reset: function () {
+            // ignores callback, clears everything
             this._wipeTimer();
             this.active = defaultActive;
             this._callback.callOnReset = false;
             this._callback.func = undefined;
         },
-        set: function (state, durationMs, callback = undefined, callbackWhenReset = false) {
-            if (this._timer !== undefined)
-                this._overrided();
+        set: function (
+            state,
+            durationMs,
+            callback = undefined,
+            callbackWhenReset = false
+        ) {
+            if (this._timer !== undefined) this._overrided();
             if (callback !== undefined) {
                 this._callback.func = callback;
                 this._callback.callOnReset = callbackWhenReset;
             }
-            if (durationMs < 0)
-                this._timer = undefined;
+            if (durationMs < 0) this._timer = undefined;
             else
                 this._timer = setTimeout(() => {
                     this.active = !state;
-                    if (this._callback.func !== undefined)
-                        this._callback.run();
+                    if (this._callback.func !== undefined) this._callback.run();
                 }, durationMs);
             this.active = state;
-        }
+        },
     });
 
     return obj;

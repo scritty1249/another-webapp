@@ -81,6 +81,20 @@ canvas {
     margin: 0;
     overflow: hidden;
 
+    > .corner-button {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        overflow: hidden;
+        transition: translate 0.25s ease-out;
+        &:active {
+            translate: 100%;
+        }
+    }
+    &:has(#menu:not(.close)) > .corner-button { /* hide menu button in background when menu is open */
+        display: none;
+    }
+
     div.textbox {
         &:not(.naked) {
             background-image: url("../source/textbox-background.png") !important;
@@ -111,6 +125,14 @@ canvas {
                 background: var(--highlight-bg) !important;
                 text-shadow: none;
                 color: var(--highlight-fg) !important;
+            }
+            &.align-left {
+                padding-left: 15%;
+                text-align: left;
+            }
+            &.align-right {
+                padding-right: 15%;
+                text-align: right;
             }
         }
     }
@@ -190,7 +212,59 @@ canvas {
         resize: none;
     }
 
-    > .attack-bar-menu > .button,
+    > .hud {
+        scrollbar-width: none;
+        overflow: clip;
+        position: absolute;
+        min-width: 100%;
+        min-height: 100%;
+        top: 0;
+        left: 0;
+        * {
+            position: relative;
+            scrollbar-width: none;
+        }
+        > .notification {
+            position: fixed;
+            bottom: calc(var(--vh) * 30);
+            width: calc(var(--vw) * 65);
+            left: 0;
+            right: 0;
+            margin: 0 auto;
+            z-index: 99;
+            pointer-events: auto !important;
+        }
+        &.build {
+            > .wallet {
+                position: relative;
+                margin-left: auto;
+                top: calc(var(--unit) / 4);
+                display: flex;
+                flex-direction: row;
+                justify-content: flex-end;
+                gap: calc(var(--unit) * 2);
+                padding: calc(var(--unit) / 4);
+                width: calc(var(--vw) * 30);
+                height: calc(var(--unit) * 2);
+            }
+        }
+        &.attack {
+            > .bar {
+                bottom: calc(var(--unit) / 2);
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                margin: 0 auto;
+                overflow-y: hidden;
+                overflow-x: scroll;
+                place-items: center;
+            }
+        }
+    }
+
+    > .hud.attack-bar > .button,
     > .attack-focus-menu > .button {
         overflow: hidden;
     }
@@ -243,34 +317,6 @@ canvas {
             -webkit-transform: rotate(0deg) scale(0);
             -moz-transform: rotate(0deg) scale(0);
         }
-    }
-    > .attack-bar-menu {
-        position: fixed;
-        bottom: calc(var(--unit) / 2);
-        left: 50%;
-        transform: translateX(-50%);
-        display: flex;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        margin: 0 auto;
-        overflow-y: hidden;
-        overflow-x: scroll;
-        place-items: center;
-        scrollbar-width: none;
-    }
-
-    > .corner-button {
-        position: fixed;
-        bottom: 0;
-        right: 0;
-        overflow: hidden;
-        transition: translate 0.25s ease-out;
-        &:active {
-            translate: 100%;
-        }
-    }
-    &:has(#menu:not(.close)) > .corner-button { /* hide menu button in background when menu is open */
-        display: none;
     }
 
     > #menu {
@@ -329,6 +375,15 @@ canvas {
         }
         .button:active {
             filter: brightness(2) grayscale(1);
+        }
+        &.nodeInfo {
+            > div.center {
+                .info-window {
+                    background-size: 100% 100% !important;
+                    width: calc(var(--vw) * 85);
+                    height: calc(var(--vh) * 60);
+                }
+            }
         }
         &.addNode {
             &.selectType {

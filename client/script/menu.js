@@ -205,6 +205,17 @@ export function MenuManager (
             self._appendMenu(central);
             self._dispatch("loadmenu", { history: ["loading"], statusElement: loading});
         },
+        nodeInfo: function () {
+            self.loadMenu.clear();
+            self.element.wrapper.classList.add("nodeInfo");
+            const central = document.createElement("div");
+            central.classList.add("center", "absolutely-center");
+            const infoWindow = self.createElement.statusTextBox(true, false);
+            infoWindow.element.classList.add("info-window");
+            central.appendChild(infoWindow.element);
+            self._appendMenu(central);
+            self._dispatch("loadmenu", { history: [], infoElement: infoWindow });
+        },
         settings: {
             main: function () {
                 self.loadMenu.clear();
@@ -269,7 +280,7 @@ export function MenuManager (
                     self.createElement.button(90, "add-node", "Add globe", { // globe
                         click: () => self._dispatch("addnode", {nodeType: "globe"}),
                     }, 4),
-                    self.createElement.button(90, undefined, undefined, {
+                    self.createElement.button(90, "lock", undefined, {
 
                     }, 4),
                     self.createElement.button(90, "lock", undefined, {
@@ -309,11 +320,11 @@ export function MenuManager (
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center");
                 const buttons = [ // placeholders
-                    self.createElement.button(90, undefined, undefined, {
-
+                    self.createElement.button(90, "add-node", "Add cash node", { // cashfarm
+                        click: () => self._dispatch("addnode", {nodeType: "cashfarm"}),
                     }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
+                    self.createElement.button(90, "add-node", "Add credit node", { // cashfarm
+                        click: () => self._dispatch("addnode", {nodeType: "cryptofarm"}),
                     }, 4),
                     self.createElement.button(90, "lock", undefined, {
 
@@ -514,7 +525,7 @@ export function MenuManager (
             return el;
         },
         statusTextBox: function (background = true, interactive = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") { // wraps textbox, comes with functions to update the value
-            const el = self.createElement.textBox("", background, interactive, fontColor, highlightBg, highlightFg);
+            const el = self.createElement.textBox("", background, interactive, false, fontColor, highlightBg, highlightFg);
             const wrapper = {
                 _display: el.style.display,
                 element: el,
@@ -525,22 +536,30 @@ export function MenuManager (
                     return this.element.firstChild.value;
                 },
                 hide: () => {
-                    this.element.style.display = "none";
+                    el.style.display = "none";
                 },
                 show: () => {
-                    this.element.style.display = this._display;
+                    el.style.display = this._display;
+                },
+                align: (side) => {
+                    el.firstChild.classList.remove("align-left", "align-right");
+                    if (side == "left")
+                        el.firstChild.classList.add("align-left");
+                    if (side == "right")
+                        el.firstChild.classList.add("align-right");
                 },
             };
             return wrapper;
         },
-        textBox: function (text, background = true, interactive = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") {
+        textBox: function (text, background = true, interactive = true, editable = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") {
             const wrapper = document.createElement("div");
             const el = document.createElement("textarea");
             wrapper.classList.add("textbox");
             wrapper.classList.add("hide-scroll");
             el.classList.add("hide-scroll");
+            el.readOnly = !editable;
             if (interactive)
-                el.classList.add("pointer-events");
+                el.classList.add("pointer-events");                
             if (!background)
                 wrapper.classList.add("naked");
             el.style.color = fontColor;
