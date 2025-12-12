@@ -15,7 +15,7 @@ import * as ATTACK from "./attacker.js"; // [!] testing, temporary module- to be
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { SelectiveOutlineEffect } from "./renderer.js";
-import { SSMaterialType } from "./spritesheet.js";
+import { SSMaterialType, SSFramesMesh } from "./spritesheet.js";
 
 const tetherForce = 0.2;
 const passiveForce = 0.003; // used for elements gravitating towards y=0
@@ -539,12 +539,14 @@ const NodeTypeData = {
 
 const NodeOverlayData = {
     slots: {
-        tiles: 1,
-        offset: new THREE.Vector3(-1, -1, 0),
-        geometry: new THREE.PlaneGeometry(2, 2),
-        material: SSMaterialType.Frames(
+        tiles: 7,
+        offset: new THREE.Vector3(-.9, -.95, 0),
+        geometry: new THREE.PlaneGeometry(.7, .7),
+        material: SSMaterialType.NodeSlots(
             "./source/slots.png",
-            "./source/slots-mask.png"
+            "./source/slots-mask.png",
+            new THREE.Vector2(500, 500),
+            new THREE.Vector2(4000, 3500)
         ),
     },
     cash: {

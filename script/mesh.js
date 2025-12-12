@@ -446,7 +446,9 @@ const Nodes = {
             color: 0x000000,
         });
         cube.userData.type = "cube";
-        cube.userData.exportData
+        cube.userData.exportData = {
+            maxConnections: 4
+        };
         cube.userData.state = {
             setLowPerformance: function () {},
             setHighPerformance: function () {},
@@ -511,6 +513,9 @@ const Nodes = {
             .userData.child("frame").renderOrder = 1;
         globe.userData.child("globe").renderOrder = 1;
         globe.userData.type = "globe";
+        globe.userData.exportData = {
+            maxConnections: 1
+        };
         globe.scale.setScalar(0.65);
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -546,6 +551,9 @@ const Nodes = {
         scanner.userData.child("ball").userData.child("pupil").material =
             pupilMat;
         scanner.userData.type = "scanner";
+        scanner.userData.exportData = {
+            maxConnections: 3
+        };
         scanner.scale.setScalar(0.7);
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -587,6 +595,9 @@ const Nodes = {
         };
         cube.userData.child("Cube").material = highPerfMat;
         cube.userData.type = "placeholder";
+        cube.userData.exportData = {
+            maxConnections: 5
+        };
         cube.scale.setScalar(0.45);
         if (animationOptions) {
             if (animationOptions.randomize) {
