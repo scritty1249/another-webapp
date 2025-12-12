@@ -66,7 +66,7 @@ NodeManager.prototype = {
                 // remove connected tethers
                 if (node.userData?.tetherlist?.length)
                     node.userData.tetherlist.forEach(
-                        (tether) => delete this._instance.tethers[tether.uuid]
+                        (tether) => this._instance.removeTether(tether.uuid)
                     );
                 this._instance._scene.remove(node);
                 // [!] may be optimizied, see if performance is impacted by this
