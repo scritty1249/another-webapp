@@ -83,7 +83,7 @@ if (WebGL.isWebGL2Available()) {
             MenuController.when("loadmenu", detail => {
                 const statusEl = detail.statusElement;
                 statusEl.text = "Contacting server";
-                Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, {cash: 0, crypto: 0})
+                Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, UTIL.BLANK_BANK)
                     .then(res => {
                         if (res)
                             mainloop(MenuController);
@@ -199,6 +199,7 @@ function mainloop(MenuController) {
                         )
                     ) {
                         Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
+                        Storage.set("lastSavedBank", Storage.get("localBank"), true); // [!] may cause desync bugs! Add more checks for this.
                         Session.savegame(Storage.get("localLayout"))
                             .then(res => {
                                 if (res) {
@@ -236,13 +237,15 @@ function mainloop(MenuController) {
                                             Logger.alert("Session expired, please log in again.");
                                             window.location.reload();
                                         }
-                                        Storage.set("localLayout", res);
-                                        Storage.set("lastSavedLayout", res, true);
+                                        Storage.set("localBank", res.bank);
+                                        Storage.set("lastSavedBank", res.bank, true);
+                                        Storage.set("localLayout", res.game);
+                                        Storage.set("lastSavedLayout", res.game, true);
                                         MenuController._dispatch("swapphase", { phase: "build" });
                                     });
                                 } else {
                                     detail.statusElement.text = "Loading profile";
-                                    PhaseController.buildPhase(Storage.get("localLayout"), NodeOverlayData);
+                                    PhaseController.buildPhase(Storage.get("localLayout"), NodeOverlayData, NodeDetailedInfo);
                                     MenuController.close();
                                 }
                         }, false, true);
@@ -340,9 +343,11 @@ function mainloop(MenuController) {
             THREEUTILS.loadGLTFShape("./source/globe.glb"),
             THREEUTILS.loadGLTFShape("./source/scanner.glb"),
             THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
+            THREEUTILS.loadGLTFShape("./source/squarestack.glb"),
+            THREEUTILS.loadGLTFShape("./source/circlestack.glb")
         ]);
         gtlfData.then(data => {
-            const [ placeholderData, cubeData, globeData, eyeData, worldData, ..._] = data;
+            const [ placeholderData, cubeData, globeData, eyeData, worldData, squareStackData, cricleStackData, ..._] = data;
             Logger.info("Finished loading shape data:", data);        
 
             NodeController.addMeshData({
@@ -351,6 +356,8 @@ function mainloop(MenuController) {
                 globe: () => MESH.Nodes.Globe(globeData),
                 scanner: () => MESH.Nodes.Scanner(eyeData),
                 tether: (o, t) => MESH.Tether(o, t),
+                cashfarm: () => MESH.Nodes.CashFarm(squareStackData),
+                cryptofarm: () => MESH.Nodes.CryptoFarm(squareStackData),
             });
             WorldController.addMeshData(
                 MESH.SelectionGlobe(worldData, 4)
@@ -537,24 +544,93 @@ const NodeTypeData = {
     },
 };
 
+const _currencyOverlayData = {
+    // avoid reinitializing where possible
+    offset: new THREE.Vector3(0, 3, 0),
+    geometry: new THREE.PlaneGeometry(.9, .3),
+    alphaMap: "./source/node-overlay/currency/currency-bar-mask.png",
+    mapSize: new THREE.Vector2(300, 100),
+    alphaMapSize: new THREE.Vector2(600, 100)
+};
+
 const NodeOverlayData = {
     slots: {
         tiles: 7,
         offset: new THREE.Vector3(-.9, -.95, 0),
         geometry: new THREE.PlaneGeometry(.7, .7),
-        material: SSMaterialType.NodeSlots(
-            "./source/slots.png",
-            "./source/slots-mask.png",
+        material: SSMaterialType.Mask(
+            "./source/node-overlay/slots.png",
+            "./source/node-overlay/slots-mask.png",
             new THREE.Vector2(500, 500),
             new THREE.Vector2(4000, 3500)
         ),
     },
     cash: {
-        offset: new THREE.Vector3(0, 1, 0),
-        geometry: new THREE.PlaneGeometry(.9, .3),
+        offset: _currencyOverlayData.offset,
+        geometry: _currencyOverlayData.geometry,
         material: SSMaterialType.Mask(
-            "./source/currency-bar.png",
-            "./source/currency-bar-mask.png"
+            "./source/node-overlay/currency/cash-bar.png",
+            _currencyOverlayData.alphaMap,
+            _currencyOverlayData.mapSize,
+            _currencyOverlayData.alphaMapSize
         ),
     },
+    crypto: {
+        offset: _currencyOverlayData.offset,
+        geometry: _currencyOverlayData.geometry,
+        material: SSMaterialType.Mask(
+            "./source/node-overlay/currency/crypto-bar.png",
+            _currencyOverlayData.alphaMap,
+            _currencyOverlayData.mapSize,
+            _currencyOverlayData.alphaMapSize
+        ),
+    },
+};
+
+const NodeDetailedInfo = {
+    placeholder: {
+		cost: {
+			type: "cash",
+			amount: 1
+		},
+        name: "_placeholder_",
+		description: "Placeholder. Doesn't do anything."
+	},
+    cube: {
+		cost: {
+			type: "crypto",
+			amount: 2
+		},
+        name: "Cube",
+		description: "Captures hostile Nodes within 1 step.",
+	},
+    globe: {
+		cost: undefined,
+        name: "Access Port",
+		description: `Required for your net to exist.\nAll nodes exist within ${maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
+	},
+    scanner: {
+		cost: {
+			type: "cash",
+			amount: 10
+		},
+        name: "Sentinal",
+		description: "Scans for Attacker activity within [TBD] steps.",
+	},
+    cashfarm: {
+		cost: {
+			type: "crypto",
+			amount: 1
+		},
+        name: "Cash Farm",
+		description: "Farms for cash. Can be collected from to use for purchases.",
+	},
+    cryptofarm: {
+		cost: {
+			type: "cash",
+			amount: 5
+		},
+        name: "Credits Farm",
+		description: "Farms for credits. Can be collected from to use for purchases.",
+	},
 };

@@ -8,6 +8,7 @@ import {
 import { BuildNodeManager, AttackNodeManager } from "./nodes.js";
 import { layoutFromJsonObj } from "./utils.js";
 import { Color } from "three";
+import * as UTIL from "./utils.js";
 
 const selectPhaseBackground = new Color(0x000000);
 const nodeDraggedEmissive = new Color(0xFF8888);
@@ -255,7 +256,7 @@ PhaseManager.prototype.attackPhase = function (
     Logger.log("[PhaseManager] | Loaded Attack phase");
 };
 
-PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData) {
+PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetails) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Build phase");
     this._unloadPhase();
@@ -264,17 +265,81 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData) {
 
     const nodeController = new BuildNodeManager(nodeOverlayData, ...this._constructorArgs.Node);
     const overlayController = new BuildOverlayManager(
+        { // callbacks
+            nodeInfo: (nodeid) => {
+                overlayController._menuManager.when("loadmenu", detail => {
+                    const node = overlayController._nodeManager.getNode(nodeid);
+                    const nodeDetail = nodeDetails[node.userData.type];
+                    const el = detail.infoElement;
+                    el.text = [
+                        nodeDetail.name,
+                        "\n",
+                        nodeDetail.description,
+                        "Costs: " + (nodeDetail.cost ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}` : "Free"),
+                    ].join("\n\n");
+                    el.align("left");
+                }, false, true);
+                overlayController._menuManager.open(["nodeInfo"]);
+            },
+        },
         ...this._constructorArgs.Overlay
     );
     const listenerController = new ListenerManager();
+    const bankController = {
+        // pseudo-manager for bank data
+        _bankData: undefined,
+        get bank () {
+            if (!this._bankData)
+                this._bankData = Storage.get("localBank");
+            return this._bankData;
+        },
+        set bank (data) {
+            Storage.set("localBank", data);
+            this._bankData = data;
+        },
+        update: function () {
+            const bankData = this.bank;
+            const displayedBankData = overlayController.getWallet();
+            if (UTIL.banksEqual(bankData, displayedBankData)) return;
+            overlayController.updateWallet(bankData);
+        },
+        collect: function (nodeid) {
+            const currencyType = nodeController.isCurrencyNode(nodeid);
+            if (!currencyType) return;
+            const bankData = this.bank;
+            const collected = nodeController.collectCurrencyNode(nodeid);
+            if (!collected) return;
+            this.bank[currencyType] += collected;
+            this.bank = this.bank;
+            overlayController.updateWallet(bankData);
+        }
+    };
 
     layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController);
-
     overlayController.init(this._controls, {
         Mouse: self.Managers.Mouse,
         Node: nodeController,
     });
 
+    overlayController._menuManager.when("addnode", (detail) => {
+        const cost = nodeDetails[detail.nodeType]?.cost;
+        const bankData = bankController.bank;
+        if (cost)
+            if (bankData[cost.type] - cost.amount < 0) {
+                overlayController.messagePopup(`Cannot create new Node: Insufficient currency.`);
+                overlayController._menuManager.close();
+                return;
+            } else {
+                bankData[cost.type] -= cost.amount;
+                bankController.bank = bankData;
+                overlayController.updateWallet(bankData);
+            }
+        nodeController.createNode(
+            detail.nodeType,
+            Array.from({ length: 3 }, (_) => UTIL.random(0.001, 0.002))
+        ); // generate random offset so repulsion forces can take effect
+        overlayController._menuManager.close();
+    });
     // Add event listeners
     listenerController
         .listener(self._controls.drag)
@@ -284,6 +349,7 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData) {
             event.object.userData.dragged = true;
             try {
                 nodeController.setNodeEmissive(event.object.uuid, nodeDraggedEmissive);
+                bankController.collect(event.object.uuid);
             } catch {
                 Logger.error(
                     "DragControls selected a bad node (dragstart): ",
@@ -316,15 +382,18 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData) {
             if (
                 clickedNodeId &&
                 overlayController.focusedNodeId != clickedNodeId
-            )
+            ) {
                 overlayController.focusNode(clickedNodeId);
-            else overlayController.unfocusNode();
+                // attempt to collect currency
+                bankController.collect(clickedNodeId);
+            } else overlayController.unfocusNode();
         });
 
     this.Managers.Node = nodeController;
     this.Managers.Overlay = overlayController;
     this.Managers.Listener = listenerController;
     this._updateManagers.always.push(this.Managers.Node, this.Managers.Physics, this.Managers.Overlay);
+    this._updateManagers.perTick.push(bankController);
     this._unloadPhase = () => {
         this._resetUpdateManagers();
         this._controls.drag.enabled = false;

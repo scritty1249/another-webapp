@@ -23,6 +23,7 @@ const InvisibleMat = new MeshBasicMaterial({
     color: 0x000000,
     transparent: true,
     opacity: 0,
+    visible: false,
 });
 function recurseMeshChildren(mesh, maxDepth, callback, ...args) {
     if (maxDepth >= 0) {
@@ -355,30 +356,6 @@ function SelectionGlobe(sceneData, scale) {
     return wrapper;
 }
 
-function CurrencyNode(
-    nodeMesh,
-    currencyMeshData, // expects (name: { mesh: Mesh, offset: Vector3, tiles: Int })
-    nodeAnimations = [],
-    currencyData = {} // expects: {type: str, amount: int, max: int, rate: float, lastUpdated: int (utcseconds)}
-) {
-    const node = Node(nodeMesh, animations);
-    const overlay = NodeSpriteOverlay(node);
-    Object.entries(currencyMeshData).forEach(([key, value]) => {
-        overlay.userData.addChild(key, value.mesh, value.offset, value.tiles);
-    });
-    node.userData.exportData = {
-        overlay: overlay,
-        currency: {
-            type: currencyData?.type,
-            amount: currencyData?.amount ? currencyData.amount : 0,
-            max: currencyData?.max ? currencyData.max : 1,
-            rate: currencyData?.rate ? currencyData.rate : 0, // per hour
-            lastUpdated: currencyData?.lastUpdated,
-        },
-    };
-    return node;
-}
-
 function Tether(origin, target, color = 0xc0c0c0) {
     const material = new LineMaterial({
         color: color,
@@ -422,17 +399,96 @@ function Tether(origin, target, color = 0xc0c0c0) {
 const Nodes = {
     CashFarm: function (
         sceneData,
-        currencyData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const farm = CurrencyNode(
-            sceneData.mesh,
-            currencyData.mesh,
-            sceneData.animations,
-            currencyData.cash
-        );
-        if (animationOptions) {
+        const farm = Node(sceneData.mesh, sceneData.animations);
+        const sliceMaterial = new MeshPhongMaterial({
+                color: 0xD3AF37,
+                emissive: 0x000000, 
+                emissiveIntensity: 0.6,
+                shininess: 45,
+            });
+        farm.userData.child("stack").material = InvisibleMat;
+        farm.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
+        farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
+        farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
+        farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
+        farm.scale.setScalar(0.6);
+        farm.userData.type = "cashfarm";
+        farm.userData.state = {
+            setLowPerformance: function () {},
+            setHighPerformance: function () {},
+        };
+        farm.userData.exportData.maxConnections = 3;
+        farm.userData.exportData.currency = {
+            type: "cash",
+            amount: 0,
+            max: 10,
+            rate: 1800, // per hour
+            lastUpdated: UTIL.getNowUTCSeconds(),
+        };
 
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                farm.userData.mixer.setTime(
+                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
+                );
+                farm.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                farm.userData.animations["1-idle"].play();
+                farm.userData.animations["2-idle"].play();
+                farm.userData.animations["3-idle"].play();
+                farm.userData.animations["4-idle"].play();
+            }
+        }
+
+        return farm;
+    },
+    CryptoFarm: function (
+        sceneData,
+        animationOptions = { idle: true, randomize: true },
+    ) {
+        const farm = Node(sceneData.mesh, sceneData.animations);
+        const sliceMaterial = new MeshPhongMaterial({
+                color: 0xF7931A,
+                emissive: 0x000000, 
+                emissiveIntensity: 0.6,
+                shininess: 45,
+            });
+        farm.userData.child("stack").material = InvisibleMat;
+        farm.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
+        farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
+        farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
+        farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
+        farm.scale.setScalar(0.4);
+        farm.userData.type = "cryptofarm";
+        farm.userData.state = {
+            setLowPerformance: function () {},
+            setHighPerformance: function () {},
+        };
+        farm.userData.exportData.maxConnections = 3;
+        farm.userData.exportData.currency = {
+            type: "crypto",
+            amount: 0,
+            max: 10,
+            rate: 720, // per hour
+            lastUpdated: UTIL.getNowUTCSeconds(),
+        };
+
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                farm.userData.mixer.setTime(
+                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
+                );
+                farm.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                farm.userData.animations["1-idle"].play();
+                farm.userData.animations["2-idle"].play();
+                farm.userData.animations["3-idle"].play();
+                farm.userData.animations["4-idle"].play();
+            }
         }
 
         return farm;
@@ -472,13 +528,15 @@ const Nodes = {
     ) {
         const globe = Node(sceneData.mesh, sceneData.animations);
         const lowPerfMat = new MeshPhongMaterial({
-            color: 0xffffff,
+            color: 0xB8B8B8,
             specular: 0xff0000,
             shininess: 0,
         });
         const highPerfMat = new MeshPhysicalMaterial({
             transmission: 0.9,
             roughness: 0.2,
+            shininess: 0,
+            color: 0xB8B8B8
         });
         globe.userData.child("globe").material = InvisibleMat;
         globe.userData.child("globe").userData.child("frame").material =
