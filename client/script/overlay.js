@@ -632,12 +632,11 @@ BuildOverlayManager.prototype.updateWallet = function (bankData) {
         .forEach((el) => {
             walletEls[el.dataset.currencyType] = el;
         });
-    Object.entries(bankData).forEach(([currencyType, amount]) => {
+    Object.entries(bankData).forEach(([currencyType, currencyData]) => {
         if (walletEls.hasOwnProperty(currencyType))
             walletEls[currencyType].innerText =
                 walletEls[currencyType].innerText.split(":", 2)[0] +
-                ": " +
-                Math.floor(amount);
+                `: ${Math.floor(currencyData.amount)} / ${currencyData.max}`;
         else
             Logger.warn(
                 `[BuildOverlayManager] | Failed to update currency display for type "${currencyType}": Corrosponding element does not exist in wallet.`
@@ -651,9 +650,18 @@ BuildOverlayManager.prototype.getWallet = function () {
         .querySelectorAll(":scope > .wallet > [data-currency-type]")
         .forEach((el) => {
             const value = el.innerText.split(": ", 2)[1];
-            walletData[el.dataset.currencyType] = /^\d+$/.test(value)
-                ? parseInt(value)
-                : undefined;
+            if (/^\d+$/.test(value)) {
+                const [amount, total] = value.split(" / ", 2);
+                walletData[el.dataset.currencyType] = {
+                    amount: parseInt(amount),
+                    max: parseInt(amount)
+                }
+            } else {
+                walletData[el.dataset.currencyType] = {
+                    amount: undefined,
+                    max: undefined
+                }
+            }
         });
     return walletData;
 };

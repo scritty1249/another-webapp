@@ -86,12 +86,8 @@ export function getsave () {
     const sessionToken = CookieJar.get("session");
     return API.getOwnBase(sessionToken).then(data => {
         if (data) {
-            const { game, bank } = data; // [!] currency data not implemented yet
+            const { game } = data; // [!] currency data not implemented yet
             return {
-                bank: {
-                    cash: bank.cash,
-                    crypto: bank.crypto
-                },
                 game: {
                     background: game.backdrop,
                     layout: JSON.parse(game.layout), // still not sure if i want to store layout data raw or obfuscated, when I decide we'll parse this server-side before sending to client...

@@ -323,14 +323,14 @@ export function MenuManager (
                     self.createElement.button(90, "add-node", "Add cash node", { // cashfarm
                         click: () => self._dispatch("addnode", {nodeType: "cashfarm"}),
                     }, 4),
-                    self.createElement.button(90, "add-node", "Add credit node", { // cashfarm
+                    self.createElement.button(90, "add-node", "Add credit node", { // cryptofarm
                         click: () => self._dispatch("addnode", {nodeType: "cryptofarm"}),
                     }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
+                    self.createElement.button(90, "add-node", "Add cash storage", { // cashstore
+                        click: () => self._dispatch("addnode", {nodeType: "cashstore"}),
                     }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
+                    self.createElement.button(90, "add-node", "Add credit storage", { // cryptostore
+                        click: () => self._dispatch("addnode", {nodeType: "cryptostore"}),
                     }, 4),
                 ];
                 self._appendElement(central, ...buttons);

@@ -167,10 +167,6 @@ const Handlers = {
                     backdrop: gamedata.backdrop,
                     layout: gamedata.layout,
                 },
-                bank: {
-                    cash: gamedata.cash,
-                    crypto: gamedata.crypto,
-                },
             });
         }
         return Server.createErrorResponse(
@@ -187,10 +183,7 @@ const Handlers = {
             if (
                 payload?.game &&
                 payload?.game.hasOwnProperty("backdrop") &&
-                payload?.game.hasOwnProperty("layout") &&
-                payload?.bank &&
-                payload?.bank.hasOwnProperty("cash") &&
-                payload?.bank.hasOwnProperty("crypto")
+                payload?.game.hasOwnProperty("layout")
             ) {
                 Server.updateGameData(conn, token.id, payload); // [!] may be unsafe, verify and revise later
                 return Server.createSuccessResponse();
@@ -226,15 +219,11 @@ const Server = {
         conn._selectTable(TABLES.gamedata);
         const backdrop = gamedata.game.backdrop;
         const layout = JSON.stringify(gamedata.game.layout);
-        const cash = gamedata.bank.cash;
-        const crypto = gamedata.bank.crypto;
         conn.updateEntry(
             TABLES.gamedata,
             userid,
             backdrop,
             layout,
-            cash,
-            crypto
         );
     },
     getUserId: function (conn, username) {

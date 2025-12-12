@@ -42,7 +42,11 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.copy(DEFAULT_CAM_POS);
 // rendererererer
-const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance", alpha: true });
+const renderer = new THREE.WebGLRenderer({
+    antialias: false,
+    powerPreference: "high-performance",
+    alpha: true,
+});
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -59,44 +63,63 @@ if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
     const MenuController = new MenuManager(document.getElementById("overlay"));
     // Login
-    if ((!CookieJar.has("session") || !CookieJar.get("session")) || (DEBUG_MODE && urlParams.has("login"))) {
+    if (
+        !CookieJar.has("session") ||
+        !CookieJar.get("session") ||
+        (DEBUG_MODE && urlParams.has("login"))
+    ) {
         MenuController.loginScreen();
-        MenuController.when("login", ({username, password, elements}) => {
-            elements.forEach(el => el.classList.remove("pointer-events"));
-            MenuController.when("loadmenu", detail => {
-                const statusEl = detail.statusElement;
-                statusEl.text = "Logging in...";
-                Session.login(username, password)
-                    .then(res => {
-                        if (res)
-                            mainloop(MenuController);
+        MenuController.when("login", ({ username, password, elements }) => {
+            elements.forEach((el) => el.classList.remove("pointer-events"));
+            MenuController.when(
+                "loadmenu",
+                (detail) => {
+                    const statusEl = detail.statusElement;
+                    statusEl.text = "Logging in...";
+                    Session.login(username, password).then((res) => {
+                        if (res) mainloop(MenuController);
                         else {
-                            elements.forEach(el => el.classList.add("pointer-events"));
+                            elements.forEach((el) =>
+                                el.classList.add("pointer-events")
+                            );
                             MenuController.loginScreen();
                         }
                     });
-            }, false, true);
+                },
+                false,
+                true
+            );
             MenuController.open(["loading"]);
         });
-        MenuController.when("newlogin", ({username, password, elements}) => {
-            elements.forEach(el => el.classList.remove("pointer-events"));
-            MenuController.when("loadmenu", detail => {
-                const statusEl = detail.statusElement;
-                statusEl.text = "Contacting server";
-                Session.newlogin(username, password, UTIL.BLANK_LAYOUT_OBJ, UTIL.BLANK_BANK)
-                    .then(res => {
-                        if (res)
-                            mainloop(MenuController);
+        MenuController.when("newlogin", ({ username, password, elements }) => {
+            elements.forEach((el) => el.classList.remove("pointer-events"));
+            MenuController.when(
+                "loadmenu",
+                (detail) => {
+                    const statusEl = detail.statusElement;
+                    statusEl.text = "Contacting server";
+                    Session.newlogin(
+                        username,
+                        password,
+                        UTIL.BLANK_LAYOUT_OBJ,
+                        UTIL.BLANK_BANK
+                    ).then((res) => {
+                        if (res) mainloop(MenuController);
                         else {
-                            elements.forEach(el => el.classList.add("pointer-events"));
+                            elements.forEach((el) =>
+                                el.classList.add("pointer-events")
+                            );
                             MenuController.loginScreen();
                         }
                     });
-            }, false, true);
+                },
+                false,
+                true
+            );
             MenuController.open(["loading"]);
-            
         });
-    } else { // remembered login
+    } else {
+        // remembered login
         mainloop(MenuController);
     }
 } else {
@@ -105,270 +128,493 @@ if (WebGL.isWebGL2Available()) {
 }
 
 function mainloop(MenuController) {
-    MenuController.when("loadmenu", d => {
-        const statusEl = d.statusElement;
-        statusEl.text = "Loading scene";
+    MenuController.when(
+        "loadmenu",
+        (d) => {
+            const statusEl = d.statusElement;
+            statusEl.text = "Loading scene";
 
-        // Clear any session storage
-        Storage.remove("localLayout");
-        Storage.remove("targets");
+            // Clear any session storage
+            Storage.remove("localLayout");
+            Storage.remove("targets");
 
-        // Loading sequence
-        const MouseController = new Mouse(window, renderer.domElement, mouseClickDurationThreshold);
-        const NodeController = new NodeManager(scene, renderer, camera, raycaster);
-        const OverlayController = new OverlayManager(scene, renderer, camera, raycaster,
-            document.getElementById("overlay"), MenuController
-        );
-        const PhysicsController = new PhysicsManager(NodeController,
-            shapeMinProximity, shapeMaxProximity, tetherForce, tetherForce/2, passiveForce
-        );
-        const clock = new THREE.Clock();
-        document.getElementById("container").appendChild(renderer.domElement);
+            // Loading sequence
+            const MouseController = new Mouse(
+                window,
+                renderer.domElement,
+                mouseClickDurationThreshold
+            );
+            const NodeController = new NodeManager(
+                scene,
+                renderer,
+                camera,
+                raycaster
+            );
+            const OverlayController = new OverlayManager(
+                scene,
+                renderer,
+                camera,
+                raycaster,
+                document.getElementById("overlay"),
+                MenuController
+            );
+            const PhysicsController = new PhysicsManager(
+                NodeController,
+                shapeMinProximity,
+                shapeMaxProximity,
+                tetherForce,
+                tetherForce / 2,
+                passiveForce
+            );
+            const clock = new THREE.Clock();
+            document
+                .getElementById("container")
+                .appendChild(renderer.domElement);
 
-        // Setup external (yawn) library controls
-        const controls = {
-            drag: new DragControls(NodeController.nodelist, camera, renderer.domElement), // drag n" drop
-            camera: new OrbitControls(camera, renderer.domElement), // camera
-        };
-        
-        controls.camera.enablePan = false;
-        controls.camera.maxDistance = 25;
-        controls.camera.enableDamping = true;
-        controls.camera.dampingFactor = 0.12;
-        controls.drag.transformGroup = true;
-        controls.drag.rotateSpeed = 0;
-
-        const WorldController = new WorldManager(scene, renderer, camera, raycaster, MouseController, effect, controls.camera);
-
-        // release right click
-        controls.drag.domElement.removeEventListener("contextmenu", controls.drag._onContextMenu);
-        controls.camera.domElement.removeEventListener("contextmenu", controls.camera._onContextMenu);
-
-        const backgroundTextureCube = THREEUTILS.loadTextureCube("./source/bg/");
-        scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
-
-        // Control shadows
-        const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
-        scene.add(ambientLight);
-
-        // render a light
-        const light = new THREE.PointLight(0xffffff, 3500);
-        light.position.set(-10, 20, 10);
-        scene.add(light);
-        light.castShadow = true;
-        light.shadow.camera.top = 2;
-        light.shadow.camera.bottom = -2;
-        light.shadow.camera.left = -2;
-        light.shadow.camera.right = 2;
-        light.shadow.camera.near = 1;
-        light.shadow.camera.far = 10;
-
-        const PhaseController = new PhaseManager(
-            scene,
-            renderer.domElement,
-            TICKSPEED,
-            controls,
-            {
-                Node: NodeController,
-                Overlay: OverlayController,
-                Physics: PhysicsController,
-                World: WorldController,
-                Mouse: MouseController
-            }
-        );
-
-        { // autosave
-            const _autosaveHandler = (event) => {
-                if (PhaseController.phase == "build") {
-                    const currLayout = UTIL.layoutToJsonObj(scene, PhaseController.Managers.Node);
-                    if (PhaseController.Managers.Node.validateLayout(maxStepsFromGlobe)) {
-                        if (!UTIL.layoutsEqual(currLayout, Storage.get("localLayout"))) {
-                            Logger.log("saved changed layout");
-                            Storage.set("localLayout", currLayout);
-                        }
-                    } else
-                        event.returnValue = "You have unsaved changes to your network. Are you sure you want to leave?";
-
-                    if (
-                        Storage.has("localLayout") && (
-                            !Storage.has("lastSavedLayout", true) ||
-                            !UTIL.layoutsEqual(
-                                Storage.get("lastSavedLayout", true),
-                                Storage.get("localLayout")
-                            )
-                        )
-                    ) {
-                        Storage.set("lastSavedLayout", Storage.get("localLayout"), true);
-                        Storage.set("lastSavedBank", Storage.get("localBank"), true); // [!] may cause desync bugs! Add more checks for this.
-                        Session.savegame(Storage.get("localLayout"))
-                            .then(res => {
-                                if (res) {
-                                    Logger.info("Saved layout.");
-                                } else {
-                                    Logger.warn("Failed to save.");
-                                    Storage.set("lastSavedLayout", undefined, true);
-                                }
-                            });
-                    }
-                }
+            // Setup external (yawn) library controls
+            const controls = {
+                drag: new DragControls(
+                    NodeController.nodelist,
+                    camera,
+                    renderer.domElement
+                ), // drag n" drop
+                camera: new OrbitControls(camera, renderer.domElement), // camera
             };
-            if (!(DEBUG_MODE && urlParams.has("nosave"))) {
-                window.addEventListener("pagehide", _autosaveHandler);
-                setTimeout(
-                    () => setInterval(_autosaveHandler, AUTOSAVE_INTERVAL),
-                    AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
+
+            controls.camera.enablePan = false;
+            controls.camera.maxDistance = 25;
+            controls.camera.enableDamping = true;
+            controls.camera.dampingFactor = 0.12;
+            controls.drag.transformGroup = true;
+            controls.drag.rotateSpeed = 0;
+
+            const WorldController = new WorldManager(
+                scene,
+                renderer,
+                camera,
+                raycaster,
+                MouseController,
+                effect,
+                controls.camera
+            );
+
+            // release right click
+            controls.drag.domElement.removeEventListener(
+                "contextmenu",
+                controls.drag._onContextMenu
+            );
+            controls.camera.domElement.removeEventListener(
+                "contextmenu",
+                controls.camera._onContextMenu
+            );
+
+            const backgroundTextureCube =
+                THREEUTILS.loadTextureCube("./source/bg/");
+            scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
+
+            // Control shadows
+            const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
+            scene.add(ambientLight);
+
+            // render a light
+            const light = new THREE.PointLight(0xffffff, 3500);
+            light.position.set(-10, 20, 10);
+            scene.add(light);
+            light.castShadow = true;
+            light.shadow.camera.top = 2;
+            light.shadow.camera.bottom = -2;
+            light.shadow.camera.left = -2;
+            light.shadow.camera.right = 2;
+            light.shadow.camera.near = 1;
+            light.shadow.camera.far = 10;
+
+            const PhaseController = new PhaseManager(
+                scene,
+                renderer.domElement,
+                TICKSPEED,
+                controls,
+                {
+                    Node: NodeController,
+                    Overlay: OverlayController,
+                    Physics: PhysicsController,
+                    World: WorldController,
+                    Mouse: MouseController,
+                }
+            );
+
+            {
+                // autosave
+                const _autosaveHandler = (event) => {
+                    if (PhaseController.phase == "build") {
+                        const currLayout = UTIL.layoutToJsonObj(
+                            scene,
+                            PhaseController.Managers.Node
+                        );
+                        if (
+                            PhaseController.Managers.Node.validateLayout(
+                                maxStepsFromGlobe
+                            )
+                        ) {
+                            if (
+                                !UTIL.layoutsEqual(
+                                    currLayout,
+                                    Storage.get("localLayout")
+                                )
+                            ) {
+                                Logger.log("saved changed layout");
+                                Storage.set("localLayout", currLayout);
+                            }
+                        } else
+                            event.returnValue =
+                                "You have unsaved changes to your network. Are you sure you want to leave?";
+
+                        if (
+                            Storage.has("localLayout") &&
+                            (!Storage.has("lastSavedLayout", true) ||
+                                !UTIL.layoutsEqual(
+                                    Storage.get("lastSavedLayout", true),
+                                    Storage.get("localLayout")
+                                ))
+                        ) {
+                            Session.savegame(Storage.get("localLayout")).then(
+                                (res) => {
+                                    if (res) {
+                                        Logger.info("Saved layout.");
+                                    } else {
+                                        Logger.warn("Failed to save.");
+                                        Storage.set(
+                                            "lastSavedLayout",
+                                            undefined,
+                                            true
+                                        );
+                                    }
+                                }
+                            );
+                        }
+                    }
+                };
+                if (!(DEBUG_MODE && urlParams.has("nosave"))) {
+                    window.addEventListener("pagehide", _autosaveHandler);
+                    setTimeout(
+                        () => setInterval(_autosaveHandler, AUTOSAVE_INTERVAL),
+                        AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
+                    );
+                }
+            }
+
+            {
+                // persistent listeners
+                MenuController.when(
+                    "swapphase",
+                    function (dt) {
+                        const phaseType = dt.phase;
+                        try {
+                            if (phaseType == "build") {
+                                MenuController.when(
+                                    "loadmenu",
+                                    (detail) => {
+                                        WorldController.clear();
+                                        if (!Storage.has("localLayout")) {
+                                            detail.statusElement.text =
+                                                "Contacting Server";
+                                            Session.getsave().then((res) => {
+                                                if (!res) {
+                                                    // Session token expired
+                                                    CookieJar.remove("session");
+                                                    Logger.alert(
+                                                        "Session expired, please log in again."
+                                                    );
+                                                    window.location.reload();
+                                                }
+                                                Storage.set(
+                                                    "localLayout",
+                                                    res.game
+                                                );
+                                                Storage.set(
+                                                    "lastSavedLayout",
+                                                    res.game,
+                                                    true
+                                                );
+                                                MenuController._dispatch(
+                                                    "swapphase",
+                                                    { phase: "build" }
+                                                );
+                                            });
+                                        } else {
+                                            detail.statusElement.text =
+                                                "Loading profile";
+                                            PhaseController.buildPhase(
+                                                Storage.get("localLayout"),
+                                                NodeOverlayData,
+                                                NodeDetailedInfo
+                                            );
+                                            MenuController.close();
+                                        }
+                                    },
+                                    false,
+                                    true
+                                );
+                            } else if (phaseType == "attack") {
+                                WorldController.clear();
+                                MenuController.when(
+                                    "loadmenu",
+                                    (detail) => {
+                                        const targetData = Storage.get(
+                                            "targets",
+                                            true
+                                        ).filter(
+                                            (t) => t.id == dt.targetid
+                                        )?.[0];
+                                        try {
+                                            if (targetData) {
+                                                detail.statusElement.text = `Tracing Target: ${targetData.username}`;
+                                                PhaseController.attackPhase(
+                                                    {
+                                                        username:
+                                                            targetData.username,
+                                                    },
+                                                    targetData.game,
+                                                    AttackerData,
+                                                    AttackTypeData,
+                                                    NodeTypeData
+                                                );
+                                                MenuController.close();
+                                            } else {
+                                                Logger.alert(
+                                                    "Failed to load data for target!"
+                                                );
+                                                MenuController._dispatch(
+                                                    "swapphase",
+                                                    { phase: "build" }
+                                                );
+                                            }
+                                        } catch (err) {
+                                            Logger.alert(
+                                                "Failed to load data for target!"
+                                            );
+                                            Logger.error(
+                                                `Something went wrong while loading attack phase on target ${dt.targetid}. Data:`,
+                                                targetData,
+                                                "\n" + err.message,
+                                                "\nTrace:\n",
+                                                err.stack
+                                            );
+                                            MenuController._dispatch(
+                                                "swapphase",
+                                                { phase: "build" }
+                                            );
+                                        }
+                                    },
+                                    false,
+                                    true
+                                );
+                            } else if (phaseType == "select") {
+                                if (
+                                    PhaseController.Managers.Node &&
+                                    !PhaseController.Managers.Node.validateLayout(
+                                        maxStepsFromGlobe
+                                    )
+                                ) {
+                                    Logger.alert(
+                                        `You have unsaved changes: All nodes must be connected and within ${maxStepsFromGlobe} steps of a network node!`
+                                    );
+                                    MenuController.when(
+                                        "loadmenu",
+                                        (_) => MenuController.close(),
+                                        false,
+                                        true
+                                    );
+                                } else {
+                                    MenuController.when(
+                                        "loadmenu",
+                                        (detail) => {
+                                            Storage.set(
+                                                "localLayout",
+                                                UTIL.layoutToJsonObj(
+                                                    scene,
+                                                    PhaseController.Managers
+                                                        .Node
+                                                )
+                                            );
+                                            detail.statusElement.text =
+                                                "Discovering targets";
+                                            if (
+                                                !Storage.has("targets", true) ||
+                                                UTIL.getNowUTCSeconds() -
+                                                    Storage.updated(
+                                                        "targets",
+                                                        true
+                                                    ) >
+                                                    TARGETS_TTL
+                                            ) {
+                                                Session.getAttackTargets().then(
+                                                    (targets) => {
+                                                        if (!targets) {
+                                                            // Session token expired
+                                                            CookieJar.remove(
+                                                                "session"
+                                                            );
+                                                            Logger.alert(
+                                                                "Session expired, please log in again."
+                                                            );
+                                                            window.location.reload();
+                                                        }
+                                                        Storage.set(
+                                                            "targets",
+                                                            targets,
+                                                            true
+                                                        );
+                                                        MenuController._dispatch(
+                                                            "swapphase",
+                                                            { phase: "select" }
+                                                        );
+                                                    }
+                                                );
+                                            } else {
+                                                detail.statusElement.text =
+                                                    "Loading global net";
+                                                PhaseController.selectPhase(
+                                                    UTIL.getRandomItems(
+                                                        Storage.get(
+                                                            "targets",
+                                                            true
+                                                        ),
+                                                        WORLD_TARGET_COUNT
+                                                    ),
+                                                    {
+                                                        Attack: (userid) => {
+                                                            MenuController._dispatch(
+                                                                "swapphase",
+                                                                {
+                                                                    phase: "attack",
+                                                                    targetid:
+                                                                        userid,
+                                                                }
+                                                            );
+                                                        },
+                                                        Build: () => {
+                                                            MenuController._dispatch(
+                                                                "swapphase",
+                                                                {
+                                                                    phase: "build",
+                                                                }
+                                                            );
+                                                        },
+                                                    }
+                                                );
+                                                MenuController.close();
+                                            }
+                                        },
+                                        false,
+                                        true
+                                    );
+                                }
+                            } else {
+                                Logger.error(
+                                    `Unrecognized phase "${phaseType}"`
+                                );
+                                MenuController.when(
+                                    "loadmenu",
+                                    (_) => MenuController.close(),
+                                    false,
+                                    true
+                                );
+                            }
+                            camera.position.copy(DEFAULT_CAM_POS);
+                        } catch (err) {
+                            Logger.error(
+                                `Failed to swap phase to "${phaseType}"`
+                            );
+                            Logger.throw(err);
+                            MenuController.when(
+                                "loadmenu",
+                                (_) => MenuController.close(),
+                                false,
+                                true
+                            );
+                        }
+                        MenuController.open(["loading"]);
+                    },
+                    true
+                );
+                MenuController.when(
+                    "lowperformance",
+                    function (detail) {
+                        const toggleTo = detail.set;
+                        NodeController.lowPerformanceMode = toggleTo;
+                        MenuController.close();
+                    },
+                    true
+                );
+                MenuController.when(
+                    "logout",
+                    function (_) {
+                        CookieJar.remove("session");
+                        window.location.reload();
+                    },
+                    true
+                );
+                MenuController.when(
+                    "_savelog",
+                    function (_) {
+                        UTIL._DebugTool.exportLogger(
+                            scene,
+                            NodeController,
+                            Logger
+                        );
+                        MenuController.close();
+                    },
+                    true
                 );
             }
-        }
+            statusEl.text = "Loading mesh data";
+            const gtlfData = Promise.all([
+                THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
+                THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
+                THREEUTILS.loadGLTFShape("./source/globe.glb"),
+                THREEUTILS.loadGLTFShape("./source/scanner.glb"),
+                THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
+                THREEUTILS.loadGLTFShape("./source/squarestack.glb"),
+                THREEUTILS.loadGLTFShape("./source/circlestack.glb"),
+            ]);
+            gtlfData.then((data) => {
+                const [
+                    placeholderData,
+                    cubeData,
+                    globeData,
+                    eyeData,
+                    worldData,
+                    squareStackData,
+                    cricleStackData,
+                    ..._
+                ] = data;
+                Logger.info("Finished loading shape data:", data);
 
-        { // persistent listeners
-            MenuController.when("swapphase", function (dt) {
-                const phaseType = dt.phase;
-                try {
-                    if (phaseType == "build") {
-                        MenuController.when("loadmenu", detail => {
-                            WorldController.clear();
-                            if (!Storage.has("localLayout")) {
-                                detail.statusElement.text = "Contacting Server";
-                                Session.getsave()
-                                    .then(res => {
-                                        if (!res) { // Session token expired
-                                            CookieJar.remove("session");
-                                            Logger.alert("Session expired, please log in again.");
-                                            window.location.reload();
-                                        }
-                                        Storage.set("localBank", res.bank);
-                                        Storage.set("lastSavedBank", res.bank, true);
-                                        Storage.set("localLayout", res.game);
-                                        Storage.set("lastSavedLayout", res.game, true);
-                                        MenuController._dispatch("swapphase", { phase: "build" });
-                                    });
-                                } else {
-                                    detail.statusElement.text = "Loading profile";
-                                    PhaseController.buildPhase(Storage.get("localLayout"), NodeOverlayData, NodeDetailedInfo);
-                                    MenuController.close();
-                                }
-                        }, false, true);
-                    } else if (phaseType == "attack") {
-                        WorldController.clear();
-                        MenuController.when("loadmenu", detail => {
-                            const targetData = Storage.get("targets", true).filter(t => t.id == dt.targetid)?.[0];
-                            try {
-                                if (targetData) {
-                                    detail.statusElement.text = `Tracing Target: ${targetData.username}`;
-                                    PhaseController.attackPhase(
-                                        { username: targetData.username },
-                                        targetData.game,
-                                        AttackerData,
-                                        AttackTypeData,
-                                        NodeTypeData
-                                    );
-                                    MenuController.close();
-                                } else {
-                                    Logger.alert("Failed to load data for target!");
-                                    MenuController._dispatch("swapphase", { phase: "build" });
-                                }
-                            } catch (err) {
-                                Logger.alert("Failed to load data for target!");
-                                Logger.error(`Something went wrong while loading attack phase on target ${dt.targetid}. Data:`, targetData, "\n" + err.message, "\nTrace:\n", err.stack);
-                                MenuController._dispatch("swapphase", { phase: "build" });
-                            }
-                        }, false, true);
-                    } else if (phaseType == "select") {
-                        if (PhaseController.Managers.Node && !PhaseController.Managers.Node.validateLayout(maxStepsFromGlobe)) {
-                            Logger.alert(`You have unsaved changes: All nodes must be connected and within ${maxStepsFromGlobe} steps of a network node!`);
-                            MenuController.when("loadmenu", _ => MenuController.close(), false, true);
-                        } else {
-                            MenuController.when("loadmenu", detail => {
-                                Storage.set("localLayout", UTIL.layoutToJsonObj(scene, PhaseController.Managers.Node));
-                                detail.statusElement.text = "Discovering targets";
-                                if (!Storage.has("targets", true) || UTIL.getNowUTCSeconds() - Storage.updated("targets", true) > TARGETS_TTL) {
-                                    Session.getAttackTargets()
-                                        .then(targets => {
-                                            if (!targets) { // Session token expired
-                                                CookieJar.remove("session");
-                                                Logger.alert("Session expired, please log in again.");
-                                                window.location.reload();
-                                            }
-                                            Storage.set("targets", targets, true);
-                                            MenuController._dispatch("swapphase", { phase: "select" });
-                                        });
-                                } else {
-                                    detail.statusElement.text = "Loading global net";
-                                    PhaseController.selectPhase(
-                                        UTIL.getRandomItems(Storage.get("targets", true), WORLD_TARGET_COUNT),
-                                        {
-                                            Attack: (userid) => {
-                                                MenuController._dispatch("swapphase", {phase: "attack", targetid: userid});
-                                            },
-                                            Build: () => {
-                                                MenuController._dispatch("swapphase", {phase: "build"});
-                                            },
-                                        }
-                                    );
-                                    MenuController.close();
-                                }
-                            }, false, true);
-                        }
-                    } else {
-                        Logger.error(`Unrecognized phase "${phaseType}"`);
-                        MenuController.when("loadmenu", _ => MenuController.close(), false, true);
-                    }
-                    camera.position.copy(DEFAULT_CAM_POS);
-                } catch (err) {
-                    Logger.error(`Failed to swap phase to "${phaseType}"`);
-                    Logger.throw(err);
-                    MenuController.when("loadmenu", _ => MenuController.close(), false, true);
-                }
-                MenuController.open(["loading"]);
-            }, true);
-            MenuController.when("lowperformance", function (detail) {
-                const toggleTo = detail.set;
-                NodeController.lowPerformanceMode = toggleTo;
-                MenuController.close();
-            }, true);
-            MenuController.when("logout", function (_) {
-                CookieJar.remove("session");
-                window.location.reload();
-            }, true);
-            MenuController.when("_savelog", function (_) {
-                UTIL._DebugTool.exportLogger(scene, NodeController, Logger);
-                MenuController.close();
-            }, true);
-        }
-        statusEl.text = "Loading mesh data";
-        const gtlfData = Promise.all([
-            THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
-            THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
-            THREEUTILS.loadGLTFShape("./source/globe.glb"),
-            THREEUTILS.loadGLTFShape("./source/scanner.glb"),
-            THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
-            THREEUTILS.loadGLTFShape("./source/squarestack.glb"),
-            THREEUTILS.loadGLTFShape("./source/circlestack.glb")
-        ]);
-        gtlfData.then(data => {
-            const [ placeholderData, cubeData, globeData, eyeData, worldData, squareStackData, cricleStackData, ..._] = data;
-            Logger.info("Finished loading shape data:", data);        
+                NodeController.addMeshData({
+                    placeholder: () => MESH.Nodes.Placeholder(placeholderData),
+                    cube: () => MESH.Nodes.Cube(cubeData),
+                    globe: () => MESH.Nodes.Globe(globeData),
+                    scanner: () => MESH.Nodes.Scanner(eyeData),
+                    tether: (o, t) => MESH.Tether(o, t),
+                    cashfarm: () => MESH.Nodes.CashFarm(squareStackData),
+                    cryptofarm: () => MESH.Nodes.CryptoFarm(squareStackData),
+                    cashstore: () => MESH.Nodes.CashStore(cricleStackData),
+                    cryptostore: () => MESH.Nodes.CryptoStore(cricleStackData),
+                });
+                WorldController.addMeshData(MESH.SelectionGlobe(worldData, 4));
 
-            NodeController.addMeshData({
-                placeholder: () => MESH.Nodes.Placeholder(placeholderData),
-                cube: () => MESH.Nodes.Cube(cubeData),
-                globe: () => MESH.Nodes.Globe(globeData),
-                scanner: () => MESH.Nodes.Scanner(eyeData),
-                tether: (o, t) => MESH.Tether(o, t),
-                cashfarm: () => MESH.Nodes.CashFarm(squareStackData),
-                cryptofarm: () => MESH.Nodes.CryptoFarm(squareStackData),
-            });
-            WorldController.addMeshData(
-                MESH.SelectionGlobe(worldData, 4)
-            );
-            
-            let trackLowPerformace = false;
-            document.getElementById("performance").textContent = "Low Performance mode: OFF";
-            const FPSCounter = new Framerate(
-                (fps) => {
-                    document.getElementById("framerate").textContent = `FPS: ${fps}`;
-                    document.getElementById("performance").textContent = `Low Performance mode: ${NodeController.lowPerformanceMode ? "ON" : "OFF"}`;
+                let trackLowPerformace = false;
+                document.getElementById("performance").textContent =
+                    "Low Performance mode: OFF";
+                const FPSCounter = new Framerate((fps) => {
+                    document.getElementById(
+                        "framerate"
+                    ).textContent = `FPS: ${fps}`;
+                    document.getElementById(
+                        "performance"
+                    ).textContent = `Low Performance mode: ${
+                        NodeController.lowPerformanceMode ? "ON" : "OFF"
+                    }`;
                     if (
                         trackLowPerformace &&
                         !NodeController.lowPerformanceMode &&
@@ -376,42 +622,55 @@ function mainloop(MenuController) {
                         FPSCounter.fps < 30
                     ) {
                         NodeController.lowPerformanceMode = true;
-                        Logger.warn(`FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`);
+                        Logger.warn(
+                            `FPS dropped below threshold to ${FPSCounter.avgFramerate}, low performance mode is ON.`
+                        );
                     }
-                }
-            );
-            if (DEBUG_MODE && urlParams.has("phase")) {
-                const phase = urlParams.get("phase");
-                MenuController._dispatch("swapphase", {phase: phase});
-            } else
-                MenuController._dispatch("swapphase", {phase: "build"});
+                });
+                if (DEBUG_MODE && urlParams.has("phase")) {
+                    const phase = urlParams.get("phase");
+                    MenuController._dispatch("swapphase", { phase: phase });
+                } else
+                    MenuController._dispatch("swapphase", { phase: "build" });
 
-            { // [!] testing area
-                if (DEBUG_MODE && urlParams.has("axes"))
-                    if (Number(urlParams.get("axes")))
-                        scene.add(new THREE.AxesHelper(Number(urlParams.get("axes"))));
-                    else
-                        scene.add(new THREE.AxesHelper(controls.camera.maxDistance * 2));
-            }
-            // render the stuff
-            function animate() {
-                const delta = UTIL.clamp(clock.getDelta(), 0, 1000);
-                //requestIdleCallback(animate)
-                PhaseController.update(delta);
-                FPSCounter.update();
-                effect.render(scene, camera);
-            }
-            FPSCounter.reset();
-            renderer.setAnimationLoop(animate);
-            setTimeout(() => {
-                trackLowPerformace = true;
-            }, 2500); // time before we start checking if we need to turn on low performance mode
-        });
-    }, false, true);
+                {
+                    // [!] testing area
+                    if (DEBUG_MODE && urlParams.has("axes"))
+                        if (Number(urlParams.get("axes")))
+                            scene.add(
+                                new THREE.AxesHelper(
+                                    Number(urlParams.get("axes"))
+                                )
+                            );
+                        else
+                            scene.add(
+                                new THREE.AxesHelper(
+                                    controls.camera.maxDistance * 2
+                                )
+                            );
+                }
+                // render the stuff
+                function animate() {
+                    const delta = UTIL.clamp(clock.getDelta(), 0, 1000);
+                    //requestIdleCallback(animate)
+                    PhaseController.update(delta);
+                    FPSCounter.update();
+                    effect.render(scene, camera);
+                }
+                FPSCounter.reset();
+                renderer.setAnimationLoop(animate);
+                setTimeout(() => {
+                    trackLowPerformace = true;
+                }, 2500); // time before we start checking if we need to turn on low performance mode
+            });
+        },
+        false,
+        true
+    );
     MenuController.open(["loading"]);
 }
 
-function Framerate (
+function Framerate(
     framerateUpdateCallback,
     framerateInterval = 1000 // ms
 ) {
@@ -422,37 +681,39 @@ function Framerate (
     this._framerate = 0;
     this.prev = undefined;
     Object.defineProperty(self, "framerate", {
-        get: function() {
+        get: function () {
             return self._framerate;
         },
-        set: function(value) {
+        set: function (value) {
             self._framerate = value;
             self._callback(value);
-        }
+        },
     });
     Object.defineProperty(self, "started", {
-        get: function() {
+        get: function () {
             return self.prev != undefined && self._framerate > 0;
-        }
+        },
     });
     this.reset = function () {
         self.prev = Date.now();
         self._frame = 0;
         self._framerate = 0;
-    }
-    this.update = function() {
+    };
+    this.update = function () {
         if (self.prev) {
             self._frame++;
             const curr = Date.now();
             if (curr > self.prev + self._framesPerMs) {
-                self.framerate = Math.round( (self._frame * self._framesPerMs) / (curr - self.prev));
+                self.framerate = Math.round(
+                    (self._frame * self._framesPerMs) / (curr - self.prev)
+                );
                 self.prev = curr;
                 self._frame = 0;
             }
         } else {
             self.reset();
         }
-    }
+    };
     return this;
 }
 
@@ -481,8 +742,11 @@ const AttackTypeData = {
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
-            return nodeData.isFriendly && !nodeData.attackers.some((a => a.type == "pascualcannon"));
-        }
+            return (
+                nodeData.isFriendly &&
+                !nodeData.attackers.some((a) => a.type == "pascualcannon")
+            );
+        },
     },
     laser: {
         mesh: MESH.AttackManagerFactory.Laser,
@@ -491,8 +755,11 @@ const AttackTypeData = {
         logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
-            return nodeData.isFriendly && !nodeData.attackers.some((a => a.type == "pascualcannon"));
-        }
+            return (
+                nodeData.isFriendly &&
+                !nodeData.attackers.some((a) => a.type == "pascualcannon")
+            );
+        },
     },
     pascualcannon: {
         mesh: (a) => MESH.AttackManagerFactory.PascualCannon(camera, a),
@@ -505,13 +772,18 @@ const AttackTypeData = {
             const targetData = nodeManager.getNodeData(attack.target);
             const targetid = attack.target;
             nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
-            targetData.state.disabled.set(true, 1800, () => {
-                nodeManager.resetNodeColorTint(targetid);
-            }, true);
+            targetData.state.disabled.set(
+                true,
+                1800,
+                () => {
+                    nodeManager.resetNodeColorTint(targetid);
+                },
+                true
+            );
         },
         canAdd: (nodeData) => {
             return nodeData.isFriendly && nodeData.attackers.length == 0;
-        }
+        },
     },
     cubedefense: {
         mesh: MESH.AttackManagerFactory.CubeDefense,
@@ -521,18 +793,18 @@ const AttackTypeData = {
         effect: (nodeManager, attackid) => {},
         canAdd: (nodeData) => {
             return !nodeData.isFriendly;
-        }
+        },
     },
 };
 
 const NodeTypeData = {
     placeholder: {
         health: 50,
-        slots: 5,
+        slots: 4,
     },
     cube: {
         health: 100,
-        slots: 6,
+        slots: 5,
     },
     scanner: {
         health: 75,
@@ -542,22 +814,38 @@ const NodeTypeData = {
         health: 0,
         slots: 3,
     },
+    cashfarm: {
+        health: 75,
+        slots: 2,
+    },
+    cashstore: {
+        health: 125,
+        slots: 3,
+    },
+    cryptofarm: {
+        health: 75,
+        slots: 2,
+    },
+    cryptostore: {
+        health: 125,
+        slots: 3,
+    },
 };
 
 const _currencyOverlayData = {
     // avoid reinitializing where possible
     offset: new THREE.Vector3(0, 3, 0),
-    geometry: new THREE.PlaneGeometry(.9, .3),
+    geometry: new THREE.PlaneGeometry(0.9, 0.3),
     alphaMap: "./source/node-overlay/currency/currency-bar-mask.png",
     mapSize: new THREE.Vector2(300, 100),
-    alphaMapSize: new THREE.Vector2(600, 100)
+    alphaMapSize: new THREE.Vector2(600, 100),
 };
 
 const NodeOverlayData = {
     slots: {
         tiles: 7,
-        offset: new THREE.Vector3(-.9, -.95, 0),
-        geometry: new THREE.PlaneGeometry(.7, .7),
+        offset: new THREE.Vector3(-0.9, -0.95, 0),
+        geometry: new THREE.PlaneGeometry(0.7, 0.7),
         material: SSMaterialType.Mask(
             "./source/node-overlay/slots.png",
             "./source/node-overlay/slots-mask.png",
@@ -589,48 +877,62 @@ const NodeOverlayData = {
 
 const NodeDetailedInfo = {
     placeholder: {
-		cost: {
-			type: "cash",
-			amount: 1
-		},
+        cost: {
+            type: "cash",
+            amount: 1,
+        },
         name: "_placeholder_",
-		description: "Placeholder. Doesn't do anything."
-	},
+        description: "Placeholder. Doesn't do anything.",
+    },
     cube: {
-		cost: {
-			type: "crypto",
-			amount: 2
-		},
+        cost: {
+            type: "crypto",
+            amount: 2,
+        },
         name: "Cube",
-		description: "Captures hostile Nodes within 1 step.",
-	},
+        description: "Captures hostile Nodes within 1 step.",
+    },
     globe: {
-		cost: undefined,
+        cost: undefined,
         name: "Access Port",
-		description: `Required for your net to exist.\nAll nodes exist within ${maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
-	},
+        description: `Required for your net to exist.\nAll nodes exist within ${maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
+    },
     scanner: {
-		cost: {
-			type: "cash",
-			amount: 10
-		},
+        cost: {
+            type: "cash",
+            amount: 10,
+        },
         name: "Sentinal",
-		description: "Scans for Attacker activity within [TBD] steps.",
-	},
+        description: "Scans for Attacker activity within [TBD] steps.",
+    },
     cashfarm: {
-		cost: {
-			type: "crypto",
-			amount: 1
-		},
+        // cost: {
+        //     type: "crypto",
+        //     amount: 1,
+        // },
+        cost: undefined,
         name: "Cash Farm",
-		description: "Farms for cash. Can be collected from to use for purchases.",
-	},
+        description:
+            "Farms for cash. Can be collected from to use for purchases.",
+    },
     cryptofarm: {
-		cost: {
-			type: "cash",
-			amount: 5
-		},
+        // cost: {
+        //     type: "cash",
+        //     amount: 5,
+        // },
+        cost: undefined,
         name: "Credits Farm",
-		description: "Farms for credits. Can be collected from to use for purchases.",
-	},
+        description:
+            "Farms for credits. Can be collected from to use for purchases.",
+    },
+    cashstore: {
+        cost: undefined,
+        name: "Cash Storage",
+        description: "Holds Cash"
+    },
+    cryptostore: {
+        cost: undefined,
+        name: "Credits Storage",
+        description: "Holds Credits"
+    },
 };
