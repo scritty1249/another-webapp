@@ -287,15 +287,11 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
     const listenerController = new ListenerManager();
     const bankController = {
         // pseudo-manager for bank data
-        _bankData: undefined,
         get bank () {
-            if (!this._bankData)
-                this._bankData = Storage.get("localBank");
-            return this._bankData;
-        },
-        set bank (data) {
-            Storage.set("localBank", data);
-            this._bankData = data;
+            return {
+                cash: nodeController.getStoredCurrency("cash"),
+                crypto: nodeController.getStoredCurrency("crypto")
+            };
         },
         update: function () {
             const bankData = this.bank;
@@ -306,12 +302,8 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
         collect: function (nodeid) {
             const currencyType = nodeController.isCurrencyNode(nodeid);
             if (!currencyType) return;
-            const bankData = this.bank;
-            const collected = nodeController.collectCurrencyNode(nodeid);
-            if (!collected) return;
-            this.bank[currencyType] += collected;
-            this.bank = this.bank;
-            overlayController.updateWallet(bankData);
+            nodeController.collectCurrencyNode(nodeid);
+            overlayController.updateWallet(this.bank);
         }
     };
 
@@ -324,16 +316,16 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
     overlayController._menuManager.when("addnode", (detail) => {
         const cost = nodeDetails[detail.nodeType]?.cost;
         const bankData = bankController.bank;
-        if (cost)
-            if (bankData[cost.type] - cost.amount < 0) {
+        if (cost) {
+            if (bankData[cost.type].amount - cost.amount < 0) {
                 overlayController.messagePopup(`Cannot create new Node: Insufficient currency.`);
                 overlayController._menuManager.close();
                 return;
             } else {
-                bankData[cost.type] -= cost.amount;
-                bankController.bank = bankData;
+                nodeController.removeCurrency(cost.type, cost.amount);
                 overlayController.updateWallet(bankData);
             }
+        }
         nodeController.createNode(
             detail.nodeType,
             Array.from({ length: 3 }, (_) => UTIL.random(0.001, 0.002))

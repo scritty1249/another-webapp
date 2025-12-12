@@ -486,6 +486,12 @@ NodeManager.prototype.isCurrencyNode = function (nodeid) {
         return node.userData.exportData.currency.type;
     return undefined;
 };
+NodeManager.prototype.isStorageNode = function (nodeid) {
+    const node = this.getNode(nodeid);
+    if (node?.userData.exportData?.store !== undefined)
+        return node.userData.exportData.store.type;
+    return undefined;
+};
 NodeManager.prototype.getCurrencyData = function (nodeid) {
     if (!this.isCurrencyNode(nodeid))
         Logger.throw(
@@ -495,6 +501,16 @@ NodeManager.prototype.getCurrencyData = function (nodeid) {
         );
     const node = this.getNode(nodeid);
     return node.userData.exportData.currency;
+};
+NodeManager.prototype.getStorageData = function (nodeid) {
+    if (!this.isStorageNode(nodeid))
+        Logger.throw(
+            new Error(
+                `[NodeManager] | Failed to get currency data from node ${nodeid}: Not a storage node.`
+            )
+        );
+    const node = this.getNode(nodeid);
+    return node.userData.exportData.store;
 };
 NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
     // why are we back to BFS bro wtf
@@ -891,17 +907,30 @@ BuildNodeManager.prototype.createNode = function (...args) {
     try {
         const node = this.getNode(nodeid);
         const overlay = NodeSSOverlay(node);
-        const currencyType = this.isCurrencyNode(nodeid); // may be undefined (intentional), this function returns a string of currency type instead of just true.
-        if (currencyType) {
-            const oMoneyBarMesh = SSMaskMesh(
-                this._nodeOverlayData[currencyType].geometry,
-                this._nodeOverlayData[currencyType].material
-            );
-            overlay.userData.addChild(
-                "bar",
-                oMoneyBarMesh,
-                this._nodeOverlayData[currencyType].offset
-            );
+        { // node specific overlays
+            const currencyType = this.isCurrencyNode(nodeid); // may be undefined (intentional), this function returns a string of currency type instead of just true.
+            const storageType = this.isStorageNode(nodeid);
+            if (currencyType) {
+                const oMoneyBarMesh = SSMaskMesh(
+                    this._nodeOverlayData[currencyType].geometry,
+                    this._nodeOverlayData[currencyType].material.clone()
+                );
+                overlay.userData.addChild(
+                    "bar",
+                    oMoneyBarMesh,
+                    this._nodeOverlayData[currencyType].offset
+                );
+            } else if (storageType) {
+                const oMoneyStorageMesh = SSMaskMesh(
+                    this._nodeOverlayData[storageType].geometry,
+                    this._nodeOverlayData[storageType].material.clone()
+                );
+                overlay.userData.addChild(
+                    "bar",
+                    oMoneyStorageMesh,
+                    this._nodeOverlayData[storageType].offset
+                );
+            }
         }
         const oSlotsMesh = SSNodeSlotsMesh(
             this._nodeOverlayData.slots.geometry,
@@ -917,7 +946,10 @@ BuildNodeManager.prototype.createNode = function (...args) {
         );
         this.overlay[overlay.uuid] = overlay;
     } catch {
-        Logger.error(`[BuildNodeManager] | Failed to create overlay for currency node ${nodeid}: Missing node overlay data from `, this._nodeOverlayData);
+        Logger.error(
+            `[BuildNodeManager] | Failed to create overlay for currency node ${nodeid}: Missing node overlay data from `,
+            this._nodeOverlayData
+        );
     } finally {
         return nodeid;
     }
@@ -932,12 +964,17 @@ BuildNodeManager.prototype._updateOverlays = function () {
                 1 -
                 node.userData.exportData.currency.amount /
                     node.userData.exportData.currency.max;
+        else if (this.isStorageNode(node.uuid))
+            overlay.userData.children.bar.userData.maskOffset.x =
+                1 -
+                node.userData.exportData.store.amount /
+                    node.userData.exportData.store.max;
         overlay.userData.update(this._camera);
     });
 };
 BuildNodeManager.prototype._updateCurrencyNodes = function () {
     // doesn't go off of timedelta- more accurate / convienient just use current time
-    const nodes = this.getCurrencyNodes();
+    const nodes = this.nodelist.filter(n => n.userData.exportData?.currency);
     const now = UTIL.getNowUTCSeconds();
     nodes.forEach((node) => {
         const currencyData = node.userData.exportData.currency;
@@ -956,6 +993,19 @@ BuildNodeManager.prototype._updateCurrencyNodes = function () {
         }
     });
 };
+BuildNodeManager.prototype.getStoredCurrency = function (currencyType) {
+    const nodes = this.getStorageNodes(currencyType);
+    const amount = nodes
+        .map((n) => n.userData.exportData.store.amount)
+        .reduce((acc, curr) => acc + curr, 0);
+    const total = nodes
+        .map((n) => n.userData.exportData.store.max)
+        .reduce((acc, curr) => acc + curr, 0);
+    return {
+        amount: amount ? amount : 0,
+        max: total ? total : 0,
+    };
+};
 BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
     // returns the amount, then sets the amount to zero.
     const node = this.getNode(nodeid);
@@ -966,24 +1016,70 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
             )
         );
     const currencyData = node.userData.exportData.currency;
+    const storageData = this.getStoredCurrency(currencyData.type);
+    if (storageData.max == storageData.amount) return false;
     const amount = currencyData.amount;
     if (amount > 0) {
         currencyData.amount = 0;
         currencyData.lastUpdated = UTIL.getNowUTCSeconds();
+        this.addCurrency(currencyData.type, Math.min(amount, storageData.max));
     }
-    return amount;
+    return true;
 };
-
-BuildNodeManager.prototype.getCurrencyNodes = function (
-    currencyType = undefined
-) {
-    if (currencyType)
-        return this.nodelist.filter(
-            (n) => n.userData.exportData?.currency == currencyType
+BuildNodeManager.prototype.getStorageNodes = function (currencyType) { // returns sorted from most to least empty
+    if (!currencyType) return [];
+    return this.nodelist.filter(
+        (n) => n.userData.exportData?.store?.type == currencyType
+    ).toSorted(
+        (a, b) =>
+            (b.userData.exportData.store.max -
+                b.userData.exportData.store.amount) -
+            (a.userData.exportData.store.max -
+                a.userData.exportData.store.amount)
+    );
+};
+BuildNodeManager.prototype.getCurrencyNodes = function (currencyType) { // returns sorted from most to least empty
+    if (!currencyType) return [];
+    return this.nodelist.filter(
+        (n) => n.userData.exportData?.currency?.type == currencyType
+    ).toSorted(
+        (a, b) =>
+            (b.userData.exportData.currency.max -
+                b.userData.exportData.currency.amount) -
+            (a.userData.exportData.currency.max -
+                a.userData.exportData.currency.amount)
+    );
+};
+BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
+    const nodes = this.getStorageNodes(currencyType);
+    const currencyData = this.getStoredCurrency(currencyType);
+    let nodeIdx = 0;
+    let remaining = amount;
+    while (remaining && nodeIdx < nodes.length) {
+        if (nodes[nodeIdx].userData.exportData.store.amount >= nodes[nodeIdx].userData.exportData.store.max) nodeIdx++;
+        nodes[nodeIdx].userData.exportData.store.amount++;
+        remaining--;
+    }
+    return remaining;
+};
+BuildNodeManager.prototype.removeCurrency = function (currencyType, amount) {
+    const nodes = this.getStorageNodes(currencyType);
+    const currencyData = this.getStoredCurrency(currencyType);
+    if (currencyData.amount - amount < 0)
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Cannot remove ${amount} ${currencyType}: Insufficient balance.`
+            )
         );
-    return this.nodelist.filter((n) => n.userData.exportData?.currency);
+    let nodeIdx = 0;
+    let remaining = amount;
+    while (remaining && nodeIdx < nodes.length) {
+        if (nodes[nodeIdx].userData.exportData.store.amount <= 0) nodeIdx++;
+        nodes[nodeIdx].userData.exportData.store.amount--;
+        remaining--;
+    }
+    return remaining;
 };
-
 BuildNodeManager.prototype.removeNode = function (nodeid) {
     const overlay = this.getOverlayByTarget(nodeid);
     if (overlay) delete this.overlay[overlay.uuid];

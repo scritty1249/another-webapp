@@ -397,6 +397,106 @@ function Tether(origin, target, color = 0xc0c0c0) {
     return tether;
 }
 const Nodes = {
+    CashStore: function (
+        sceneData,
+        animationOptions = { idle: true, randomize: true },
+    ) {
+        const store = Node(sceneData.mesh, sceneData.animations);
+        const sliceMaterial = new MeshPhongMaterial({
+                color: 0xD3AF37,
+                emissive: 0x000000, 
+                emissiveIntensity: 0.6,
+                shininess: 45,
+            });
+        store.userData.child("stack").material = InvisibleMat;
+        store.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("5").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("6").material = sliceMaterial.clone();
+        store.scale.setScalar(0.5);
+        store.userData.type = "cashstore";
+        store.userData.state = {
+            setLowPerformance: function () {},
+            setHighPerformance: function () {},
+        };
+        store.userData.exportData.maxConnections = 3;
+        store.userData.exportData.store = {
+            type: "cash",
+            amount: 0,
+            max: 200
+        };
+
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                store.userData.mixer.setTime(
+                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
+                );
+                store.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                store.userData.animations["1-idle"].play();
+                store.userData.animations["2-idle"].play();
+                store.userData.animations["3-idle"].play();
+                store.userData.animations["4-idle"].play();
+                store.userData.animations["5-idle"].play();
+                store.userData.animations["6-idle"].play();
+            }
+        }
+
+        return store;
+    },
+    CryptoStore: function (
+        sceneData,
+        animationOptions = { idle: true, randomize: true },
+    ) {
+        const store = Node(sceneData.mesh, sceneData.animations);
+        const sliceMaterial = new MeshPhongMaterial({
+                color: 0xF7931A,
+                emissive: 0x000000, 
+                emissiveIntensity: 0.6,
+                shininess: 45,
+            });
+        store.userData.child("stack").material = InvisibleMat;
+        store.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("5").material = sliceMaterial.clone();
+        store.userData.child("stack").userData.child("6").material = sliceMaterial.clone();
+        store.scale.setScalar(0.5);
+        store.userData.type = "cryptostore";
+        store.userData.state = {
+            setLowPerformance: function () {},
+            setHighPerformance: function () {},
+        };
+        store.userData.exportData.maxConnections = 3;
+        store.userData.exportData.store = {
+            type: "crypto",
+            amount: 0,
+            max: 30
+        };
+
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                store.userData.mixer.setTime(
+                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
+                );
+                store.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                store.userData.animations["1-idle"].play();
+                store.userData.animations["2-idle"].play();
+                store.userData.animations["3-idle"].play();
+                store.userData.animations["4-idle"].play();
+                store.userData.animations["5-idle"].play();
+                store.userData.animations["6-idle"].play();
+            }
+        }
+
+        return store;
+    },
     CashFarm: function (
         sceneData,
         animationOptions = { idle: true, randomize: true },
@@ -413,7 +513,7 @@ const Nodes = {
         farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
         farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
         farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        farm.scale.setScalar(0.6);
+        farm.scale.setScalar(0.4);
         farm.userData.type = "cashfarm";
         farm.userData.state = {
             setLowPerformance: function () {},
