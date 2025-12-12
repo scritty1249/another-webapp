@@ -1,6 +1,6 @@
 import { Vector3, Color } from "three";
 import * as UTIL from "./utils.js";
-import { NodeSSOverlay, SSFramesMesh, SSMaskMesh } from "./spritesheet.js";
+import { NodeSSOverlay, SSFramesMesh, SSMaskMesh, SSNodeSlotsMesh } from "./spritesheet.js";
 
 const friendlyEmissiveColor = new Color(0xaa0000);
 
@@ -279,6 +279,7 @@ NodeManager.prototype.createNode = function (nodeType, position = [0, 0, 0], exp
     const newNode = this._getMesh(nodeType);
     if (newNode.userData.exportData) newNode.userData.exportData = {...newNode.userData.exportData, ...exportData};
     else newNode.userData.exportData = exportData;
+    newNode.userData._neighborCount = 0;
     if (position.x) newNode.position.set(position.x, position.y, position.z);
     else newNode.position.set(...position);
     this.nodes[newNode.uuid] = newNode;
@@ -351,21 +352,45 @@ NodeManager.prototype.clear = function () {
 };
 NodeManager.prototype._tetherNodes = function (origin, target) {
     if (this.isNeighbor(origin.uuid, target.uuid))
-        throw new Error(
-            `[NodeManager] | Tether already exists between Nodes ${originid} and ${targetid}`
-        );
+        Logger.throw(new Error(
+            `[NodeManager] | Error: Tether already exists between Nodes ${originid} and ${targetid}`
+        ));
     else if (origin.uuid == target.uuid)
-        throw new Error(`[NodeManager] | Cannot tether a Node to itself`);
+        Logger.throw(new Error(`[NodeManager] | Error: Cannot tether a Node to itself`));
     const tether = this._getMesh("tether", origin, target);
     this.tethers[tether.uuid] = tether;
     return tether;
 };
 NodeManager.prototype.tetherNodes = function (originid, targetid) {
     const [origin, target] = this.getNodes(originid, targetid);
-    const tether = this._tetherNodes(origin, target);
-    return tether.uuid;
+    if (
+        (
+            origin.userData.exportData?.maxConnections === undefined ||
+            this.getNeighbors(originid).length < origin.userData.exportData.maxConnections
+        ) &&
+        (
+            target.userData.exportData?.maxConnections === undefined ||
+            this.getNeighbors(targetid).length < target.userData.exportData.maxConnections
+        )
+    ) {
+        const tether = this._tetherNodes(origin, target);
+        if (origin?.userData?._neighborCount !== undefined)
+            origin.userData._neighborCount++;
+        if (target?.userData?._neighborCount !== undefined)
+            target.userData._neighborCount++;
+        return tether.uuid;
+    } else {
+        Logger.warn(`[NodeManager] | Cannot tether nodes ${originid} (${origin.userData.type}) and ${targetid} (${target.userData.type}): Connection limit reached for node.`);
+        return undefined;
+    }
+    
 };
 NodeManager.prototype.removeTether = function (tetherid) {
+    const [origin, target] = this._getNodesFromTether(this.tethers[tetherid]);
+    if (origin?.userData?._neighborCount !== undefined)
+        origin.userData._neighborCount--;
+    if (target?.userData?._neighborCount !== undefined)
+        target.userData._neighborCount--;
     delete this.tethers[tetherid];
 };
 NodeManager.prototype.getTether = function (tetherid) {
@@ -788,11 +813,11 @@ BuildNodeManager.prototype._proxyHandlers = {...BuildNodeManager.prototype._prox
 };
 BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
     const tether = this._getTetherFromNodes(originid, targetid);
-    delete this.tethers[tether.uuid];
+    this.removeTether(tether.uuid);
 };
 BuildNodeManager.prototype.untetherNode = function (nodeid) {
     const node = this.getNode(nodeid);
-    node.userData.tetherlist.forEach((t) => delete this.tethers[t.uuid]);
+    node.userData.tetherlist.forEach((t) => this.removeTether(t.uuid));
 };
 BuildNodeManager.prototype.getOverlay = function (overlayid) {
     const overlay = this.overlay[overlayid];
@@ -805,7 +830,7 @@ BuildNodeManager.prototype.getOverlay = function (overlayid) {
     return overlay;
 };
 BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
-    const overlay = this.overlaylist.filter(o => o.target.uuid == targetid)?.[0];
+    const overlay = this.overlaylist.filter(o => o.userData.target.uuid == targetid)?.[0];
     if (!overlay)
         Logger.throw(
             new Error(
@@ -819,23 +844,28 @@ BuildNodeManager.prototype.createNode = function (...args) {
     const node = this.getNode(nodeid);
     const overlay = NodeSSOverlay(node);
 
-    if (true) {
+    if (node.userData.type == "cashfarm") {
         const oMoneyBarMesh = SSMaskMesh(this._nodeOverlayData.cash.geometry, this._nodeOverlayData.cash.material);
         overlay.userData.addChild("bar", oMoneyBarMesh, this._nodeOverlayData.cash.offset);
         // overlay.userData.children.bar.userData.maskOffset.x += 100;
     }
-    const oSlotsMesh = SSFramesMesh(this._nodeOverlayData.slots.geometry, this._nodeOverlayData.slots.material, this._nodeOverlayData.slots.tiles);
+    const oSlotsMesh = SSNodeSlotsMesh(this._nodeOverlayData.slots.geometry, this._nodeOverlayData.slots.material.clone(), this._nodeOverlayData.slots.tiles);
+    if (node.userData.exportData?.maxConnections)
+        oSlotsMesh.userData.slots = node.userData.exportData.maxConnections;
     overlay.userData.addChild("slots", oSlotsMesh, this._nodeOverlayData.slots.offset);
-
     this.overlay[overlay.uuid] = overlay;
     return nodeid;
 };
 BuildNodeManager.prototype._updateOverlays = function () {
     this.overlaylist.forEach(overlay => {
+        overlay.userData.children.slots.userData.filled = overlay.userData.target.userData._neighborCount;
         overlay.userData.update(this._camera);
     });
 };
 BuildNodeManager.prototype.removeNode = function (nodeid) {
+    const overlay = this.getOverlayByTarget(nodeid);
+    if (overlay)
+        delete this.overlay[overlay.uuid];
     delete this.nodes[nodeid];
 };
 BuildNodeManager.prototype.update = function (timedelta) {
@@ -845,6 +875,8 @@ BuildNodeManager.prototype.update = function (timedelta) {
 };
 BuildNodeManager.prototype.clear = function () {
     NodeManager.prototype.clear.call(this);
+    const overlays = [...this.overlaylist];
+    overlays.forEach((o) => delete this.overlay[o.uuid]);
     delete this._nodeOverlayData;
 };
 
