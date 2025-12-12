@@ -207,9 +207,22 @@ PhaseManager.prototype.attackPhase = function (
         }
     });
 
-    Logger.log(attackerTypeData);
+    const nodeVictoryCallback = () => {
+        const cash = Math.floor(self.Managers.Node.getStoredCurrency("cash").amount / 2);
+        const crypto = Math.floor(self.Managers.Node.getStoredCurrency("crypto").amount / 2);
+        const transfer = {};
+        if (cash)
+            transfer.cash = cash;
+        if (crypto)
+            transfer.crypto = crypto;
+        if (cash || crypto)
+            self.Managers.Menu._dispatch("swapphase", { phase: "build", metadata: { transfer: transfer } });
+        else
+            self.Managers.Menu._dispatch("swapphase", { phase: "build" });
+    }
 
     const nodeController = new AttackNodeManager(
+        nodeVictoryCallback,
         nodeTypes,
         attackerTypeData,
         ...this._constructorArgs.Node
@@ -256,7 +269,7 @@ PhaseManager.prototype.attackPhase = function (
     Logger.log("[PhaseManager] | Loaded Attack phase");
 };
 
-PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetails) {
+PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetails, metadata = {}) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Build phase");
     this._unloadPhase();
@@ -312,6 +325,21 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
         Mouse: self.Managers.Mouse,
         Node: nodeController,
     });
+
+    if (metadata.transfer) {
+        // add currency
+        let text = [];
+        Object.entries(metadata.transfer).forEach(([currencyType, amount]) => {
+            nodeController.addCurrency(currencyType, amount);
+            text.push(`${amount} ${currencyType}`);
+        });
+        const message = "Transferred " + (text.length > 1
+            ? text.slice(0, text.length - 1)
+                .join(", ") +
+                " and " + text[0]
+            : text[0]);
+        overlayController.messagePopup(message);
+    }
 
     overlayController._menuManager.when("addnode", (detail) => {
         const cost = nodeDetails[detail.nodeType]?.cost;

@@ -250,6 +250,7 @@ canvas {
         }
         &.attack {
             > .bar {
+                position: fixed;
                 bottom: calc(var(--unit) / 2);
                 left: 50%;
                 transform: translateX(-50%);
@@ -260,6 +261,11 @@ canvas {
                 overflow-y: hidden;
                 overflow-x: scroll;
                 place-items: center;
+            }
+            > .target-name {
+                position: fixed;
+                left: 0;
+                top: 50%;
             }
         }
     }

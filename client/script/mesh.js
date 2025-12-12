@@ -405,7 +405,7 @@ const Nodes = {
         const sliceMaterial = new MeshPhongMaterial({
                 color: 0xD3AF37,
                 emissive: 0x000000, 
-                emissiveIntensity: 0.6,
+                emissiveIntensity: 7,
                 shininess: 45,
             });
         store.userData.child("stack").material = InvisibleMat;
@@ -455,7 +455,7 @@ const Nodes = {
         const sliceMaterial = new MeshPhongMaterial({
                 color: 0xF7931A,
                 emissive: 0x000000, 
-                emissiveIntensity: 0.6,
+                emissiveIntensity: 7,
                 shininess: 45,
             });
         store.userData.child("stack").material = InvisibleMat;
@@ -505,7 +505,7 @@ const Nodes = {
         const sliceMaterial = new MeshPhongMaterial({
                 color: 0xD3AF37,
                 emissive: 0x000000, 
-                emissiveIntensity: 0.6,
+                emissiveIntensity: 7,
                 shininess: 45,
             });
         farm.userData.child("stack").material = InvisibleMat;
@@ -553,7 +553,7 @@ const Nodes = {
         const sliceMaterial = new MeshPhongMaterial({
                 color: 0xF7931A,
                 emissive: 0x000000, 
-                emissiveIntensity: 0.6,
+                emissiveIntensity: 7,
                 shininess: 45,
             });
         farm.userData.child("stack").material = InvisibleMat;

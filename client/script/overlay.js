@@ -157,7 +157,7 @@ const AttackHud = {
         // hard coded- needs to be updated if tile asset changes.
         bar.style.minWidth = "calc(var(--unit) * 10)";
         bar.style.minHeight = "calc(var(--unit) * 10)";
-        elements.forEach((el) => bar.appendChild(el));
+        tileElements.forEach((el) => bar.appendChild(el));
         return bar;
     },
     createTargetNameTag: function (targetName) {

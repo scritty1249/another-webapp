@@ -462,6 +462,19 @@ NodeManager.prototype._updateTethers = function () {
         }
     });
 };
+NodeManager.prototype.getStoredCurrency = function (currencyType) {
+    const nodes = this.getStorageNodes(currencyType);
+    const amount = nodes
+        .map((n) => n.userData.exportData.store.amount)
+        .reduce((acc, curr) => acc + curr, 0);
+    const total = nodes
+        .map((n) => n.userData.exportData.store.max)
+        .reduce((acc, curr) => acc + curr, 0);
+    return {
+        amount: amount ? amount : 0,
+        max: total ? total : 0,
+    };
+};
 NodeManager.prototype._BFSNode = function (nodeid) {
     const visited = new Set();
     const queue = [nodeid];
@@ -535,11 +548,13 @@ NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
 };
 
 export function AttackNodeManager(
+    phaseCallback,
     nodeTypeData = {},
     attackTypeData = {},
     ...parentArgs
 ) {
     NodeManager.call(this, ...parentArgs);
+    this._phaseCallback = phaseCallback;
     this._nodeTypeData = nodeTypeData;
     this._attackTypeData = attackTypeData;
     this._nodedata = {};
@@ -732,6 +747,9 @@ AttackNodeManager.prototype._getAttackTypeData = function (attackType) {
         );
     return this._attackTypeData[attackType];
 };
+AttackNodeManager.prototype.isAllNodesFriendly = function () {
+    return Object.values(this.nodedata).every(n => n.friendly);
+};
 AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
     const node = this.getNode(nodeid);
     const nodeData = this.getNodeData(nodeid);
@@ -742,6 +760,9 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
         nodeData.hp.set(nodeTypeData.health / 2);
         nodeData.state.reset();
         this.setNodeEmissive(nodeid, friendlyEmissiveColor);
+    }
+    if (this.isAllNodesFriendly()) {
+
     }
 };
 AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
@@ -872,36 +893,6 @@ BuildNodeManager.prototype._proxyHandlers = {
         },
     },
 };
-BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
-    const tether = this._getTetherFromNodes(originid, targetid);
-    this.removeTether(tether.uuid);
-};
-BuildNodeManager.prototype.untetherNode = function (nodeid) {
-    const node = this.getNode(nodeid);
-    node.userData.tetherlist.forEach((t) => this.removeTether(t.uuid));
-};
-BuildNodeManager.prototype.getOverlay = function (overlayid) {
-    const overlay = this.overlay[overlayid];
-    if (!overlay)
-        Logger.throw(
-            new Error(
-                `[BuildNodeManager] | Overlay of UUID ${overlayid} does not exist.`
-            )
-        );
-    return overlay;
-};
-BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
-    const overlay = this.overlaylist.filter(
-        (o) => o.userData.target.uuid == targetid
-    )?.[0];
-    if (!overlay)
-        Logger.throw(
-            new Error(
-                `[BuildNodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
-            )
-        );
-    return overlay;
-};
 BuildNodeManager.prototype.createNode = function (...args) {
     const nodeid = NodeManager.prototype.createNode.call(this, ...args);
     try {
@@ -993,18 +984,27 @@ BuildNodeManager.prototype._updateCurrencyNodes = function () {
         }
     });
 };
-BuildNodeManager.prototype.getStoredCurrency = function (currencyType) {
-    const nodes = this.getStorageNodes(currencyType);
-    const amount = nodes
-        .map((n) => n.userData.exportData.store.amount)
-        .reduce((acc, curr) => acc + curr, 0);
-    const total = nodes
-        .map((n) => n.userData.exportData.store.max)
-        .reduce((acc, curr) => acc + curr, 0);
-    return {
-        amount: amount ? amount : 0,
-        max: total ? total : 0,
-    };
+BuildNodeManager.prototype.getOverlay = function (overlayid) {
+    const overlay = this.overlay[overlayid];
+    if (!overlay)
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Overlay of UUID ${overlayid} does not exist.`
+            )
+        );
+    return overlay;
+};
+BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
+    const overlay = this.overlaylist.filter(
+        (o) => o.userData.target.uuid == targetid
+    )?.[0];
+    if (!overlay)
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
+            )
+        );
+    return overlay;
 };
 BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
     // returns the amount, then sets the amount to zero.
@@ -1079,6 +1079,14 @@ BuildNodeManager.prototype.removeCurrency = function (currencyType, amount) {
         remaining--;
     }
     return remaining;
+};
+BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
+    const tether = this._getTetherFromNodes(originid, targetid);
+    this.removeTether(tether.uuid);
+};
+BuildNodeManager.prototype.untetherNode = function (nodeid) {
+    const node = this.getNode(nodeid);
+    node.userData.tetherlist.forEach((t) => this.removeTether(t.uuid));
 };
 BuildNodeManager.prototype.removeNode = function (nodeid) {
     const overlay = this.getOverlayByTarget(nodeid);
