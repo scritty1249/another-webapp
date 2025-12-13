@@ -26,9 +26,16 @@
 ## AttackResult
 ```json
 {
-    ...
+    "timestamp": uint (utc stamp),
+    "username": str,
+    "id": str,
+    "processed": bool,
+    "losses": [
+        ...Currency
+    ]
 }
 ```
+- [Currency](#currency)
 ## Error
 ```json
 {
@@ -141,8 +148,7 @@ GET
 **Content**
 ```json
 {
-    "game": GameData,
-    "bank": Currency
+    "game": GameData
 }
 ```
 - [GameData](#gamedata)
@@ -160,7 +166,7 @@ GET
 **Content**
 ```json
 {
-    "targets": Array<TargetData>
+    "targets": [...TargetData]
 }
 ```
 - [TargetData](#targetdata)
@@ -191,12 +197,27 @@ POST
 **Content**
 ```json
 {
-    "game": GameData,
-    "bank": Currency
+    "game": GameData
 }
 ```
 - [GameData](#gamedata)
-- [Currency](#currency)
+
+## Get Attack History *
+>/attack/history/defense
+
+*This method marks all returned attacks as `processed` in the database*
+### Expects
+**Method**\
+GET
+#### Returns
+**Content**
+```json
+{
+    "history": [...AttackResult]
+}
+```
+- [AttackResult](#attackresult)
+
 
 ## Note
 **\*** *Endpoint requires a `session` with a valid session token to be included in the request cookie*
