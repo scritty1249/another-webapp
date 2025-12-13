@@ -1,10 +1,14 @@
 # Patch Notes
 
+## 12/13/2025
+### Known Bugs
+- Switching off of Select Phase with a Country focused will cause all markers to scale and move with that country until next refresh, regardless of what country the markers may belong to.
+
 ## 12/12/2025
 ### Features Planned
-- Stealing currency from enemy nodes
-  - Update target layout data with deducted currnecy amounts
-    - Prevent attacks on currently online users to avoid gamedata desync
+- ~~Stealing currency from enemy nodes~~ `@ 12/13/2025`
+  - ~~Update target layout data with deducted currnecy amounts~~ `@ 12/13/2025`
+    - Prevent attacks on currently online users to ~~avoid gamedata desync~~ `@ 12/13/2025`
 - Actual background
 - Display Node Detail menu when purchasing new Nodes
 ### Known Bugs
