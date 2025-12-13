@@ -1017,7 +1017,7 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
         );
     const currencyData = node.userData.exportData.currency;
     const storageData = this.getStoredCurrency(currencyData.type);
-    if (storageData.max == storageData.amount) return false;
+    if (storageData.max <= storageData.amount) return false;
     const amount = currencyData.amount;
     if (amount > 0) {
         currencyData.amount = 0;
@@ -1056,7 +1056,10 @@ BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
     let nodeIdx = 0;
     let remaining = amount;
     while (remaining && nodeIdx < nodes.length) {
-        if (nodes[nodeIdx].userData.exportData.store.amount >= nodes[nodeIdx].userData.exportData.store.max) nodeIdx++;
+        if (nodes[nodeIdx].userData.exportData.store.amount >= nodes[nodeIdx].userData.exportData.store.max) {
+            nodeIdx++;
+            continue;
+        }
         nodes[nodeIdx].userData.exportData.store.amount++;
         remaining--;
     }
@@ -1089,9 +1092,23 @@ BuildNodeManager.prototype.untetherNode = function (nodeid) {
     node.userData.tetherlist.forEach((t) => this.removeTether(t.uuid));
 };
 BuildNodeManager.prototype.removeNode = function (nodeid) {
+    // redistribute money, if this is a storage node
+    const isStorage = this.isStorageNode(nodeid);
+    let typeStored;
+    let amountStored;
+    if (isStorage) {
+        const storageData = this.getStorageData(nodeid);
+        typeStored = storageData.type;
+        amountStored = storageData.amount;
+        this.removeCurrency(typeStored, amountStored);
+    }
     const overlay = this.getOverlayByTarget(nodeid);
     if (overlay) delete this.overlay[overlay.uuid];
     delete this.nodes[nodeid];
+    if (isStorage) {
+        const leftover = this.addCurrency(typeStored, amountStored);
+        if (leftover) Logger.info(`[BuildNodeManager] | Lost ${leftover} execess ${typeStored} after removing storage Node.`);
+    }
 };
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);

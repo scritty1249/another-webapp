@@ -202,13 +202,15 @@ POST
 ```
 - [GameData](#gamedata)
 
-## Get Attack History *
+## Get Defense History *
 >/attack/history/defense
 
-*This method marks all returned attacks as `processed` in the database*
 ### Expects
 **Method**\
 GET
+
+**Parameter**
+- `process`: Boolean, whether to mark all entries returned as "processed" in the database. (Optional, enabled by default)
 #### Returns
 **Content**
 ```json

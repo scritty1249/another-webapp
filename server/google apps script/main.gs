@@ -191,13 +191,14 @@ const Handlers = {
             ? Server.createResponse(Server.getToken(conn, cookies.session))
             : Server.createErrorResponse(0, "Invalid or expired session token");
     },
-    getDefenseHistory: function (conn, cookies) {
+    getDefenseHistory: function (conn, params, cookies) {
         if (
             cookies.session &&
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
             const token = Server.getToken(conn, cookies.session);
-            const history = Server.getDefenseHistory(conn, token.id);
+            const markAsProcessed = params?.process?.[0];
+            const history = Server.getDefenseHistory(conn, token.id, markAsProcessed);
             return Server.createResponse({ history: history });
         }
         return Server.createErrorResponse(
@@ -323,15 +324,17 @@ const Server = {
         });
         return data;
     },
-    getDefenseHistory: function (conn, userid) { // [!] also marks all returned attacks as processed. Avoid needs an extra interaction with client (runs off unsafe assumption client WILL process the entries)
+    getDefenseHistory: function (conn, userid, markProcessed = true) { // [!] also marks all returned attacks as processed. Avoid needs an extra interaction with client (runs off unsafe assumption client WILL process the entries)
         const defenseColumn = 2; // NOT zero-indexed; because google is gay
         const historyStr = conn.lookupEntryAt(TABLES.attacklogs, userid, defenseColumn);
         if (!historyStr) return [];
-        const history = JSON.parse(historyStr); // mark all entries
-        history.forEach(result => result.processed = true);
-        conn.updateEntryAt(TABLES.attacklogs, userid, defenseColumn,
-            JSON.stringify(history),
-        );
+        if (markProcessed) {
+            const history = JSON.parse(historyStr); // mark all entries
+            history.forEach(result => result.processed = true);
+            conn.updateEntryAt(TABLES.attacklogs, userid, defenseColumn,
+                JSON.stringify(history),
+            );
+        }
         return JSON.parse(historyStr);
     },
     pushDefenseHistory: function (conn, targetid, newDefenseEntry) {

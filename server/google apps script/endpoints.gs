@@ -39,7 +39,7 @@ function doGet(e) {
                 response = Handlers.getTargets(conn, params, cookies);
                 break;
             case ".attack.history.defense":
-                response = Handlers.getDefenseHistory(conn, cookies);
+                response = Handlers.getDefenseHistory(conn, params, cookies);
                 break;
             default:
                 response = Server.createErrorResponse(
