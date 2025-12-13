@@ -349,15 +349,22 @@ function mainloop(MenuController) {
                                                                 },
                                                                 attackers: []
                                                             };
-                                                            if (res) {
+                                                            if (res) { // process history
+                                                                const newHistory = res.filter(ar => ar?.processed == false);
+                                                                // [!] temp solution: store history
+                                                                const oldHistory = Storage.has("defenseHistory", true) ? Storage.get("defenseHistory", true) : [];
+                                                                Storage.set("defenseHistory", [...oldHistory, ...newHistory], true);
+                                                                Logger.info("Updated defense history");
+                                                            }
+                                                            if (Storage.has("defenseHistory", true)) { // process losses
+                                                                const history = Storage.get("defenseHistory", true);
+                                                                const newAttackers = new Set();
                                                                 let _deduct = Storage.has("deductions", true)
-                                                                ? Storage.get("deductions", true)
-                                                                : UTIL.deepCopy(_blankDeuctions);
+                                                                    ? Storage.get("deductions", true)
+                                                                    : UTIL.deepCopy(_blankDeuctions);
                                                                 if (_deduct?.attackers === undefined || _deduct?.currency === undefined)
                                                                     _deduct = UTIL.deepCopy(_blankDeuctions);
-                                                                const newAttackers = new Set();
-                                                                const newHistory = res.filter(ar => ar?.processed == false);
-                                                                newHistory.forEach(attackResult =>
+                                                                history.filter(ar => ar?.processed == false).forEach(attackResult =>
                                                                         attackResult.losses.forEach(_loss => {
                                                                             const [[ _lossType, _lossAmount]] = Object.entries(_loss);
                                                                             _deduct.currency[_lossType] += _lossAmount;
@@ -366,17 +373,15 @@ function mainloop(MenuController) {
                                                                     );
                                                                 _deduct.attackers = [...new Set([..._deduct.attackers, ...newAttackers])];
                                                                 Storage.set("deductions", _deduct, true); // throw it in storage, deal with it at a better time
+                                                                // mark processed history
+                                                                Storage.set("defenseHistory", history.map(ar => ({...ar, processed: true})), true);
                                                                 Logger.info("Loaded debt from attacks");
-
-                                                                // [!] temp solution: store history
-                                                                const oldHistory = Storage.has("defenseHistory", true) ? Storage.get("defenseHistory", true) : [];
-                                                                Storage.set("defenseHistory", [...oldHistory, ...newHistory], true);
                                                             }
-                                                            if (PhaseController.phase == "build" && Storage.has("deductions", true)) {
+                                                            if (PhaseController.phase == "build" && Storage.has("deductions", true)) { // apply losses
                                                                 const _deduct = Storage.get("deductions", true);
                                                                 if (Object.values(_deduct.currency).some(a => a > 0)) {
                                                                     let text = [];
-                                                                    Object.entries(_deduct).forEach(([currencyType, currencyAmount]) => {
+                                                                    Object.entries(_deduct.currency).forEach(([currencyType, currencyAmount]) => {
                                                                         const amount = Math.floor(CONFIG.CURRENCY_LOSS_RATIO * currencyAmount);
                                                                         const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
                                                                         text.push(`${amount - _leftover} ${currencyType}`);
