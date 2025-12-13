@@ -112,6 +112,7 @@ PhaseManager.prototype.selectPhase = function (targets, callbacks) {
     // add targets
     for (const { geo, id, username } of targets) {
         const country = self.Managers.World.markOnWorld(geo.lat, geo.long, id);
+        Logger.info("Added marker to " + country);
     }
 
     // listeners
@@ -132,6 +133,13 @@ PhaseManager.prototype.selectPhase = function (targets, callbacks) {
             if (rotateTimeout) clearTimeout(rotateTimeout);
             self._controls.camera.autoRotate = false;
             self.Managers.World.state.tweeningCamera = false;
+        });
+    listenerController
+        .listener(overlayController.element.refreshButton)
+        .add("click", function (event) {
+            Logger.info("[PhaseManager] | Fetching new world targets.");
+            self.Managers.World.unfocusCountry(false);
+            callbacks.Refresh();
         });
     this.Managers.World.when("click", function (detail) {
         const last = detail.previous;

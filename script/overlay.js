@@ -5,6 +5,14 @@ const zoomScaleFormula = (zoom, maxZoom) => {
     return 1 / (1 + Math.E ** (-0.5 * (zoom - maxZoom / 2.5)));
 };
 
+const SelectHud = {
+    createHud: function () {
+        const wrapper = document.createElement("div");
+        wrapper.classList.add("hud", "select");
+        return wrapper;
+    }
+};
+
 const BuildHud = {
     createHud: function () {
         const wrapper = document.createElement("div");
@@ -433,7 +441,7 @@ OverlayManager.prototype.clear = function () {
     Object.entries(this.element).forEach(([key, element]) => {
         if (!key.startsWith("_") && element != undefined) {
             try {
-                this.element._overlay.removeChild(element);
+                element.remove();
                 this.element[key] = undefined;
             } catch (err) {
                 Logger.warn(
@@ -802,6 +810,17 @@ SelectOverlayManager.prototype.init = function (...args) {
         this._menuManager._dispatch("swapphase", { phase: "build" })
     );
     this.element._overlay.appendChild(this.element.menuButton);
+};
+
+SelectOverlayManager.prototype._initOverlay = function () {
+    OverlayManager.prototype._initOverlay.call(this);
+    // init hud
+    this.element.hud = SelectHud.createHud();
+    this.element._overlay.appendChild(this.element.hud);
+    // Add refresh targets button
+    this.element.refreshButton = this._menuManager.createElement.button(90, undefined, "Refresh Targets", {}, 2);
+    this.element.refreshButton.classList.add("refresh");
+    this.element.hud.appendChild(this.element.refreshButton);
 };
 
 SelectOverlayManager.prototype.update = function () {

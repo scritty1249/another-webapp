@@ -95,6 +95,23 @@ canvas {
         display: none;
     }
 
+    svg.button {
+        --length: 1;
+        background-blend-mode: luminosity;
+        width: calc(var(--unit) * 12.5);
+        height: calc(var(--unit) * 12.5);
+        transform: scale(var(--length));
+    }
+    svg.pointer-events {
+        pointer-events: none !important;
+        filter: blur(0);
+        > path {
+            pointer-events: visiblePainted !important;
+        }
+    }
+    svg.button:active {
+        filter: brightness(2) grayscale(1);
+    }
     div.textbox {
         &:not(.naked) {
             background-image: url("../source/textbox-background.png") !important;
@@ -234,6 +251,14 @@ canvas {
             z-index: 99;
             pointer-events: auto !important;
         }
+        &.select {
+            > svg.button.refresh {
+                position: fixed;
+                left: 50%;
+                bottom: calc(var(--vh) * 6);
+                transform: translateX(-50%) scale(var(--length));
+            }
+        }
         &.build {
             > .wallet {
                 position: relative;
@@ -364,23 +389,6 @@ canvas {
         }
         .pointer-events {
             pointer-events: all;
-        }
-        .button {
-            --length: 1;
-            background-blend-mode: luminosity;
-            width: calc(var(--unit) * 12.5);
-            height: calc(var(--unit) * 12.5);
-            transform: scale(var(--length));
-        }
-        svg.pointer-events {
-            pointer-events: none;
-            filter: blur(0);
-            > path {
-                pointer-events: visiblePainted;
-            }
-        }
-        .button:active {
-            filter: brightness(2) grayscale(1);
         }
         &.nodeInfo {
             > div.center {
