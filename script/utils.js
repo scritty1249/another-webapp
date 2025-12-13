@@ -259,10 +259,8 @@ export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does no
 }
 
 export function layoutToJsonObj(scene, nodeManager) {
-    const _bgSrc = scene.background?.images?.[0]?.src;
-    const _bgPath = _bgSrc ? "." + new URL(_bgSrc).pathname : "";
     const data = {
-        background: _bgPath.slice(0, _bgPath.lastIndexOf("/") + 1),
+        background: "./source/bg",
         layout: {
             nodes: [],
             neighbors: [],
