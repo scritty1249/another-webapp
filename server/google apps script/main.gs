@@ -108,13 +108,13 @@ const Handlers = {
                 );
             else if (!Server.checkPassword(conn, username, password))
                 return Server.createErrorResponse(1, "Wrong password entered");
-            else
+            else {
+                const userid = Server.getUserId(conn, username);
                 return Server.createResponse({
-                    token: Server.createToken(
-                        conn,
-                        Server.getUserId(conn, username)
-                    ),
+                    token: Server.createToken(conn, userid),
+                    id: userid,
                 });
+            }
         } catch {
             console.error("Error while processing login request");
             console.info("Dump:", params);
@@ -198,7 +198,11 @@ const Handlers = {
         ) {
             const token = Server.getToken(conn, cookies.session);
             const markAsProcessed = params?.process?.[0];
-            const history = Server.getDefenseHistory(conn, token.id, markAsProcessed);
+            const history = Server.getDefenseHistory(
+                conn,
+                token.id,
+                markAsProcessed
+            );
             return Server.createResponse({ history: history });
         }
         return Server.createErrorResponse(
@@ -211,18 +215,31 @@ const Handlers = {
             cookies.session &&
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
-            const attackData = payload?.result;
-            if (!attackData) return Server.createErrorResponse(0, "Invalid request: Missing attack result in payload");
-            if (!(
-                attackData.hasOwnProperty("timestamp") &&
-                attackData.hasOwnProperty("username") &&
-                attackData.hasOwnProperty("processed") &&
-                attackData.hasOwnProperty("losses") &&
-                attackData.hasOwnProperty("id")
-
-            )) return Server.createErrorResponse(0, "Invalid request: Malformed attack result data");
+            if (!payload?.result)
+                return Server.createErrorResponse(
+                    0,
+                    "Invalid request: Missing attack result in payload"
+                );
+            const attackData = JSON.parse(payload.result);
+            if (
+                !(
+                    attackData.hasOwnProperty("timestamp") &&
+                    attackData.hasOwnProperty("username") &&
+                    attackData.hasOwnProperty("processed") &&
+                    attackData.hasOwnProperty("losses") &&
+                    attackData.hasOwnProperty("id")
+                )
+            )
+                return Server.createErrorResponse(
+                    0,
+                    "Invalid request: Malformed attack result data"
+                );
             const targetid = params?.id?.[0];
-            if (!targetid) return Server.createErrorResponse(0, "Invalid request: Missing target id in parameters");
+            if (!targetid)
+                return Server.createErrorResponse(
+                    0,
+                    "Invalid request: Missing target id in parameters"
+                );
             return Server.pushDefenseHistory(conn, targetid, attackData);
         }
         return Server.createErrorResponse(
@@ -235,7 +252,11 @@ const Handlers = {
             cookies.session &&
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
-            if (!geo) return Server.createErrorResponse(0, "Invalid request: Malformed geodata");
+            if (!geo)
+                return Server.createErrorResponse(
+                    0,
+                    "Invalid request: Malformed geodata"
+                );
             const token = Server.getToken(conn, cookies.session);
             Server.updateUserLocation(conn, token.id, geo);
             return Server.createSuccessResponse();
@@ -261,12 +282,7 @@ const Server = {
         conn._selectTable(TABLES.gamedata);
         const backdrop = gamedata.game.backdrop;
         const layout = JSON.stringify(gamedata.game.layout);
-        conn.updateEntry(
-            TABLES.gamedata,
-            userid,
-            backdrop,
-            layout,
-        );
+        conn.updateEntry(TABLES.gamedata, userid, backdrop, layout);
     },
     updateUserLocation: function (conn, userid, rawGeoData) {
         const geoDataColumn = 4; // not zero indexed
@@ -324,26 +340,45 @@ const Server = {
         });
         return data;
     },
-    getDefenseHistory: function (conn, userid, markProcessed = true) { // [!] also marks all returned attacks as processed. Avoid needs an extra interaction with client (runs off unsafe assumption client WILL process the entries)
+    getDefenseHistory: function (conn, userid, markProcessed = true) {
+        // [!] also marks all returned attacks as processed. Avoid needs an extra interaction with client (runs off unsafe assumption client WILL process the entries)
         const defenseColumn = 2; // NOT zero-indexed; because google is gay
-        const historyStr = conn.lookupEntryAt(TABLES.attacklogs, userid, defenseColumn);
+        const historyStr = conn.lookupEntryAt(
+            TABLES.attacklogs,
+            userid,
+            defenseColumn
+        );
         if (!historyStr) return [];
         if (markProcessed) {
             const history = JSON.parse(historyStr); // mark all entries
-            history.forEach(result => result.processed = true);
-            conn.updateEntryAt(TABLES.attacklogs, userid, defenseColumn,
-                JSON.stringify(history),
+            history.forEach((result) => (result.processed = true));
+            conn.updateEntryAt(
+                TABLES.attacklogs,
+                userid,
+                defenseColumn,
+                JSON.stringify(history)
             );
         }
         return JSON.parse(historyStr);
     },
     pushDefenseHistory: function (conn, targetid, newDefenseEntry) {
         const defenseColumn = 2; // NOT zero-indexed; because google is gay
-        const historyStr = conn.lookupEntryAt(TABLES.attacklogs, targetid, defenseColumn);
-        if (!historyStr) return this.createErrorResponse(1, "Failed to record attack in target history: target history does not exist");
+        const historyStr = conn.lookupEntryAt(
+            TABLES.attacklogs,
+            targetid,
+            defenseColumn
+        );
+        if (!historyStr)
+            return this.createErrorResponse(
+                1,
+                "Failed to record attack in target history: target history does not exist"
+            );
         const history = JSON.parse(historyStr);
         history.push(newDefenseEntry);
-        conn.updateEntryAt(TABLES.attacklogs, targetid, defenseColumn,
+        conn.updateEntryAt(
+            TABLES.attacklogs,
+            targetid,
+            defenseColumn,
             JSON.stringify(history)
         );
         return this.createSuccessResponse();
@@ -565,11 +600,13 @@ DatabaseConnection.prototype.lookupEntry = function (tableName, id) {
     const headers = this._getHeaders();
     return [headers, entry];
 };
-DatabaseConnection.prototype.lookupEntryAt = function (tableName, id, columnNum) {
+DatabaseConnection.prototype.lookupEntryAt = function (
+    tableName,
+    id,
+    columnNum
+) {
     this._selectTable(tableName);
-    return this.activeTable
-        .getRange(this._findRow(id), columnNum)
-        .getValue();
+    return this.activeTable.getRange(this._findRow(id), columnNum).getValue();
 };
 DatabaseConnection.prototype.insertEntry = function (tableName, ...columns) {
     this._selectTable(tableName);
@@ -587,11 +624,14 @@ DatabaseConnection.prototype.updateEntry = function (
         .getRange(this._findRow(id), 2, 1, columns.length)
         .setValues([columns]);
 };
-DatabaseConnection.prototype.updateEntryAt = function (tableName, id, columnNum, value) {
+DatabaseConnection.prototype.updateEntryAt = function (
+    tableName,
+    id,
+    columnNum,
+    value
+) {
     this._selectTable(tableName);
-    this.activeTable
-        .getRange(this._findRow(id), columnNum)
-        .setValue(value);
+    this.activeTable.getRange(this._findRow(id), columnNum).setValue(value);
 };
 DatabaseConnection.prototype.deleteEntry = function (tableName, id) {
     this._selectTable(tableName);
