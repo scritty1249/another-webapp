@@ -15,19 +15,7 @@ import * as ATTACK from "./attacker.js"; // [!] testing, temporary module- to be
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { SelectiveOutlineEffect } from "./renderer.js";
-import { SSMaterialType, SSFramesMesh } from "./spritesheet.js";
-
-const tetherForce = 0.2;
-const passiveForce = 0.003; // used for elements gravitating towards y=0
-const shapeMinProximity = 5.5;
-const shapeMaxProximity = 4;
-const mouseClickDurationThreshold = 0.4 * 1000; // ms
-const maxStepsFromGlobe = 9; // max number of steps from a Globe each node is allowed to be
-const TICKSPEED = 0.1; // seconds
-const TARGETS_TTL = 300; // seconds, how long we should store targets for before querying again - 5 minutes
-const WORLD_TARGET_COUNT = 5;
-const DEFAULT_CAM_POS = new THREE.Vector3(0, 5, 10);
-const AUTOSAVE_INTERVAL = 150000; // ms, interval for autosaves. Shouldn't overlap with saving when leaving the page
+import { DataStore } from "./data.js";
 
 // Setup
 // MouseController functionality
@@ -40,7 +28,7 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     80
 );
-camera.position.copy(DEFAULT_CAM_POS);
+camera.position.copy(CONFIG.DEFAULT_CAM_POS);
 // rendererererer
 const renderer = new THREE.WebGLRenderer({
     antialias: false,
@@ -141,7 +129,7 @@ function mainloop(MenuController) {
             const MouseController = new Mouse(
                 window,
                 renderer.domElement,
-                mouseClickDurationThreshold
+                CONFIG.mouseClickDurationThreshold
             );
             const NodeController = new NodeManager(
                 scene,
@@ -159,11 +147,11 @@ function mainloop(MenuController) {
             );
             const PhysicsController = new PhysicsManager(
                 NodeController,
-                shapeMinProximity,
-                shapeMaxProximity,
-                tetherForce,
-                tetherForce / 2,
-                passiveForce
+                CONFIG.shapeMinProximity,
+                CONFIG.shapeMaxProximity,
+                CONFIG.tetherForce,
+                CONFIG.tetherForce / 2,
+                CONFIG.passiveForce
             );
             const clock = new THREE.Clock();
             document
@@ -230,7 +218,7 @@ function mainloop(MenuController) {
             const PhaseController = new PhaseManager(
                 scene,
                 renderer.domElement,
-                TICKSPEED,
+                CONFIG.TICKSPEED,
                 controls,
                 {
                     Node: NodeController,
@@ -251,7 +239,7 @@ function mainloop(MenuController) {
                         );
                         if (
                             PhaseController.Managers.Node.validateLayout(
-                                maxStepsFromGlobe
+                                CONFIG.maxStepsFromGlobe
                             )
                         ) {
                             if (
@@ -295,8 +283,8 @@ function mainloop(MenuController) {
                 if (!(DEBUG_MODE && urlParams.has("nosave"))) {
                     window.addEventListener("pagehide", _autosaveHandler);
                     setTimeout(
-                        () => setInterval(_autosaveHandler, AUTOSAVE_INTERVAL),
-                        AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
+                        () => setInterval(_autosaveHandler, CONFIG.AUTOSAVE_INTERVAL),
+                        CONFIG.AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
                     );
                 }
             }
@@ -345,8 +333,8 @@ function mainloop(MenuController) {
                                                 "Loading profile";
                                             PhaseController.buildPhase(
                                                 Storage.get("localLayout"),
-                                                NodeOverlayData,
-                                                NodeDetailedInfo,
+                                                DataStore.NodeOverlayData,
+                                                DataStore.NodeDetailedInfo,
                                                 dt?.metadata ? dt.metadata : {}
                                             );
                                             { // process attack results
@@ -355,20 +343,26 @@ function mainloop(MenuController) {
                                                     Session.getDefenseHistory()
                                                         .then((res) => {
                                                             const _blankDeuctions = {
-                                                                cash: 0,
-                                                                crypto: 0
+                                                                currency: {
+                                                                    cash: 0,
+                                                                    crypto: 0
+                                                                },
+                                                                attackers: []
                                                             };
                                                             if (res) {
                                                                 const _deduct = Storage.has("deductions")
                                                                 ? Storage.get("deductions")
-                                                                : _blankDeuctions;
+                                                                : Object.create(_blankDeuctions);
+                                                                const newAttackers = new Set();
                                                                 const newHistory = res.filter(ar => ar?.processed == false);
                                                                 newHistory.forEach(attackResult =>
                                                                         attackResult.losses.forEach(_loss => {
                                                                             const [[ _lossType, _lossAmount]] = Object.entries(_loss);
-                                                                            _deduct[_lossType] += _lossAmount;
+                                                                            _deduct.currency[_lossType] += _lossAmount;
+                                                                            newAttackers.add(attackResult.username);
                                                                         })
                                                                     );
+                                                                _deduct.attackers = [...new Set([..._deduct.attackers, ...newAttackers])];
                                                                 Storage.set("deductions", _deduct); // throw it in storage, deal with it at a better time
                                                                 Logger.info("Loaded debt from attacks");
 
@@ -377,18 +371,21 @@ function mainloop(MenuController) {
                                                                 Storage.set("defenseHistory", [...oldHistory, ...newHistory], true);
                                                             }
                                                             if (PhaseController.phase == "build" && Storage.has("deductions")) {
-                                                                let text = [];
-                                                                Object.entries(Storage.get("deductions")).forEach(([currencyType, amount]) => {
-                                                                    const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
-                                                                    text.push(`${amount - _leftover} ${currencyType}`);
-                                                                });
-                                                                Storage.set("deductions", _blankDeuctions);
-                                                                const message = `Funds stolen by ${Storage.get("defenseHistory", true).map(e => e.username).join("\n")}! Lost ` + (text.length > 1
-                                                                    ? text.slice(0, text.length - 1)
-                                                                        .join(", ") +
-                                                                        " and " + text.at(-1)
-                                                                    : text[0]);
-                                                                PhaseController.Managers.Overlay.messagePopup(message, 4500);
+                                                                const _deduct = Storage.get("deductions");
+                                                                if (Object.values(_deduct.currency).some(a => a > 0)) {
+                                                                    let text = [];
+                                                                    Object.entries(_deduct).forEach(([currencyType, amount]) => {
+                                                                        const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
+                                                                        text.push(`${amount - _leftover} ${currencyType}`);
+                                                                    });
+                                                                    Storage.set("deductions", _blankDeuctions);
+                                                                    const message = `Funds stolen by ${[..._deduct.attackers].map(e => e.username).join(", ")}! Lost ` + (text.length > 1
+                                                                        ? text.slice(0, text.length - 1)
+                                                                            .join(", ") +
+                                                                            " and " + text.at(-1)
+                                                                        : text[0]);
+                                                                    PhaseController.Managers.Overlay.messagePopup(message, 4500);
+                                                                }
                                                             }
                                                         });
                                                 }, 0);
@@ -432,9 +429,9 @@ function mainloop(MenuController) {
                                                         },
                                                     },
                                                     targetData.game,
-                                                    AttackerData,
-                                                    AttackTypeData,
-                                                    NodeTypeData
+                                                    DataStore.AttackerData,
+                                                    DataStore.AttackTypeData,
+                                                    DataStore.NodeTypeData
                                                 );
                                                 MenuController.close();
                                             } else {
@@ -470,11 +467,11 @@ function mainloop(MenuController) {
                                 if (
                                     PhaseController.Managers.Node &&
                                     !PhaseController.Managers.Node.validateLayout(
-                                        maxStepsFromGlobe
+                                        CONFIG.maxStepsFromGlobe
                                     )
                                 ) {
                                     Logger.alert(
-                                        `You have unsaved changes: All nodes must be connected and within ${maxStepsFromGlobe} steps of a network node!`
+                                        `You have unsaved changes: All nodes must be connected and within ${CONFIG.maxStepsFromGlobe} steps of a network node!`
                                     );
                                     MenuController.when(
                                         "loadmenu",
@@ -503,7 +500,7 @@ function mainloop(MenuController) {
                                                         "targets",
                                                         true
                                                     ) >
-                                                    TARGETS_TTL
+                                                    CONFIG.TARGETS_TTL
                                             ) {
                                                 Session.getAttackTargets().then(
                                                     (targets) => {
@@ -537,7 +534,7 @@ function mainloop(MenuController) {
                                                             "targets",
                                                             true
                                                         ),
-                                                        WORLD_TARGET_COUNT
+                                                        CONFIG.WORLD_TARGET_COUNT
                                                     ),
                                                     {
                                                         Attack: (userid) => {
@@ -578,7 +575,7 @@ function mainloop(MenuController) {
                                     true
                                 );
                             }
-                            camera.position.copy(DEFAULT_CAM_POS);
+                            camera.position.copy(CONFIG.DEFAULT_CAM_POS);
                         } catch (err) {
                             Logger.error(
                                 `Failed to swap phase to "${phaseType}"`
@@ -774,245 +771,3 @@ function Framerate(
     };
     return this;
 }
-
-const AttackerData = {
-    attacks: [
-        {
-            type: "particle",
-            amount: 99,
-        },
-        {
-            type: "pascualcannon",
-            amount: 99,
-        },
-        {
-            type: "laser",
-            amount: 99,
-        },
-    ],
-};
-
-const AttackTypeData = {
-    particle: {
-        mesh: MESH.AttackManagerFactory.Particle,
-        damage: 8,
-        cooldown: 650, // ms
-        logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-        effect: (nodeManager, attackid) => {},
-        canAdd: (nodeData) => {
-            return (
-                nodeData.isFriendly &&
-                !nodeData.attackers.some((a) => a.type == "pascualcannon")
-            );
-        },
-    },
-    laser: {
-        mesh: MESH.AttackManagerFactory.Laser,
-        damage: 5,
-        cooldown: 0, // ms
-        logic: ATTACK.AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-        effect: (nodeManager, attackid) => {},
-        canAdd: (nodeData) => {
-            return (
-                nodeData.isFriendly &&
-                !nodeData.attackers.some((a) => a.type == "pascualcannon")
-            );
-        },
-    },
-    pascualcannon: {
-        mesh: (a) => MESH.AttackManagerFactory.PascualCannon(camera, a),
-        damage: 10,
-        cooldown: 1000, // ms
-        logic: ATTACK.AttackLogic.BasicLogicFactory,
-        effect: (nodeManager, attackid) => {
-            const _purp = 0x341539;
-            const attack = nodeManager.getAttack(attackid);
-            const targetData = nodeManager.getNodeData(attack.target);
-            const targetid = attack.target;
-            nodeManager.resetNodeColorTint(targetid);
-            nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
-            targetData.state.disabled.set(
-                true,
-                1800,
-                () => {
-                    nodeManager.resetNodeColorTint(targetid);
-                },
-                true
-            );
-        },
-        canAdd: (nodeData) => {
-            return nodeData.isFriendly && nodeData.attackers.length == 0;
-        },
-    },
-    cubedefense: {
-        mesh: MESH.AttackManagerFactory.CubeDefense,
-        damage: 12,
-        cooldown: 1500, // ms
-        logic: ATTACK.AttackLogic.BasicLogicFactory,
-        effect: (nodeManager, attackid) => {},
-        canAdd: (nodeData) => {
-            return !nodeData.isFriendly;
-        },
-    },
-};
-
-const NodeTypeData = {
-    placeholder: {
-        health: 50,
-        slots: 4,
-    },
-    cube: {
-        health: 100,
-        slots: 5,
-    },
-    scanner: {
-        health: 75,
-        slots: 4,
-    },
-    globe: {
-        health: 0,
-        slots: 3,
-    },
-    cashfarm: {
-        health: 75,
-        slots: 2,
-    },
-    cashstore: {
-        health: 125,
-        slots: 3,
-    },
-    cryptofarm: {
-        health: 75,
-        slots: 2,
-    },
-    cryptostore: {
-        health: 125,
-        slots: 3,
-    },
-};
-
-const _currencyOverlayData = {
-    // avoid reinitializing where possible
-    offset: new THREE.Vector3(0, 3, 0),
-    geometry: new THREE.PlaneGeometry(0.9, 0.3),
-    alphaMap: "./source/node-overlay/currency/currency-bar-mask.png",
-    mapSize: new THREE.Vector2(300, 100),
-    alphaMapSize: new THREE.Vector2(600, 100),
-};
-
-const NodeOverlayData = {
-    slots: {
-        tiles: 7,
-        offset: new THREE.Vector3(-0.9, -0.95, 0),
-        geometry: new THREE.PlaneGeometry(0.7, 0.7),
-        material: SSMaterialType.Mask(
-            "./source/node-overlay/slots.png",
-            "./source/node-overlay/slots-mask.png",
-            new THREE.Vector2(500, 500),
-            new THREE.Vector2(4000, 3500)
-        ),
-    },
-    cash: {
-        offset: _currencyOverlayData.offset,
-        geometry: _currencyOverlayData.geometry,
-        material: SSMaterialType.Mask(
-            "./source/node-overlay/currency/cash-bar.png",
-            _currencyOverlayData.alphaMap,
-            _currencyOverlayData.mapSize,
-            _currencyOverlayData.alphaMapSize
-        ),
-    },
-    crypto: {
-        offset: _currencyOverlayData.offset,
-        geometry: _currencyOverlayData.geometry,
-        material: SSMaterialType.Mask(
-            "./source/node-overlay/currency/crypto-bar.png",
-            _currencyOverlayData.alphaMap,
-            _currencyOverlayData.mapSize,
-            _currencyOverlayData.alphaMapSize
-        ),
-    },
-};
-
-const NodeDetailedInfo = {
-    placeholder: {
-        cost: {
-            type: "cash",
-            amount: 1,
-        },
-        sell: {
-            type: "cash",
-            amount: 1,
-        },
-        name: "_placeholder_",
-        description: "Placeholder. Doesn't do anything.",
-    },
-    cube: {
-        cost: {
-            type: "crypto",
-            amount: 2,
-        },
-        sell: {
-            type: "crypto",
-            amount: 1,
-        },
-        name: "Cube",
-        description: "Captures hostile Nodes within 1 step.",
-    },
-    globe: {
-        cost: undefined,
-        sell: undefined,
-        name: "Access Port",
-        description: `Required for your net to exist.\nAll nodes exist within ${maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
-    },
-    scanner: {
-        cost: {
-            type: "cash",
-            amount: 10,
-        },
-        sell: {
-            type: "cash",
-            amount: 5,
-        },
-        name: "Sentinal",
-        description: "Scans for Attacker activity within [TBD] steps.",
-    },
-    cashfarm: {
-        cost: {
-            type: "crypto",
-            amount: 1,
-        },
-        sell: {
-            type: "crypto",
-            amount: 1,
-        },
-        name: "Cash Farm",
-        description:
-            "Farms for cash. Can be collected from to use for purchases.",
-    },
-    cryptofarm: {
-        cost: {
-            type: "cash",
-            amount: 5,
-        },
-        sell: {
-            type: "cash",
-            amount: 5,
-        },
-        name: "Credits Farm",
-        description:
-            "Farms for credits. Can be collected from to use for purchases.",
-    },
-    cashstore: {
-        cost: undefined,
-        sell: undefined,
-        name: "Cash Storage",
-        description: "Holds Cash"
-    },
-    cryptostore: {
-        cost: undefined,
-        sell: undefined,
-        name: "Credits Storage",
-        description: "Holds Credits"
-    },
-};
