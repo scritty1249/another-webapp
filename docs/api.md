@@ -118,6 +118,7 @@ GET
 ```json
 {
     "token": Token,
+    "id": str
 }
 ```
 - [Token](#token)

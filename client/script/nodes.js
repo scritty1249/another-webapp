@@ -505,6 +505,30 @@ NodeManager.prototype.isStorageNode = function (nodeid) {
         return node.userData.exportData.store.type;
     return undefined;
 };
+NodeManager.prototype.getStorageNodes = function (currencyType) { // returns sorted from most to least empty
+    if (!currencyType) return [];
+    return this.nodelist.filter(
+        (n) => n.userData.exportData?.store?.type == currencyType
+    ).toSorted(
+        (a, b) =>
+            (b.userData.exportData.store.max -
+                b.userData.exportData.store.amount) -
+            (a.userData.exportData.store.max -
+                a.userData.exportData.store.amount)
+    );
+};
+NodeManager.prototype.getCurrencyNodes = function (currencyType) { // returns sorted from most to least empty
+    if (!currencyType) return [];
+    return this.nodelist.filter(
+        (n) => n.userData.exportData?.currency?.type == currencyType
+    ).toSorted(
+        (a, b) =>
+            (b.userData.exportData.currency.max -
+                b.userData.exportData.currency.amount) -
+            (a.userData.exportData.currency.max -
+                a.userData.exportData.currency.amount)
+    );
+};
 NodeManager.prototype.getCurrencyData = function (nodeid) {
     if (!this.isCurrencyNode(nodeid))
         Logger.throw(
@@ -761,9 +785,8 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
         nodeData.state.reset();
         this.setNodeEmissive(nodeid, friendlyEmissiveColor);
     }
-    if (this.isAllNodesFriendly()) {
-
-    }
+    if (this.isAllNodesFriendly()) // check for win condition
+        this._phaseCallback();
 };
 AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
     const node = this.getNode(nodeid);
@@ -1026,30 +1049,6 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
     }
     return true;
 };
-BuildNodeManager.prototype.getStorageNodes = function (currencyType) { // returns sorted from most to least empty
-    if (!currencyType) return [];
-    return this.nodelist.filter(
-        (n) => n.userData.exportData?.store?.type == currencyType
-    ).toSorted(
-        (a, b) =>
-            (b.userData.exportData.store.max -
-                b.userData.exportData.store.amount) -
-            (a.userData.exportData.store.max -
-                a.userData.exportData.store.amount)
-    );
-};
-BuildNodeManager.prototype.getCurrencyNodes = function (currencyType) { // returns sorted from most to least empty
-    if (!currencyType) return [];
-    return this.nodelist.filter(
-        (n) => n.userData.exportData?.currency?.type == currencyType
-    ).toSorted(
-        (a, b) =>
-            (b.userData.exportData.currency.max -
-                b.userData.exportData.currency.amount) -
-            (a.userData.exportData.currency.max -
-                a.userData.exportData.currency.amount)
-    );
-};
 BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
     const nodes = this.getStorageNodes(currencyType);
     const currencyData = this.getStoredCurrency(currencyType);
@@ -1081,6 +1080,7 @@ BuildNodeManager.prototype.removeCurrency = function (currencyType, amount) {
         nodes[nodeIdx].userData.exportData.store.amount--;
         remaining--;
     }
+    if (remaining) Logger.info(`[BuildNodeManager] | Lost ${remaining} execess ${currencyType} after attempting to add ${amount} ${currencyType}.`);
     return remaining;
 };
 BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
@@ -1105,10 +1105,7 @@ BuildNodeManager.prototype.removeNode = function (nodeid) {
     const overlay = this.getOverlayByTarget(nodeid);
     if (overlay) delete this.overlay[overlay.uuid];
     delete this.nodes[nodeid];
-    if (isStorage) {
-        const leftover = this.addCurrency(typeStored, amountStored);
-        if (leftover) Logger.info(`[BuildNodeManager] | Lost ${leftover} execess ${typeStored} after removing storage Node.`);
-    }
+    if (isStorage) this.addCurrency(typeStored, amountStored);
 };
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);

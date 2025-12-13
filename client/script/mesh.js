@@ -635,7 +635,6 @@ const Nodes = {
         const highPerfMat = new MeshPhysicalMaterial({
             transmission: 0.9,
             roughness: 0.2,
-            shininess: 0,
             color: 0xB8B8B8
         });
         globe.userData.child("globe").material = InvisibleMat;

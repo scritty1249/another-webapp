@@ -64,8 +64,7 @@ if (WebGL.isWebGL2Available()) {
     const MenuController = new MenuManager(document.getElementById("overlay"));
     // Login
     if (
-        !CookieJar.has("session") ||
-        !CookieJar.get("session") ||
+        !Session.isLoggedIn() ||
         (DEBUG_MODE && urlParams.has("login"))
     ) {
         MenuController.loginScreen();
@@ -317,29 +316,30 @@ function mainloop(MenuController) {
                                         if (!Storage.has("localLayout")) {
                                             detail.statusElement.text =
                                                 "Contacting Server";
-                                            Session.getsave().then((res) => {
-                                                if (!res) {
-                                                    // Session token expired
-                                                    CookieJar.remove("session");
-                                                    Logger.alert(
-                                                        "Session expired, please log in again."
+                                            Session.getsave()
+                                                .then((res) => {
+                                                    if (!res) {
+                                                        // Session token expired
+                                                        CookieJar.remove("session");
+                                                        Logger.alert(
+                                                            "Session expired, please log in again."
+                                                        );
+                                                        window.location.reload();
+                                                    }
+                                                    Storage.set(
+                                                        "localLayout",
+                                                        res.game
                                                     );
-                                                    window.location.reload();
-                                                }
-                                                Storage.set(
-                                                    "localLayout",
-                                                    res.game
-                                                );
-                                                Storage.set(
-                                                    "lastSavedLayout",
-                                                    res.game,
-                                                    true
-                                                );
-                                                MenuController._dispatch(
-                                                    "swapphase",
-                                                    { phase: "build" }
-                                                );
-                                            });
+                                                    Storage.set(
+                                                        "lastSavedLayout",
+                                                        res.game,
+                                                        true
+                                                    );
+                                                    MenuController._dispatch(
+                                                        "swapphase",
+                                                        { phase: "build" }
+                                                    );
+                                                });
                                         } else {
                                             detail.statusElement.text =
                                                 "Loading profile";
@@ -347,8 +347,52 @@ function mainloop(MenuController) {
                                                 Storage.get("localLayout"),
                                                 NodeOverlayData,
                                                 NodeDetailedInfo,
-                                                detail?.metadata ? detail.metadata : {}
+                                                dt?.metadata ? dt.metadata : {}
                                             );
+                                            { // process attack results
+                                                setTimeout(() => {
+                                                    Logger.info("Fetching defense history");
+                                                    Session.getDefenseHistory()
+                                                        .then((res) => {
+                                                            const _blankDeuctions = {
+                                                                cash: 0,
+                                                                crypto: 0
+                                                            };
+                                                            if (res) {
+                                                                const _deduct = Storage.has("deductions")
+                                                                ? Storage.get("deductions")
+                                                                : _blankDeuctions;
+                                                                const newHistory = res.filter(ar => ar?.processed == false);
+                                                                newHistory.forEach(attackResult =>
+                                                                        attackResult.losses.forEach(_loss => {
+                                                                            const [[ _lossType, _lossAmount]] = Object.entries(_loss);
+                                                                            _deduct[_lossType] += _lossAmount;
+                                                                        })
+                                                                    );
+                                                                Storage.set("deductions", _deduct); // throw it in storage, deal with it at a better time
+                                                                Logger.info("Loaded debt from attacks");
+
+                                                                // [!] temp solution: store history
+                                                                const oldHistory = Storage.has("defenseHistory", true) ? Storage.get("defenseHistory", true) : [];
+                                                                Storage.set("defenseHistory", [...oldHistory, ...newHistory], true);
+                                                            }
+                                                            if (PhaseController.phase == "build" && Storage.has("deductions")) {
+                                                                let text = [];
+                                                                Object.entries(Storage.get("deductions")).forEach(([currencyType, amount]) => {
+                                                                    const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
+                                                                    text.push(`${amount - _leftover} ${currencyType}`);
+                                                                });
+                                                                Storage.set("deductions", _blankDeuctions);
+                                                                const message = `Funds stolen by ${Storage.get("defenseHistory", true).map(e => e.username).join("\n")}! Lost ` + (text.length > 1
+                                                                    ? text.slice(0, text.length - 1)
+                                                                        .join(", ") +
+                                                                        " and " + text.at(-1)
+                                                                    : text[0]);
+                                                                PhaseController.Managers.Overlay.messagePopup(message, 4500);
+                                                            }
+                                                        });
+                                                }, 0);
+                                            }
                                             MenuController.close();
                                         }
                                     },
@@ -371,8 +415,21 @@ function mainloop(MenuController) {
                                                 detail.statusElement.text = `Tracing Target: ${targetData.username}`;
                                                 PhaseController.attackPhase(
                                                     {
-                                                        username:
-                                                            targetData.username,
+                                                        overlayData: {
+                                                            username:
+                                                                targetData.username,
+                                                        },
+                                                        resultHandler: (rewards) => {
+                                                            const attackResultPayload = {
+                                                                username: CookieJar.get("username"),
+                                                                timestamp: UTIL.getNowUTCSeconds(),
+                                                                id: CookieJar.get("userid"),
+                                                                processed: false,
+                                                                losses: rewards
+                                                            };
+                                                            Session.sendAttackResult(targetData.id, attackResultPayload)
+                                                                .then(res => {if (res) Logger.info("Successfully sent attack result data.")});
+                                                        },
                                                     },
                                                     targetData.game,
                                                     AttackerData,
@@ -550,7 +607,7 @@ function mainloop(MenuController) {
                 MenuController.when(
                     "logout",
                     function (_) {
-                        CookieJar.remove("session");
+                        Session.clearSession();
                         window.location.reload();
                     },
                     true
@@ -772,6 +829,7 @@ const AttackTypeData = {
             const attack = nodeManager.getAttack(attackid);
             const targetData = nodeManager.getNodeData(attack.target);
             const targetid = attack.target;
+            nodeManager.resetNodeColorTint(targetid);
             nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
             targetData.state.disabled.set(
                 true,
@@ -882,6 +940,10 @@ const NodeDetailedInfo = {
             type: "cash",
             amount: 1,
         },
+        sell: {
+            type: "cash",
+            amount: 1,
+        },
         name: "_placeholder_",
         description: "Placeholder. Doesn't do anything.",
     },
@@ -890,11 +952,16 @@ const NodeDetailedInfo = {
             type: "crypto",
             amount: 2,
         },
+        sell: {
+            type: "crypto",
+            amount: 1,
+        },
         name: "Cube",
         description: "Captures hostile Nodes within 1 step.",
     },
     globe: {
         cost: undefined,
+        sell: undefined,
         name: "Access Port",
         description: `Required for your net to exist.\nAll nodes exist within ${maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
     },
@@ -903,36 +970,48 @@ const NodeDetailedInfo = {
             type: "cash",
             amount: 10,
         },
+        sell: {
+            type: "cash",
+            amount: 5,
+        },
         name: "Sentinal",
         description: "Scans for Attacker activity within [TBD] steps.",
     },
     cashfarm: {
-        // cost: {
-        //     type: "crypto",
-        //     amount: 1,
-        // },
-        cost: undefined,
+        cost: {
+            type: "crypto",
+            amount: 1,
+        },
+        sell: {
+            type: "crypto",
+            amount: 1,
+        },
         name: "Cash Farm",
         description:
             "Farms for cash. Can be collected from to use for purchases.",
     },
     cryptofarm: {
-        // cost: {
-        //     type: "cash",
-        //     amount: 5,
-        // },
-        cost: undefined,
+        cost: {
+            type: "cash",
+            amount: 5,
+        },
+        sell: {
+            type: "cash",
+            amount: 5,
+        },
         name: "Credits Farm",
         description:
             "Farms for credits. Can be collected from to use for purchases.",
     },
     cashstore: {
         cost: undefined,
+        sell: undefined,
         name: "Cash Storage",
         description: "Holds Cash"
     },
     cryptostore: {
         cost: undefined,
+        sell: undefined,
         name: "Credits Storage",
         description: "Holds Credits"
     },

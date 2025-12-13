@@ -54,7 +54,7 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
 
 export function login (username, password) {
     return sendRequest("/api/login", {login: btoa(username + ":" + password)})
-        .then(data => data?.token);
+        .then(data => ({token: data?.token, id: data?.id }));
 }
 
 export function createAccount (username, password, location) {

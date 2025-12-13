@@ -159,7 +159,7 @@ PhaseManager.prototype.selectPhase = function (targets, callbacks) {
 };
 
 PhaseManager.prototype.attackPhase = function (
-    target,
+    phaseData,
     layout,
     attackData,
     attackTypes,
@@ -208,17 +208,21 @@ PhaseManager.prototype.attackPhase = function (
     });
 
     const nodeVictoryCallback = () => {
-        const cash = Math.floor(self.Managers.Node.getStoredCurrency("cash").amount / 2);
-        const crypto = Math.floor(self.Managers.Node.getStoredCurrency("crypto").amount / 2);
-        const transfer = {};
-        if (cash)
-            transfer.cash = cash;
-        if (crypto)
-            transfer.crypto = crypto;
-        if (cash || crypto)
-            self.Managers.Menu._dispatch("swapphase", { phase: "build", metadata: { transfer: transfer } });
-        else
-            self.Managers.Menu._dispatch("swapphase", { phase: "build" });
+        Logger.debug("Victory callback triggered");
+        if (self.phase == "attack") {
+            const cash = Math.floor(self.Managers.Node.getStoredCurrency("cash").amount / 2);
+            const crypto = Math.floor(self.Managers.Node.getStoredCurrency("crypto").amount / 2);
+            const transfer = [];
+            if (cash) transfer.push({cash: cash});
+            if (crypto) transfer.push({crypto: crypto});
+            if (cash || crypto) {
+                phaseData.resultHandler(transfer)
+                self.Managers.Overlay._menuManager._dispatch("swapphase", { phase: "build", metadata: { transfer: transfer } });
+            } else
+                self.Managers.Overlay._menuManager._dispatch("swapphase", { phase: "build" });
+        } else {
+            Logger.debug(`But phase is no longer set to attack. (${self.phase})`);
+        }
     }
 
     const nodeController = new AttackNodeManager(
@@ -228,7 +232,7 @@ PhaseManager.prototype.attackPhase = function (
         ...this._constructorArgs.Node
     );
     const overlayController = new AttackOverlayManager(
-        target,
+        phaseData.overlayData,
         attackerData,
         ...this._constructorArgs.Overlay
     );
@@ -289,6 +293,7 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
                         "\n",
                         nodeDetail.description,
                         "Costs: " + (nodeDetail.cost ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}` : "Free"),
+                        "Sell Value: " + (nodeDetail.sell ? `${nodeDetail.sell.amount} ${nodeDetail.sell.type}` : "None")
                     ].join("\n\n");
                     el.align("left");
                 }, false, true);
@@ -329,14 +334,15 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
     if (metadata.transfer) {
         // add currency
         let text = [];
-        Object.entries(metadata.transfer).forEach(([currencyType, amount]) => {
+        metadata.transfer.forEach((currencyData) => {
+            const [[ currencyType, amount ]] = Object.entries(currencyData);
             nodeController.addCurrency(currencyType, amount);
             text.push(`${amount} ${currencyType}`);
         });
         const message = "Transferred " + (text.length > 1
             ? text.slice(0, text.length - 1)
                 .join(", ") +
-                " and " + text[0]
+                " and " + text.at(-1)
             : text[0]);
         overlayController.messagePopup(message);
     }
