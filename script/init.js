@@ -350,9 +350,11 @@ function mainloop(MenuController) {
                                                                 attackers: []
                                                             };
                                                             if (res) {
-                                                                const _deduct = Storage.has("deductions")
-                                                                ? Storage.get("deductions")
-                                                                : Object.create(_blankDeuctions);
+                                                                let _deduct = Storage.has("deductions", true)
+                                                                ? Storage.get("deductions", true)
+                                                                : UTIL.deepCopy(_blankDeuctions);
+                                                                if (_deduct?.attackers === undefined || _deduct?.currency === undefined)
+                                                                    _deduct = UTIL.deepCopy(_blankDeuctions);
                                                                 const newAttackers = new Set();
                                                                 const newHistory = res.filter(ar => ar?.processed == false);
                                                                 newHistory.forEach(attackResult =>
@@ -363,15 +365,15 @@ function mainloop(MenuController) {
                                                                         })
                                                                     );
                                                                 _deduct.attackers = [...new Set([..._deduct.attackers, ...newAttackers])];
-                                                                Storage.set("deductions", _deduct); // throw it in storage, deal with it at a better time
+                                                                Storage.set("deductions", _deduct, true); // throw it in storage, deal with it at a better time
                                                                 Logger.info("Loaded debt from attacks");
 
                                                                 // [!] temp solution: store history
                                                                 const oldHistory = Storage.has("defenseHistory", true) ? Storage.get("defenseHistory", true) : [];
                                                                 Storage.set("defenseHistory", [...oldHistory, ...newHistory], true);
                                                             }
-                                                            if (PhaseController.phase == "build" && Storage.has("deductions")) {
-                                                                const _deduct = Storage.get("deductions");
+                                                            if (PhaseController.phase == "build" && Storage.has("deductions", true)) {
+                                                                const _deduct = Storage.get("deductions", true);
                                                                 if (Object.values(_deduct.currency).some(a => a > 0)) {
                                                                     let text = [];
                                                                     Object.entries(_deduct).forEach(([currencyType, currencyAmount]) => {
@@ -379,7 +381,7 @@ function mainloop(MenuController) {
                                                                         const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
                                                                         text.push(`${amount - _leftover} ${currencyType}`);
                                                                     });
-                                                                    Storage.set("deductions", _blankDeuctions);
+                                                                    Storage.set("deductions", _blankDeuctions, true);
                                                                     const message = `Funds stolen by ${[..._deduct.attackers].map(e => e.username).join(", ")}! Lost ` + (text.length > 1
                                                                         ? text.slice(0, text.length - 1)
                                                                             .join(", ") +
