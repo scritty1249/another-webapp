@@ -83,7 +83,7 @@ PhaseManager.prototype._validateKeys = function (object, expectedNames = []) {
     return valid;
 };
 
-PhaseManager.prototype.selectPhase = function (targets, callbacks) {
+PhaseManager.prototype.selectPhase = function (targets, currencyRatio, callbacks) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Select phase");
     this._unloadPhase();
@@ -147,8 +147,31 @@ PhaseManager.prototype.selectPhase = function (targets, callbacks) {
         const target = detail.target;
         if (target) {
             if (rotateTimeout) clearTimeout(rotateTimeout);
-            Logger.log(`Selected target user: `, target);
-            callbacks.Attack(target.id);
+            Logger.log(`Selected target: `, target);
+            self.Managers.Overlay._menuManager.when("loadmenu", detail => {
+                const targetData = Storage.get(
+                    "targets",
+                    true
+                ).filter(
+                    (t) => t.id == target.id
+                )?.[0];
+                detail.infoElement.text = targetData
+                    ? [
+                        targetData.username,
+                        "\n",
+                        "Currency Stored:",
+                        Array.from(Object.entries(UTIL.getStoredCurrencyFromLayout(targetData.game)),
+                            ([currencyType, currencyAmount]) =>
+                                `${currencyType}: ${Math.floor(currencyRatio * currencyAmount)}`
+                            ).join("\n")
+                        ].join("\n\n")
+                    : "-- No Data Found --";
+                detail.infoElement.align("left");
+                detail.buttonElement.addEventListener("click", () => {
+                    callbacks.Attack(target.id);
+                });
+            }, false, true);
+            self.Managers.Overlay._menuManager.open(["targetInfo"]);
         }
     });
     this.Managers.Node = undefined;
@@ -221,10 +244,17 @@ PhaseManager.prototype.attackPhase = function (
             const cash = Math.floor(self.Managers.Node.getStoredCurrency("cash").amount / 2);
             const crypto = Math.floor(self.Managers.Node.getStoredCurrency("crypto").amount / 2);
             const transfer = [];
-            if (cash) transfer.push({cash: cash});
-            if (crypto) transfer.push({crypto: crypto});
+            const record = []; // this one isn't offset by any ratios, and will be sent to the database.
+            if (cash) {
+                transfer.push({cash: Math.floor(phaseData.currencyRatio * cash)});
+                record.push({cash: cash});
+            }
+            if (crypto) {
+                transfer.push({crypto: Math.floor(phaseData.currencyRatio * crypto)});
+                record.push({crypto: crypto});
+            }
             if (cash || crypto) {
-                phaseData.resultHandler(transfer)
+                phaseData.resultHandler(record)
                 self.Managers.Overlay._menuManager._dispatch("swapphase", { phase: "build", metadata: { transfer: transfer } });
             } else
                 self.Managers.Overlay._menuManager._dispatch("swapphase", { phase: "build" });

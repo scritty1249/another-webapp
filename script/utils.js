@@ -225,6 +225,19 @@ export function loadFile(url) {
     return fetch(url).then((data) => data?.json());
 }
 
+export function getStoredCurrencyFromLayout(layoutObj) {
+    // [!] may be redundant, but it seems wasteful to init a brand new NodeManager just for this...
+    const bank = {
+        cash: 0,
+        crypto: 0
+    };
+    layoutObj.layout.nodes.forEach((node) => {
+        if (node._data?.store)
+            bank[node._data.store.type] += node._data.store.amount
+    });
+    return bank;
+}
+
 export function layoutToJson(scene, nodeManager, obfuscate = true) {
     const data = layoutToJsonObj(scene, nodeManager);
     let dataStr = JSON.stringify(data);
