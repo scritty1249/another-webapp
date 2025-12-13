@@ -218,6 +218,19 @@ GET
 ```
 - [AttackResult](#attackresult)
 
+## Update Location *
+>/game/save/location
+#### Expects
+**Method**\
+POST
+
+**Content**
+```json
+{
+    "geo": GeoData
+}
+```
+- [GeoData](#geodata)
 
 ## Note
 **\*** *Endpoint requires a `session` with a valid session token to be included in the request cookie*

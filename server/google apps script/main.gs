@@ -8,6 +8,7 @@ const TABLES = {
     gamedata: "Game",
     tokens: "LiveTokens",
     instances: "InstanceTokens",
+    attacklogs: "AttackHistory",
 };
 const REFRESH_HANDLER = "refreshServer";
 const LAST_REFRESH_KEY = "lastRefresh";
@@ -20,20 +21,6 @@ function atob(b64str) {
 }
 function btoa(str) {
     return Utilities.base64Encode(str);
-}
-
-function processCookies(e) {
-    // since we don't get real cookies...
-    const params = e.parameter;
-    const cookies = Object.keys(e.parameter).filter((key) =>
-        key.startsWith("cookie-")
-    );
-    const cookieJar = {};
-    cookies.forEach((cookie) => {
-        // "cookie-".length == 7
-        cookieJar[cookie.slice(7)] = params[cookie];
-    });
-    return cookieJar;
 }
 
 function tryCreateTrigger(functionName, executeDelayMs = 1000) {
@@ -160,7 +147,7 @@ const Handlers = {
         ) {
             const token = Server.getToken(conn, cookies.session);
             const gamedata = Server.entryToJson(
-                ...conn.lookupEntry(token.id, TABLES.gamedata)
+                ...conn.lookupEntry(TABLES.gamedata, token.id)
             );
             return Server.createResponse({
                 game: {
@@ -204,6 +191,59 @@ const Handlers = {
             ? Server.createResponse(Server.getToken(conn, cookies.session))
             : Server.createErrorResponse(0, "Invalid or expired session token");
     },
+    getDefenseHistory: function (conn, cookies) {
+        if (
+            cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+        ) {
+            const token = Server.getToken(conn, cookies.session);
+            const history = Server.getDefenseHistory(conn, token.id);
+            return Server.createResponse({ history: history });
+        }
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
+    },
+    finishAttack: function (conn, params, payload, cookies) {
+        if (
+            cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+        ) {
+            const attackData = payload?.result;
+            if (!attackData) return Server.createErrorResponse(0, "Invalid request: Missing attack result in payload");
+            if (!(
+                attackData.hasOwnProperty("timestamp") &&
+                attackData.hasOwnProperty("username") &&
+                attackData.hasOwnProperty("processed") &&
+                attackData.hasOwnProperty("losses") &&
+                attackData.hasOwnProperty("id")
+
+            )) return Server.createErrorResponse(0, "Invalid request: Malformed attack result data");
+            const targetid = params?.id?.[0];
+            if (!targetid) return Server.createErrorResponse(0, "Invalid request: Missing target id in parameters");
+            return Server.pushDefenseHistory(conn, targetid, attackData);
+        }
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
+    },
+    updateLocation: function (conn, cookies, geo) {
+        if (
+            cookies.session &&
+            Server.verifyRefreshToken(conn, cookies.session)
+        ) {
+            if (!geo) return Server.createErrorResponse(0, "Invalid request: Malformed geodata");
+            const token = Server.getToken(conn, cookies.session);
+            Server.updateUserLocation(conn, token.id, geo);
+            return Server.createSuccessResponse();
+        }
+        return Server.createErrorResponse(
+            0,
+            "Invalid or expired session token"
+        );
+    },
 };
 
 // Backend compute
@@ -213,6 +253,7 @@ const Server = {
         const userid = this.hash(btoa(username));
         conn.insertEntry(TABLES.users, userid, username, passhash, rawGeoData);
         conn.insertEntry(TABLES.gamedata, userid);
+        conn.insertEntry(TABLES.attacklogs, userid, "[]", "[]");
         return this.createResponse({ token: this.createToken(conn, userid) });
     },
     updateGameData: function (conn, userid, gamedata) {
@@ -226,6 +267,10 @@ const Server = {
             layout,
         );
     },
+    updateUserLocation: function (conn, userid, rawGeoData) {
+        const geoDataColumn = 4; // not zero indexed
+        conn.updateEntryAt(TABLES.users, userid, geoDataColumn, rawGeoData);
+    },
     getUserId: function (conn, username) {
         conn._selectTable(TABLES.users);
         const row = conn._findRow(username, 2);
@@ -234,7 +279,7 @@ const Server = {
     checkPassword: function (conn, username, password) {
         const userid = this.getUserId(conn, username);
         return (
-            this.entryToJson(...conn.lookupEntry(userid, TABLES.users))
+            this.entryToJson(...conn.lookupEntry(TABLES.users, userid))
                 ?.password == this.hash(password)
         );
     },
@@ -278,6 +323,28 @@ const Server = {
         });
         return data;
     },
+    getDefenseHistory: function (conn, userid) { // [!] also marks all returned attacks as processed. Avoid needs an extra interaction with client (runs off unsafe assumption client WILL process the entries)
+        const defenseColumn = 2; // NOT zero-indexed; because google is gay
+        const historyStr = conn.lookupEntryAt(TABLES.attacklogs, userid, defenseColumn);
+        if (!historyStr) return [];
+        const history = JSON.parse(historyStr); // mark all entries
+        history.forEach(result => result.processed = true);
+        conn.updateEntryAt(TABLES.attacklogs, userid, defenseColumn,
+            JSON.stringify(history),
+        );
+        return JSON.parse(historyStr);
+    },
+    pushDefenseHistory: function (conn, targetid, newDefenseEntry) {
+        const defenseColumn = 2; // NOT zero-indexed; because google is gay
+        const historyStr = conn.lookupEntryAt(TABLES.attacklogs, targetid, defenseColumn);
+        if (!historyStr) return this.createErrorResponse(1, "Failed to record attack in target history: target history does not exist");
+        const history = JSON.parse(historyStr);
+        history.push(newDefenseEntry);
+        conn.updateEntryAt(TABLES.attacklogs, targetid, defenseColumn,
+            JSON.stringify(history)
+        );
+        return this.createSuccessResponse();
+    },
     // token management
     verifyRefreshToken: function (conn, token, instance = false) {
         if (this.tokenExists(conn, token, instance)) {
@@ -320,7 +387,7 @@ const Server = {
     },
     getToken: function (conn, token, instance = false) {
         const table = instance ? TABLES.instances : TABLES.tokens;
-        return this.entryToJson(...conn.lookupEntry(token, table));
+        return this.entryToJson(...conn.lookupEntry(table, token));
     },
     tokenExpired: function (conn, tokenData, instance = false) {
         // [!] also deletes expired tokens. So we clear old ones only when we care about them!
@@ -369,7 +436,7 @@ const Server = {
     // utils
     _matchValue: function (conn, userid, tableName, key, value) {
         return (
-            this.entryToJson(...conn.lookupEntry(userid, tableName))?.[key] ==
+            this.entryToJson(...conn.lookupEntry(tableName, userid))?.[key] ==
             value
         );
     },
@@ -489,11 +556,17 @@ DatabaseConnection.prototype._getHeaders = function () {
 DatabaseConnection.prototype._selectTable = function (tableName) {
     this.activeTable = this.database.getSheetByName(tableName);
 };
-DatabaseConnection.prototype.lookupEntry = function (id, tableName) {
+DatabaseConnection.prototype.lookupEntry = function (tableName, id) {
     this._selectTable(tableName);
     const entry = this._getEntry(id);
     const headers = this._getHeaders();
     return [headers, entry];
+};
+DatabaseConnection.prototype.lookupEntryAt = function (tableName, id, columnNum) {
+    this._selectTable(tableName);
+    return this.activeTable
+        .getRange(this._findRow(id), columnNum)
+        .getValue();
 };
 DatabaseConnection.prototype.insertEntry = function (tableName, ...columns) {
     this._selectTable(tableName);
@@ -510,6 +583,12 @@ DatabaseConnection.prototype.updateEntry = function (
     this.activeTable
         .getRange(this._findRow(id), 2, 1, columns.length)
         .setValues([columns]);
+};
+DatabaseConnection.prototype.updateEntryAt = function (tableName, id, columnNum, value) {
+    this._selectTable(tableName);
+    this.activeTable
+        .getRange(this._findRow(id), columnNum)
+        .setValue(value);
 };
 DatabaseConnection.prototype.deleteEntry = function (tableName, id) {
     this._selectTable(tableName);

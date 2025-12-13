@@ -1,3 +1,17 @@
+function processCookies(e) {
+    // since we don't get real cookies...
+    const params = e.parameter;
+    const cookies = Object.keys(e.parameter).filter((key) =>
+        key.startsWith("cookie-")
+    );
+    const cookieJar = {};
+    cookies.forEach((cookie) => {
+        // "cookie-".length == 7
+        cookieJar[cookie.slice(7)] = params[cookie];
+    });
+    return cookieJar;
+}
+
 // Executed automatically upon webapp GET request
 function doGet(e) {
     let conn;
@@ -23,6 +37,9 @@ function doGet(e) {
                 break;
             case ".attack.select":
                 response = Handlers.getTargets(conn, params, cookies);
+                break;
+            case ".attack.history.defense":
+                response = Handlers.getDefenseHistory(conn, cookies);
                 break;
             default:
                 response = Server.createErrorResponse(
@@ -73,10 +90,13 @@ function doPost(e) {
                 );
                 break;
             case ".attack.result":
-                response = Server.createSuccessResponse();
+                response = Handlers.finishAttack(conn, params, payload, cookies);
                 break;
             case ".game.save":
                 response = Handlers.saveGameData(conn, payload, cookies);
+                break;
+            case ".game.save.location":
+                response = Handlers.updateLocation(conn, cookies, payload.geo);
                 break;
             default:
                 response = Server.createErrorResponse(
