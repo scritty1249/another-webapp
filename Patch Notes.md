@@ -14,4 +14,4 @@
 - Node Detail menu does not display line breaks on mobile (iOS Safari)
 - Save debug file button can crash page (pressing forced a reload while testing)
 - CashFarm, CreditFarm, CashStore, and CreditStore node emissive set too high while dragging (appears fully bright white instead of tinged red)
-- Scene background images are incorrectly stored and fails to load (git page version saves unintended part of url path)
+- ~~Scene background images are incorrectly stored and fails to load (git page version saves unintended part of url path)~~ `@ 12/12/2025`
