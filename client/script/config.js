@@ -12,4 +12,6 @@ export const Configuration = {
     WORLD_TARGET_COUNT: 5,
     DEFAULT_CAM_POS: new Vector3(0, 5, 10),
     AUTOSAVE_INTERVAL: 150000, // ms, interval for autosaves. Shouldn't overlap with saving when leaving the page
+    CURRENCY_THEFT_RATIO: 1 / 3, // how much attackers can make from stealing
+    CURRENCY_LOSS_RATIO: 1 / 4, // how much defenders can lose when stolen from
 };

@@ -216,6 +216,18 @@ export function MenuManager (
             self._appendMenu(central);
             self._dispatch("loadmenu", { history: [], infoElement: infoWindow });
         },
+        targetInfo: function () {
+            self.loadMenu.clear();
+            self.element.wrapper.classList.add("targetInfo");
+            const central = document.createElement("div");
+            central.classList.add("center", "absolutely-center");
+            const infoWindow = self.createElement.statusTextBox(true, false);
+            const buttonEl = self.createElement.button(90, undefined, "Start Attack", {}, 2);
+            infoWindow.element.classList.add("target-description");
+            self._appendElement(central, infoWindow.element, buttonEl);
+            self._appendMenu(central);
+            self._dispatch("loadmenu", { history: [], infoElement: infoWindow, buttonElement: buttonEl });
+        },
         settings: {
             main: function () {
                 self.loadMenu.clear();

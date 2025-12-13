@@ -374,7 +374,8 @@ function mainloop(MenuController) {
                                                                 const _deduct = Storage.get("deductions");
                                                                 if (Object.values(_deduct.currency).some(a => a > 0)) {
                                                                     let text = [];
-                                                                    Object.entries(_deduct).forEach(([currencyType, amount]) => {
+                                                                    Object.entries(_deduct).forEach(([currencyType, currencyAmount]) => {
+                                                                        const amount = Math.floor(CONFIG.CURRENCY_LOSS_RATIO * currencyAmount);
                                                                         const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
                                                                         text.push(`${amount - _leftover} ${currencyType}`);
                                                                     });
@@ -412,6 +413,7 @@ function mainloop(MenuController) {
                                                 detail.statusElement.text = `Tracing Target: ${targetData.username}`;
                                                 PhaseController.attackPhase(
                                                     {
+                                                        currencyRatio: CONFIG.CURRENCY_THEFT_RATIO,
                                                         overlayData: {
                                                             username:
                                                                 targetData.username,
@@ -533,6 +535,7 @@ function mainloop(MenuController) {
                                                     Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT));
                                                 PhaseController.selectPhase(
                                                     Storage.get("currentTargets"),
+                                                    CONFIG.CURRENCY_THEFT_RATIO,
                                                     {
                                                         Refresh: () => {
                                                             Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT))

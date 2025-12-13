@@ -390,6 +390,25 @@ canvas {
         .pointer-events {
             pointer-events: all;
         }
+        &.targetInfo {
+            > div.center {
+                height: calc(var(--vh) * 100);
+                display: flex;
+                flex-direction: column;
+                justify-content: space-evenly;
+                .target-description {
+                    background-size: 100% 100% !important;
+                    width: calc(var(--vw) * 70);
+                    height: calc(var(--vh) * 35);
+                }
+                svg.button {
+                    position: fixed;
+                    left: 50%;
+                    bottom: calc(var(--vh) * 13);
+                    transform: translateX(-50%) scale(var(--length));
+                }
+            }
+        }
         &.nodeInfo {
             > div.center {
                 .info-window {
