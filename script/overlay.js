@@ -717,19 +717,22 @@ AttackOverlayManager.prototype._updateFocusMenu = function () {
 };
 AttackOverlayManager.prototype._loadTilesForNode = function () {
     const nodeData = this._nodeManager.getNodeData(this.focusedNodeId);
-    const attackerTiles = Array.from(nodeData.slots, ({ type }) =>
-        AttackFocusMenu.createTileElement(type)
+    const attackerTiles = Array.from(
+        nodeData.isFriendly ? nodeData.slots : new Array(nodeData.slots.length).fill({type: undefined}),
+        ({ type }) =>
+            AttackFocusMenu.createTileElement(type)
     );
-    attackerTiles.forEach((el, i) =>
-        el.addEventListener(
-            "click",
-            (e) => {
-                nodeData.slots.pop(i);
-                this._updateFocusMenu();
-            },
-            { once: true }
-        )
-    );
+    if (nodeData.isFriendly)
+        attackerTiles.forEach((el, i) =>
+            el.addEventListener(
+                "click",
+                (e) => {
+                    nodeData.slots.pop(i);
+                    this._updateFocusMenu();
+                },
+                { once: true }
+            )
+        );
     return attackerTiles;
 };
 AttackOverlayManager.prototype.focusNode = function (nodeid) {
