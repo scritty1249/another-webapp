@@ -376,6 +376,7 @@ OverlayManager.prototype.messagePopup = function (message, expiresMs = 3000) {
             popup.remove();
         }, expiresMs);
         popup.addEventListener("click", (e) => {
+            popup.blur();
             clearTimeout(timer);
             popup.remove();
             Logger.info(`[OverlayManager] | Click-removed notification: "${message}"`);
