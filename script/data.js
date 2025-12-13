@@ -29,68 +29,70 @@ export const DataStore = {
             },
         ],
     },
-    AttackTypeData: {
-        particle: {
-            mesh: AttackManagerFactory.Particle,
-            damage: 8,
-            cooldown: 650, // ms
-            logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-            effect: (nodeManager, attackid) => {},
-            canAdd: (nodeData) => {
-                return (
-                    nodeData.isFriendly &&
-                    !nodeData.attackers.some((a) => a.type == "pascualcannon")
-                );
+    AttackTypeData: function (camera) {
+        return {
+            particle: {
+                mesh: AttackManagerFactory.Particle,
+                damage: 8,
+                cooldown: 650, // ms
+                logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
+                effect: (nodeManager, attackid) => {},
+                canAdd: (nodeData) => {
+                    return (
+                        nodeData.isFriendly &&
+                        !nodeData.attackers.some((a) => a.type == "pascualcannon")
+                    );
+                },
             },
-        },
-        laser: {
-            mesh: AttackManagerFactory.Laser,
-            damage: 5,
-            cooldown: 0, // ms
-            logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-            effect: (nodeManager, attackid) => {},
-            canAdd: (nodeData) => {
-                return (
-                    nodeData.isFriendly &&
-                    !nodeData.attackers.some((a) => a.type == "pascualcannon")
-                );
+            laser: {
+                mesh: AttackManagerFactory.Laser,
+                damage: 5,
+                cooldown: 0, // ms
+                logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
+                effect: (nodeManager, attackid) => {},
+                canAdd: (nodeData) => {
+                    return (
+                        nodeData.isFriendly &&
+                        !nodeData.attackers.some((a) => a.type == "pascualcannon")
+                    );
+                },
             },
-        },
-        pascualcannon: {
-            mesh: (a) => AttackManagerFactory.PascualCannon(camera, a),
-            damage: 10,
-            cooldown: 1000, // ms
-            logic: AttackLogic.BasicLogicFactory,
-            effect: (nodeManager, attackid) => {
-                const _purp = 0x341539;
-                const attack = nodeManager.getAttack(attackid);
-                const targetData = nodeManager.getNodeData(attack.target);
-                const targetid = attack.target;
-                nodeManager.resetNodeColorTint(targetid);
-                nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
-                targetData.state.disabled.set(
-                    true,
-                    1800,
-                    () => {
-                        nodeManager.resetNodeColorTint(targetid);
-                    },
-                    true
-                );
+            pascualcannon: {
+                mesh: (a) => AttackManagerFactory.PascualCannon(camera, a),
+                damage: 10,
+                cooldown: 1000, // ms
+                logic: AttackLogic.BasicLogicFactory,
+                effect: (nodeManager, attackid) => {
+                    const _purp = 0x341539;
+                    const attack = nodeManager.getAttack(attackid);
+                    const targetData = nodeManager.getNodeData(attack.target);
+                    const targetid = attack.target;
+                    nodeManager.resetNodeColorTint(targetid);
+                    nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
+                    targetData.state.disabled.set(
+                        true,
+                        1800,
+                        () => {
+                            nodeManager.resetNodeColorTint(targetid);
+                        },
+                        true
+                    );
+                },
+                canAdd: (nodeData) => {
+                    return nodeData.isFriendly && nodeData.attackers.length == 0;
+                },
             },
-            canAdd: (nodeData) => {
-                return nodeData.isFriendly && nodeData.attackers.length == 0;
+            cubedefense: {
+                mesh: AttackManagerFactory.CubeDefense,
+                damage: 12,
+                cooldown: 1500, // ms
+                logic: AttackLogic.BasicLogicFactory,
+                effect: (nodeManager, attackid) => {},
+                canAdd: (nodeData) => {
+                    return !nodeData.isFriendly;
+                },
             },
-        },
-        cubedefense: {
-            mesh: AttackManagerFactory.CubeDefense,
-            damage: 12,
-            cooldown: 1500, // ms
-            logic: AttackLogic.BasicLogicFactory,
-            effect: (nodeManager, attackid) => {},
-            canAdd: (nodeData) => {
-                return !nodeData.isFriendly;
-            },
-        },
+        };
     },
     NodeTypeData: {
         placeholder: {

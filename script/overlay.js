@@ -691,11 +691,11 @@ AttackOverlayManager.prototype._initOverlay = function () {
                 this.state.focusedNode &&
                 this._nodeManager.getNodeData(this.focusedNodeId)?.isFriendly
             ) {
-                this._nodeManager.addAttackToNode(
+                if (this._nodeManager.addAttackToNode(
                     attack.type,
                     this.focusedNodeId
-                );
-                this._updateFocusMenu();
+                )) this._updateFocusMenu();
+                else this.messagePopup("Cannot add Attack to Node.");
             }
         });
         return tile;
