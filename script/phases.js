@@ -292,7 +292,11 @@ PhaseManager.prototype.attackPhase = function (
                 clickedNodeId &&
                 overlayController.focusedNodeId != clickedNodeId
             )
-                overlayController.focusNode(clickedNodeId);
+                try {
+                    overlayController.focusNode(clickedNodeId);
+                } catch (err) {
+                    Logger.error(err);
+                }
             else overlayController.unfocusNode();
         });
 
