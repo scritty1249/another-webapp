@@ -430,7 +430,7 @@ function mainloop(MenuController) {
                                                     },
                                                     targetData.game,
                                                     DataStore.AttackerData,
-                                                    DataStore.AttackTypeData,
+                                                    DataStore.AttackTypeData(camera),
                                                     DataStore.NodeTypeData
                                                 );
                                                 MenuController.close();
