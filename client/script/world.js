@@ -118,16 +118,23 @@ WorldManager.prototype.placeOnWorld = function (
         return undefined;
     }
 };
+WorldManager.prototype.removeAllMarkers = function () {
+    Object.keys(this.markers).forEach(markerid => this.removeFromWorld(markerid));
+};
 WorldManager.prototype.removeFromWorld = function (objectid) {
-    // [!] fully disposes of material and geometry. This may interfere with shared geometries and materials.
     const mesh = this.markers[objectid].mesh;
     this.getCountry(this.markers[objectid].country).remove(mesh);
+    delete this.markers[objectid];
+    return mesh;
+};
+WorldManager.prototype.wipeFromWorld = function (objectid) {
+    // [!] fully disposes of material and geometry. This may interfere with shared geometries and materials.
+    const mesh = this.removeFromWorld(objectid);
     mesh.geometry.dispose();
     if (mesh.material)
         if (Array.isArray(mesh.material))
             mesh.material.forEach((mat) => mat.dispose());
         else mesh.material.dispose();
-    delete this.markers[objectid];
 };
 WorldManager.prototype._clickListener = function (e) {
     if (this.enabled) {
@@ -216,7 +223,7 @@ WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 0) {
     // [!] caused some confusion here with JS Geolocation API. Lat N = +, Lat S = -..... Long W = +, Long E = -
     let globeRadius = this._mesh.userData.radius * offsetScalar;
     if (offsetScalar == 0) {
-        globeRadius = this._mesh.userData._reset((_) => {
+        globeRadius = this._mesh.userData._reset((countries) => {
             const basepos = this.gpsToWorld(lat, long, 1);
             const direction = THREEUTIL.directionVector(basepos, this.origin);
             const raypos = basepos.add(
@@ -226,7 +233,7 @@ WorldManager.prototype.gpsToWorld = function (lat, long, offsetScalar = 0) {
             );
             const intersect = THREEUTIL.raycast(
                 this._raycaster,
-                [...this.countries, this._mesh.userData.core],
+                [...countries, this._mesh.userData.core],
                 false
             );
             return intersect
@@ -268,14 +275,14 @@ WorldManager.prototype.addMeshData = function (worldMesh) {
 };
 WorldManager.prototype.getClosestCountry = function (coord) {
     // [!] still, cannot detect if inside of Russia.
-    return this._mesh.userData._reset((_) => {
+    return this._mesh.userData._reset((countries) => {
         const direction = THREEUTIL.directionVector(coord, this.origin);
         const raypos = direction
             .clone()
             .multiplyScalar(this._mesh.userData.radius * 2);
         const intersect = THREEUTIL.raycast(
             this._raycaster,
-            [...this.countries, this._mesh.userData.core],
+            [...countries, this._mesh.userData.core],
             false
         );
         if (intersect && intersect.object.uuid != this._mesh.userData.core.uuid)
@@ -362,7 +369,7 @@ WorldManager.prototype.clear = function () {
     });
     this.unfocusCountry();
     Object.keys(this.markers).forEach((markerid) =>
-        this.removeFromWorld(markerid)
+        this.wipeFromWorld(markerid)
     );
 };
 WorldManager.prototype._dispatch = function (name = "", detail = {}) {

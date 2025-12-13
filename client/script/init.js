@@ -464,11 +464,11 @@ function mainloop(MenuController) {
                                     true
                                 );
                             } else if (phaseType == "select") {
-                                if (
+                                if ((
                                     PhaseController.Managers.Node &&
                                     !PhaseController.Managers.Node.validateLayout(
                                         CONFIG.maxStepsFromGlobe
-                                    )
+                                    )) && !dt?.refresh
                                 ) {
                                     Logger.alert(
                                         `You have unsaved changes: All nodes must be connected and within ${CONFIG.maxStepsFromGlobe} steps of a network node!`
@@ -483,14 +483,15 @@ function mainloop(MenuController) {
                                     MenuController.when(
                                         "loadmenu",
                                         (detail) => {
-                                            Storage.set(
-                                                "localLayout",
-                                                UTIL.layoutToJsonObj(
-                                                    scene,
-                                                    PhaseController.Managers
-                                                        .Node
-                                                )
-                                            );
+                                            if (!dt?.refresh)
+                                                Storage.set(
+                                                    "localLayout",
+                                                    UTIL.layoutToJsonObj(
+                                                        scene,
+                                                        PhaseController.Managers
+                                                            .Node
+                                                    )
+                                                );
                                             detail.statusElement.text =
                                                 "Discovering targets";
                                             if (
@@ -528,15 +529,21 @@ function mainloop(MenuController) {
                                             } else {
                                                 detail.statusElement.text =
                                                     "Loading global net";
+                                                if (!Storage.has("currentTargets"))
+                                                    Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT));
                                                 PhaseController.selectPhase(
-                                                    UTIL.getRandomItems(
-                                                        Storage.get(
-                                                            "targets",
-                                                            true
-                                                        ),
-                                                        CONFIG.WORLD_TARGET_COUNT
-                                                    ),
+                                                    Storage.get("currentTargets"),
                                                     {
+                                                        Refresh: () => {
+                                                            Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT))
+                                                            MenuController._dispatch(
+                                                                "swapphase",
+                                                                {
+                                                                    phase: "select",
+                                                                    refresh: true
+                                                                }
+                                                            );
+                                                        },
                                                         Attack: (userid) => {
                                                             MenuController._dispatch(
                                                                 "swapphase",
