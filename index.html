@@ -21,9 +21,11 @@
             import { LogManager } from "./script/logger.js";
             import { CookieJar } from "./script/cookies.js";
             import { StorageManager } from "./script/storage.js";
+            import { Configuration } from "./script/config.js";
             window.Logger = new LogManager();
             window.CookieJar = new CookieJar();
             window.Storage = new StorageManager();
+            window.CONFIG = Configuration;
         </script>
         <script type="module" src="./script/init.js"></script>
         <script src="./script/main.js"></script>
