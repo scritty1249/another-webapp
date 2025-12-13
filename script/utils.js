@@ -260,7 +260,7 @@ export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does no
 
 export function layoutToJsonObj(scene, nodeManager) {
     const data = {
-        background: "./source/bg",
+        background: "./source/bg/",
         layout: {
             nodes: [],
             neighbors: [],

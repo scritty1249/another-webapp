@@ -77,7 +77,7 @@ export function refreshSession (sessionToken) {
         .then(data => data?.token.expires);
 }
 
-export function saveGame (sessionToken, backdrop, layout, ...currency) {
+export function saveGame (sessionToken, backdrop, layout) {
     return sendRequest("/game/save", undefined, "POST", {
         game: {
             backdrop: backdrop,
@@ -87,12 +87,27 @@ export function saveGame (sessionToken, backdrop, layout, ...currency) {
         .then(data => Boolean(data?.success));
 }
 
-export function saveGameAsync (sessionToken, backdrop, layout, ...currency) {
+export function saveGameAsync (sessionToken, backdrop, layout) {
     return sendRequest("/game/save", undefined, "POST", {
         game: {
             backdrop: backdrop,
             layout: layout
         }
     }, {session: sessionToken}, true)
+        .then(data => Boolean(data?.success));
+}
+
+export function updateLocationAsync (sessionToken, location) {
+    return sendRequest("/game/save", undefined, "POST", {geo: location}, {session: sessionToken}, true)
+        .then(data => Boolean(data?.success));
+}
+
+export function getDefenseHistory (sessionToken, markAsProcessed) {
+    return sendRequest("/attack/history/defense", {process: markAsProcessed}, "GET", undefined, {session: sessionToken})
+        .then(data => data);
+}
+
+export function sendAttackResultAsync (sessionToken, targetid, attackResult) {
+    return sendRequest("/attack/result", {id: targetid}, "POST", {result: attackResult}, {session: sessionToken}, true)
         .then(data => Boolean(data?.success));
 }

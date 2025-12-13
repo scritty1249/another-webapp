@@ -105,3 +105,31 @@ export function savegame (layoutObj) { // [!] currency data not implemented yet
     const sessionToken = CookieJar.get("session");
     return API.saveGameAsync(sessionToken, layoutObj.background, layoutObj.layout);
 }
+
+export function sendAttackResult (targetid, resultObj) {
+    if (!CookieJar.has("session")) {
+        Logger.error("[Session] | Cannot load game data: No session token found!");
+        return Promise.resolve(undefined);
+    }
+    const sessionToken = CookieJar.get("session");
+    return API.sendAttackResultAsync(sessionToken, targetid, resultObj);
+}
+
+export function getDefenseHistory (markAsProcessed = true) {
+    if (!CookieJar.has("session")) {
+        Logger.error("[Session] | Cannot load game data: No session token found!");
+        return Promise.resolve(undefined);
+    }
+    const sessionToken = CookieJar.get("session");
+    return API.getDefenseHistory(sessionToken, markAsProcessed)
+        .then(data => data?.history ? JSON.parse(data.history) : []);
+}
+
+export function updateLocation (location) {
+    if (!CookieJar.has("session")) {
+        Logger.error("[Session] | Cannot load game data: No session token found!");
+        return Promise.resolve(undefined);
+    }
+    const sessionToken = CookieJar.get("session");
+    return API.updateLocationAsync(sessionToken, btoa(JSON.stringify(location)));
+}
