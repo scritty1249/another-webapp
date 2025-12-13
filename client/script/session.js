@@ -29,6 +29,7 @@ export function clearSession () {
     if (CookieJar.has("session")) CookieJar.remove("session");
     if (CookieJar.has("username")) CookieJar.remove("username");
     if (CookieJar.has("userid")) CookieJar.remove("userid");
+    Storage.nuke();
 }
 
 export function isLoggedIn () {
