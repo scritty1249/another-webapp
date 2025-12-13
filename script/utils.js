@@ -1,11 +1,4 @@
 import { loadTextureCube } from "./three-utils.js";
-import { AttackNodeManager, BuildNodeManager } from "./nodes.js";
-import {
-    AttackOverlayManager,
-    BuildOverlayManager,
-    SelectOverlayManager,
-} from "./overlay.js";
-import { ListenerManager } from "./listeners.js";
 import * as THREE from "three";
 
 const b64RegPattern =
@@ -28,22 +21,6 @@ export const DEFAULT_GEO = {
     lat: 63.5888,
     long: 154.4931,
 };
-
-export function createVideoElement(videopath, speed = 1) {
-    const videoEl = document.createElement("video");
-    videoEl.src = videopath;
-    videoEl.playbackRate = speed;
-    videoEl.crossOrigin = "anonymous";
-    // we will manually loop so callbacks can be set at the end of every loop
-    videoEl.autoplay = false;
-    videoEl.loop = false;
-    videoEl.muted = true; // [!] muted autoplay required by most browsers
-    videoEl.style.display = "none";
-    videoEl.preload = "auto";
-    videoEl.setAttribute("playsinline", true); // for safari on ios
-    videoEl.load();
-    return videoEl;
-}
 
 function nestedSetEquals (set1, set2) { // [!] only compares to a depth of 2
     for (const item1 of set1) {
@@ -69,36 +46,6 @@ function nestedSetEquals (set1, set2) { // [!] only compares to a depth of 2
             return false;
     }
     return true;
-}
-function videoReadyPromise(element) {
-    return new Promise((resolve, reject) => {
-        if (!element || !(element instanceof HTMLVideoElement)) {
-            reject(Logger.error("Invalid video element given"));
-            return;
-        }
-        if (element.readyState > 1) {
-            resolve(element);
-            return;
-        }
-        element.addEventListener(
-            "canplaythrough",
-            (event) => {
-                resolve(element);
-            },
-            { once: true }
-        );
-        element.addEventListener(
-            "error",
-            (event) => {
-                reject(
-                    Logger.error(
-                        `Video loading error: ${event.message || event.type}`
-                    )
-                );
-            },
-            { once: true }
-        );
-    });
 }
 
 export function banksEqual (me, them) {
@@ -205,23 +152,6 @@ export function bindProtoProperties(object, target) {
             (prop) => prop !== "constructor"
         )
     );
-}
-
-export function loadVideoTextureSource(videopath, maskpath, speed = 1) {
-    const video = createVideoElement(videopath, speed);
-    const mask = createVideoElement(maskpath, speed);
-    return {
-        video: video,
-        mask: mask,
-        promise: Promise.all([
-            videoReadyPromise(video),
-            videoReadyPromise(mask),
-        ]).then(([v, m]) => {
-            v.playbackRate = speed;
-            m.playbackRate = speed;
-            return [v, m];
-        }),
-    };
 }
 
 export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does not evaluate position changes. not sure if I want to implement that since the nodes float around passively...
@@ -384,7 +314,7 @@ export const _DebugTool = {
         Logger.log("Generating debug file for download");
         download(
             `CUBE_GAME-${new Date().toISOString()}.log`,
-            `===[LAYOUT]===\n${layoutData}\n===[DOM]===\n${domData}\n===[CONSOLE]===\n${logger.history}\n`
+            logger.history
         );
     },
     marker: function (

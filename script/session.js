@@ -18,9 +18,24 @@ function throwFalse (value, message="") {
         return value;
 }
 
-function setSession (tokenObj) {
+function setSession (tokenObj, username = undefined, userid = undefined) {
     CookieJar.bake("session", tokenObj.token, tokenObj.expires);
+    if (username) CookieJar.bake("username", username, tokenObj.expires);
+    if (userid) CookieJar.bake("userid", userid, tokenObj.expires);
     return tokenObj.token; // for chaining
+}
+
+export function clearSession () {
+    if (CookieJar.has("session")) CookieJar.remove("session");
+    if (CookieJar.has("username")) CookieJar.remove("username");
+    if (CookieJar.has("userid")) CookieJar.remove("userid");
+}
+
+export function isLoggedIn () {
+    return (
+        CookieJar.has("session") &&
+        CookieJar.get("session")
+    );
 }
 
 export function login (username, password) {
@@ -28,11 +43,11 @@ export function login (username, password) {
     return hash(password)
         .then(passhash =>
             API.login(username, passhash))
-        .then(tokenObj => {
+        .then(({token: tokenObj, id}) => {
             if (!tokenObj)
                 Logger.alert(`Wrong username or password!`);
             else
-                return setSession(throwFalse(tokenObj));
+                return setSession(throwFalse(tokenObj), username, id);
         })
         .catch(err => false);
 }
@@ -112,7 +127,7 @@ export function sendAttackResult (targetid, resultObj) {
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.sendAttackResultAsync(sessionToken, targetid, resultObj);
+    return API.sendAttackResultAsync(sessionToken, targetid, JSON.stringify(resultObj));
 }
 
 export function getDefenseHistory (markAsProcessed = true) {
@@ -122,7 +137,7 @@ export function getDefenseHistory (markAsProcessed = true) {
     }
     const sessionToken = CookieJar.get("session");
     return API.getDefenseHistory(sessionToken, markAsProcessed)
-        .then(data => data?.history ? JSON.parse(data.history) : []);
+        .then(data => data?.history ? data.history : []);
 }
 
 export function updateLocation (location) {
