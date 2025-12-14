@@ -205,27 +205,31 @@ export const DataStore = {
             description: "Scans for Attacker activity within [TBD] steps.",
         },
         cashfarm: {
-            cost: {
-                type: "crypto",
-                amount: 1,
-            },
-            sell: {
-                type: "crypto",
-                amount: 1,
-            },
+            // cost: {
+            //     type: "crypto",
+            //     amount: 1,
+            // },
+            // sell: {
+            //     type: "crypto",
+            //     amount: 1,
+            // },
+            cost: undefined,
+            sell: undefined,
             name: "Cash Farm",
             description:
                 "Farms for cash. Can be collected from to use for purchases.",
         },
         cryptofarm: {
-            cost: {
-                type: "cash",
-                amount: 5,
-            },
-            sell: {
-                type: "cash",
-                amount: 5,
-            },
+            // cost: {
+            //     type: "cash",
+            //     amount: 5,
+            // },
+            // sell: {
+            //     type: "cash",
+            //     amount: 5,
+            // },
+            cost: undefined,
+            sell: undefined,
             name: "Credits Farm",
             description:
                 "Farms for credits. Can be collected from to use for purchases.",
