@@ -241,8 +241,8 @@ PhaseManager.prototype.attackPhase = function (
     const nodeVictoryCallback = () => {
         Logger.debug("Victory callback triggered");
         if (self.phase == "attack") {
-            const cash = Math.floor(self.Managers.Node.getStoredCurrency("cash").amount / 2);
-            const crypto = Math.floor(self.Managers.Node.getStoredCurrency("crypto").amount / 2);
+            const cash = self.Managers.Node.getStoredCurrency("cash").amount;
+            const crypto = self.Managers.Node.getStoredCurrency("crypto").amount;
             const transfer = [];
             const record = []; // this one isn't offset by any ratios, and will be sent to the database.
             if (cash) {
