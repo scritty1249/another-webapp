@@ -43,6 +43,14 @@ renderer.toneMapping = THREE.LinearToneMapping;
 // outline effect for select phase
 const effect = new SelectiveOutlineEffect(renderer);
 
+// change camera on window resize
+window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize( window.innerWidth, window.innerHeight );
+}, false);
+
 // grab audio context
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
