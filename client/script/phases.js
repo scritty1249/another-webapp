@@ -26,6 +26,7 @@ export function PhaseManager(
         Physics: this.Managers.Physics,
         World: this.Managers.World,
         Mouse: this.Managers.Mouse,
+        Audio: this.Managers.Audio
     } = Managers);
     this._scene = scene;
     this._controls = controls;
@@ -60,6 +61,7 @@ PhaseManager.prototype = {
         World: undefined,
         Mouse: undefined,
         Attacks: undefined,
+        Audio: undefined,
     },
     _constructorArgs: {
         Node: undefined,
@@ -180,6 +182,7 @@ PhaseManager.prototype.selectPhase = function (targets, currencyRatio, callbacks
     this._updateManagers.always.push(this.Managers.World, this.Managers.Overlay);
     this._unloadPhase = () => {
         this._resetUpdateManagers();
+        this.Managers.Audio.stop();
         this._controls.camera.autoRotate = false;
         this.Managers.Listener.clear();
         this.Managers.World.clear();
@@ -208,32 +211,38 @@ PhaseManager.prototype.attackPhase = function (
     ); 
     // Attacker attacks
     attackerData.attacks.forEach((attack) => {
+        const typeData = attackTypes[attack.type];
         attackerTypeData[attack.type] = {
-            manager: attackTypes[attack.type].mesh(attack.amount),
-            damage: attackTypes[attack.type].damage,
-            logic: attackTypes[attack.type].logic,
-            cooldown: attackTypes[attack.type].cooldown,
-            canAdd: attackTypes[attack.type].canAdd,
-            effect: attackTypes[attack.type].effect
+            manager: typeData.mesh(attack.amount),
+            damage: typeData.damage,
+            logic: typeData.logic,
+            cooldown: typeData.cooldown,
+            canAdd: typeData.canAdd,
+            effect: typeData.effect,
+            sfx: typeData?.sfx
         };
     });
     // Defender attacks
     {
-        const _attackType = "cubedefense"
+        const _attackType = "cubedefense";
         const cubeCount = layout.layout.nodes.map((n) => n.type).filter((t) => t == "cube").length; // need to parse the layout object
+        const typeData = attackTypes[_attackType];
         attackerTypeData[_attackType] = {
-            manager: attackTypes[_attackType].mesh(cubeCount),
-            damage: attackTypes[_attackType].damage,
-            logic: attackTypes[_attackType].logic,
-            cooldown: attackTypes[_attackType].cooldown,
-            canAdd: attackTypes[_attackType].canAdd,
-            effect: attackTypes[_attackType].effect
+            manager: typeData.mesh(cubeCount),
+            damage: typeData.damage,
+            logic: typeData.logic,
+            cooldown: typeData.cooldown,
+            canAdd: typeData.canAdd,
+            effect: typeData.effect,
+            sfx: typeData?.sfx
         };
     }
     // init attack managers
     Object.values(attackerTypeData).forEach(typeData => {
         if (typeData.manager) {
             typeData.manager.init(this._scene);
+            if (typeData.sfx)
+                typeData.manager.onplayback = () => self.Managers.Audio.play(typeData.sfx);
             this.Managers.Attacks.push(typeData.manager);
         }
     });
@@ -306,6 +315,7 @@ PhaseManager.prototype.attackPhase = function (
     this._updateManagers.always.push(this.Managers.Node, this.Managers.Attacks, this.Managers.Overlay);
     this._unloadPhase = () => {
         this._resetUpdateManagers();
+        this.Managers.Audio.stop();
         this.Managers.Listener.clear();
         this.Managers.Overlay.clear();
         this.Managers.Node.clear();
@@ -361,9 +371,10 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
         },
         collect: function (nodeid) {
             const currencyType = nodeController.isCurrencyNode(nodeid);
-            if (!currencyType) return;
+            if (!currencyType) return false;
             nodeController.collectCurrencyNode(nodeid);
             overlayController.updateWallet(this.bank);
+            return true;
         }
     };
 
@@ -451,9 +462,13 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
                 clickedNodeId &&
                 overlayController.focusedNodeId != clickedNodeId
             ) {
+                
                 overlayController.focusNode(clickedNodeId);
                 // attempt to collect currency
-                bankController.collect(clickedNodeId);
+                if (bankController.collect(clickedNodeId))
+                    self.Managers.Audio.play("coin");
+                else
+                    self.Managers.Audio.play("click-focus");
             } else overlayController.unfocusNode();
         });
 
@@ -464,6 +479,7 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
     this._updateManagers.perTick.push(bankController);
     this._unloadPhase = () => {
         this._resetUpdateManagers();
+        this.Managers.Audio.stop();
         this._controls.drag.enabled = false;
         this.Managers.Listener.clear();
         this.Managers.Overlay.clear();

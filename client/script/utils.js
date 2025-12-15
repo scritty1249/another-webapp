@@ -48,6 +48,12 @@ function nestedSetEquals (set1, set2) { // [!] only compares to a depth of 2
     return true;
 }
 
+export function loadAudio (src, ctx) {
+    return fetch(src)
+        .then(resp => resp.arrayBuffer())
+        .then(buffer => ctx.decodeAudioData(buffer));
+}
+
 export function banksEqual (me, them) {
     const myKeys = Object.keys(me);
     const theirKeys = Object.keys(them);

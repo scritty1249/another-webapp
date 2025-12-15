@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { DragControls } from "three/addons/controls/DragControls.js";
 import * as MESH from "./mesh.js";
-import * as THREEUTILS from "./three-utils.js";
+import * as THREEUTIL from "./three-utils.js";
 import { NodeManager } from "./nodes.js";
 import { Mouse } from "./cursor.js";
 import { OverlayManager } from "./overlay.js";
@@ -11,11 +11,11 @@ import { PhysicsManager } from "./physics.js";
 import { MenuManager } from "./menu.js";
 import { PhaseManager } from "./phases.js";
 import * as UTIL from "./utils.js";
-import * as ATTACK from "./attacker.js"; // [!] testing, temporary module- to be redesigned soon
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { SelectiveOutlineEffect } from "./renderer.js";
 import { DataStore } from "./data.js";
+import { AudioManager } from "./audio.js";
 
 // Setup
 // MouseController functionality
@@ -42,6 +42,9 @@ renderer.toneMapping = THREE.LinearToneMapping;
 
 // outline effect for select phase
 const effect = new SelectiveOutlineEffect(renderer);
+
+// grab audio context
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 // url params
 const urlParams = new URLSearchParams(window.location.search);
@@ -126,6 +129,7 @@ function mainloop(MenuController) {
             Storage.remove("targets");
 
             // Loading sequence
+            const AudioController = new AudioManager( audioContext );
             const MouseController = new Mouse(
                 window,
                 renderer.domElement,
@@ -196,7 +200,7 @@ function mainloop(MenuController) {
             );
 
             const backgroundTextureCube =
-                THREEUTILS.loadTextureCube("./source/bg/");
+                THREEUTIL.loadTextureCube("./source/bg/");
             scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
 
             // Control shadows
@@ -226,6 +230,7 @@ function mainloop(MenuController) {
                     Physics: PhysicsController,
                     World: WorldController,
                     Mouse: MouseController,
+                    Audio: AudioController,
                 }
             );
 
@@ -640,16 +645,21 @@ function mainloop(MenuController) {
                 );
             }
             statusEl.text = "Loading mesh data";
-            const gtlfData = Promise.all([
-                THREEUTILS.loadGLTFShape("./source/placeholder-cube.glb"),
-                THREEUTILS.loadGLTFShape("./source/not-cube.glb"),
-                THREEUTILS.loadGLTFShape("./source/globe.glb"),
-                THREEUTILS.loadGLTFShape("./source/scanner.glb"),
-                THREEUTILS.loadGLTFShape("./source/accurate-world.glb"),
-                THREEUTILS.loadGLTFShape("./source/squarestack.glb"),
-                THREEUTILS.loadGLTFShape("./source/circlestack.glb"),
+            const gtlfs = Promise.all([
+                THREEUTIL.loadGLTFShape("./source/placeholder-cube.glb"),
+                THREEUTIL.loadGLTFShape("./source/not-cube.glb"),
+                THREEUTIL.loadGLTFShape("./source/globe.glb"),
+                THREEUTIL.loadGLTFShape("./source/scanner.glb"),
+                THREEUTIL.loadGLTFShape("./source/accurate-world.glb"),
+                THREEUTIL.loadGLTFShape("./source/squarestack.glb"),
+                THREEUTIL.loadGLTFShape("./source/circlestack.glb"),
             ]);
-            gtlfData.then((data) => {
+            const sounds = Promise.all([
+                UTIL.loadAudio("./source/audio/pew.mp3", AudioController.ctx),
+                UTIL.loadAudio("./source/audio/node-click.mp3", AudioController.ctx),
+                UTIL.loadAudio("./source/audio/coin.mp3", AudioController.ctx),
+            ]);
+            Promise.all([gtlfs, sounds]).then(([modelData, audioData]) => {
                 const [
                     placeholderData,
                     cubeData,
@@ -659,8 +669,20 @@ function mainloop(MenuController) {
                     squareStackData,
                     cricleStackData,
                     ..._
-                ] = data;
-                Logger.info("Finished loading shape data:", data);
+                ] = modelData;
+                const [
+                    pewSfx,
+                    focusSfx,
+                    coinSfx,
+                    ...__
+                ] = audioData;
+                Logger.info("Finished loading audio data");
+                AudioController.register("pew", pewSfx, 0.4);
+                AudioController.register("click-focus", focusSfx);
+                AudioController.register("coin", coinSfx, 0.55);
+
+                Logger.info("Finished loading model data");
+                console.info(modelData);
 
                 NodeController.addMeshData({
                     placeholder: () => MESH.Nodes.Placeholder(placeholderData),
