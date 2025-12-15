@@ -414,12 +414,11 @@ function mainloop(MenuController) {
                                 MenuController.when(
                                     "loadmenu",
                                     (detail) => {
-                                        const targetData = Storage.get(
-                                            "targets",
-                                            true
-                                        ).filter(
+                                        const targetsData = Storage.get("targets", true);
+                                        const targetData = targetsData.filter(
                                             (t) => t.id == dt.targetid
                                         )?.[0];
+                                        Storage.set("target", targetsData.slice(targetsData.map(t=>t.id).indexOf(dt.targetid), 1), true);
                                         try {
                                             if (targetData) {
                                                 detail.statusElement.text = `Tracing Target: ${targetData.username}`;
