@@ -167,10 +167,33 @@ export const DataStore = {
     },
     AttackNodeOverlayData: {
         health: {
-            offset: new Vector3(-0.9, -0.95, 0),
-            geometry: new PlaneGeometry(0.7, 0.7),
+            offset: new Vector3(-0.95, -0.95, 0),
+            geometry: new PlaneGeometry(0.6, 0.6),
             material: SSMaterialType.CircleProgress(0xE3E3E3),
         },
+        cash: {
+            offset: _currencyOverlayData.offset,
+            geometry: _currencyOverlayData.geometry,
+            material: SSMaterialType.Mask(
+                "./source/node-overlay/currency/cash-bar.png",
+                _currencyOverlayData.alphaMap,
+                _currencyOverlayData.mapSize,
+                _currencyOverlayData.alphaMapSize
+            ),
+        },
+        crypto: {
+            offset: _currencyOverlayData.offset,
+            geometry: _currencyOverlayData.geometry,
+            material: SSMaterialType.Mask(
+                "./source/node-overlay/currency/crypto-bar.png",
+                _currencyOverlayData.alphaMap,
+                _currencyOverlayData.mapSize,
+                _currencyOverlayData.alphaMapSize
+            ),
+        },
+    },
+    AttackSfx: {
+        "emptied-store": "coin",
     },
     NodeDetailedInfo: {
         placeholder: {

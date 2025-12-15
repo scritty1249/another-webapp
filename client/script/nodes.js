@@ -886,7 +886,19 @@ AttackNodeManager.prototype.createNode = function (...args) {
         const node = this.getNode(nodeid);
         const overlay = NodeSSOverlay(node);
         { // node specific overlays
-
+            const storageType = this.isStorageNode(nodeid);
+            if (storageType) {
+                const oMoneyStorageMesh = SSMaskMesh(
+                    this._nodeOverlayData[storageType].geometry,
+                    this._nodeOverlayData[storageType].material.clone()
+                );
+                overlay.userData.addChild(
+                    "bar",
+                    oMoneyStorageMesh,
+                    this._nodeOverlayData[storageType].offset
+                );
+                node.userData.exportData.store.max = node.userData.exportData.store.amount;
+            }
         }
         const oHealthMesh = SSProgressMesh(
             this._nodeOverlayData.health.geometry,
@@ -915,6 +927,11 @@ AttackNodeManager.prototype._updateOverlays = function () {
         const nodeData = this.getNodeData(node.uuid);
         overlay.userData.children.health.userData.progress =
             nodeData.hp.health / nodeData.hp.maxHealth;
+        if (this.isStorageNode(node.uuid))
+            overlay.userData.children.bar.userData.maskOffset.x =
+                1 -
+                node.userData.exportData.store.amount /
+                    node.userData.exportData.store.max;
     });
 };
 AttackNodeManager.prototype.getAllAttacksFrom = function (nodeid) {

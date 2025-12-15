@@ -11,7 +11,7 @@ import { Color } from "three";
 import * as UTIL from "./utils.js";
 
 const selectPhaseBackground = new Color(0x000000);
-const nodeDraggedEmissive = new Color(0xFF8888);
+const nodeDraggedEmissive = new Color(0xff8888);
 
 export function PhaseManager(
     scene,
@@ -26,7 +26,7 @@ export function PhaseManager(
         Physics: this.Managers.Physics,
         World: this.Managers.World,
         Mouse: this.Managers.Mouse,
-        Audio: this.Managers.Audio
+        Audio: this.Managers.Audio,
     } = Managers);
     this._scene = scene;
     this._controls = controls;
@@ -85,7 +85,11 @@ PhaseManager.prototype._validateKeys = function (object, expectedNames = []) {
     return valid;
 };
 
-PhaseManager.prototype.selectPhase = function (targets, currencyRatio, callbacks) {
+PhaseManager.prototype.selectPhase = function (
+    targets,
+    currencyRatio,
+    callbacks
+) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Select phase");
     this._unloadPhase();
@@ -150,36 +154,48 @@ PhaseManager.prototype.selectPhase = function (targets, currencyRatio, callbacks
         if (target) {
             if (rotateTimeout) clearTimeout(rotateTimeout);
             Logger.log(`Selected target: `, target);
-            self.Managers.Overlay._menuManager.when("loadmenu", detail => {
-                const targetData = Storage.get(
-                    "targets",
-                    true
-                ).filter(
-                    (t) => t.id == target.id
-                )?.[0];
-                detail.infoElement.text = targetData
-                    ? [
-                        targetData.username,
-                        "\n",
-                        "Currency Stored:",
-                        Array.from(Object.entries(UTIL.getStoredCurrencyFromLayout(targetData.game)),
-                            ([currencyType, currencyAmount]) =>
-                                `${currencyType}: ${Math.floor(currencyRatio * currencyAmount)}`
-                            ).join("\n")
-                        ].join("\n\n")
-                    : "-- No Data Found --";
-                detail.infoElement.align("left");
-                detail.buttonElement.addEventListener("click", () => {
-                    callbacks.Attack(target.id);
-                });
-            }, false, true);
+            self.Managers.Overlay._menuManager.when(
+                "loadmenu",
+                (detail) => {
+                    const targetData = Storage.get("targets", true).filter(
+                        (t) => t.id == target.id
+                    )?.[0];
+                    detail.infoElement.text = targetData
+                        ? [
+                              targetData.username,
+                              "\n",
+                              "Currency Stored:",
+                              Array.from(
+                                  Object.entries(
+                                      UTIL.getStoredCurrencyFromLayout(
+                                          targetData.game
+                                      )
+                                  ),
+                                  ([currencyType, currencyAmount]) =>
+                                      `${currencyType}: ${Math.floor(
+                                          currencyRatio * currencyAmount
+                                      )}`
+                              ).join("\n"),
+                          ].join("\n\n")
+                        : "-- No Data Found --";
+                    detail.infoElement.align("left");
+                    detail.buttonElement.addEventListener("click", () => {
+                        callbacks.Attack(target.id);
+                    });
+                },
+                false,
+                true
+            );
             self.Managers.Overlay._menuManager.open(["targetInfo"]);
         }
     });
     this.Managers.Node = undefined;
     this.Managers.Overlay = overlayController;
     this.Managers.Listener = listenerController;
-    this._updateManagers.always.push(this.Managers.World, this.Managers.Overlay);
+    this._updateManagers.always.push(
+        this.Managers.World,
+        this.Managers.Overlay
+    );
     this._unloadPhase = () => {
         this._resetUpdateManagers();
         this.Managers.Audio.stop();
@@ -199,6 +215,8 @@ PhaseManager.prototype.attackPhase = function (
     attackTypes,
     nodeTypes,
     nodeOverlayData,
+    sfxData,
+    theftTickRate = 2,
 ) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Attack phase");
@@ -209,7 +227,7 @@ PhaseManager.prototype.attackPhase = function (
     // remove unknown attacks
     attackerData.attacks = attackData.attacks.filter((a) =>
         attackTypes.hasOwnProperty(a.type)
-    ); 
+    );
     // Attacker attacks
     attackerData.attacks.forEach((attack) => {
         const typeData = attackTypes[attack.type];
@@ -220,13 +238,15 @@ PhaseManager.prototype.attackPhase = function (
             cooldown: typeData.cooldown,
             canAdd: typeData.canAdd,
             effect: typeData.effect,
-            sfx: typeData?.sfx
+            sfx: typeData?.sfx,
         };
     });
     // Defender attacks
     {
         const _attackType = "cubedefense";
-        const cubeCount = layout.layout.nodes.map((n) => n.type).filter((t) => t == "cube").length; // need to parse the layout object
+        const cubeCount = layout.layout.nodes
+            .map((n) => n.type)
+            .filter((t) => t == "cube").length; // need to parse the layout object
         const typeData = attackTypes[_attackType];
         attackerTypeData[_attackType] = {
             manager: typeData.mesh(cubeCount),
@@ -235,43 +255,111 @@ PhaseManager.prototype.attackPhase = function (
             cooldown: typeData.cooldown,
             canAdd: typeData.canAdd,
             effect: typeData.effect,
-            sfx: typeData?.sfx
+            sfx: typeData?.sfx,
         };
     }
     // init attack managers
-    Object.values(attackerTypeData).forEach(typeData => {
+    Object.values(attackerTypeData).forEach((typeData) => {
         if (typeData.manager) {
             typeData.manager.init(this._scene);
             if (typeData.sfx)
-                typeData.manager.onplayback = () => self.Managers.Audio.play(typeData.sfx);
+                typeData.manager.onplayback = () =>
+                    self.Managers.Audio.play(typeData.sfx);
             this.Managers.Attacks.push(typeData.manager);
         }
     });
 
+    const bankController = {
+        // pseudo-manager for bank data
+        notEmpty: new Set(),
+        emptied: new Set(),
+        stolen: {
+            cash: 0,
+            crypto: 0,
+        },
+        tick: 0,
+        interval: theftTickRate,
+        get capturedStores() {
+            return [
+                ...nodeController.getStorageNodes("cash"),
+                ...nodeController.getStorageNodes("crypto"),
+            ].filter((n) => self.Managers.Node.getNodeData(n.uuid)?.isFriendly);
+        },
+        get theftPromise () {
+            const me = this;
+            return (async () => {
+                while (
+                    self.phase == "attack" &&
+                    me.capturedStores.some(n => n.userData.exportData.store.amount > 0)
+                )
+                    await new Promise(resolve => setTimeout(resolve, self.tick.interval));
+                return;
+            })();
+        },
+        steal: function (node) {
+            // [!] fix redundancy here
+            if (node.userData.exportData?.store)
+                if (
+                    node.userData.exportData.store.amount &&
+                    node.userData.exportData.store.amount == node.userData.exportData.store.max
+                )
+                    this.notEmpty.add(node.uuid);
+                else if (!this.emptied.has(node.uuid) && this.notEmpty.has(node.uuid) && node.userData.exportData.store.amount <= 0) {
+                    this.emptied.add(node.uuid);
+                    self.Managers.Audio.play(sfxData["emptied-store"]);
+                    return;
+                }
+            if (node.userData.exportData?.store?.amount <= 0) return;
+            node.userData.exportData.store.amount--;
+            this.stolen[node.userData.exportData.store.type]++;
+        },
+        update: function () {
+            if (this.tick < this.interval) {
+                this.tick++;
+                return;
+            }
+            this.tick = 0;
+            this.capturedStores.forEach(n => this.steal(n));
+        },
+    };
     const nodeVictoryCallback = () => {
         Logger.debug("Victory callback triggered");
-        if (self.phase == "attack") {
-            const cash = self.Managers.Node.getStoredCurrency("cash").amount;
-            const crypto = self.Managers.Node.getStoredCurrency("crypto").amount;
-            const transfer = [];
-            const record = []; // this one isn't offset by any ratios, and will be sent to the database.
-            if (cash) {
-                transfer.push({cash: Math.floor(phaseData.currencyRatio * cash)});
-                record.push({cash: cash});
-            }
-            if (crypto) {
-                transfer.push({crypto: Math.floor(phaseData.currencyRatio * crypto)});
-                record.push({crypto: crypto});
-            }
-            if (cash || crypto) {
-                phaseData.resultHandler(record)
-                self.Managers.Overlay._menuManager._dispatch("swapphase", { phase: "build", metadata: { transfer: transfer } });
-            } else
-                self.Managers.Overlay._menuManager._dispatch("swapphase", { phase: "build" });
-        } else {
-            Logger.debug(`But phase is no longer set to attack. (${self.phase})`);
-        }
-    }
+        bankController.theftPromise
+            .then(_ => {
+                Logger.debug("Finished waiting for theft");
+                if (self.phase == "attack") {
+                    const { cash, crypto } = bankController.stolen;
+                    const transfer = [];
+                    const record = []; // this one isn't offset by any ratios, and will be sent to the database.
+                    if (cash) {
+                        transfer.push({
+                            cash: Math.floor(phaseData.currencyRatio * cash),
+                        });
+                        record.push({ cash: cash });
+                    }
+                    if (crypto) {
+                        transfer.push({
+                            crypto: Math.floor(phaseData.currencyRatio * crypto),
+                        });
+                        record.push({ crypto: crypto });
+                    }
+                    if (cash || crypto) {
+                        phaseData.resultHandler(record);
+                        self.Managers.Overlay._menuManager._dispatch("swapphase", {
+                            phase: "build",
+                            metadata: { transfer: transfer },
+                        });
+                    } else
+                        self.Managers.Overlay._menuManager._dispatch("swapphase", {
+                            phase: "build",
+                        });
+                } else {
+                    Logger.debug(
+                        `But phase is no longer set to attack. (${self.phase})`
+                    );
+                }
+            });
+    };
 
     const nodeController = new AttackNodeManager(
         nodeVictoryCallback,
@@ -314,7 +402,12 @@ PhaseManager.prototype.attackPhase = function (
     this.Managers.Overlay = overlayController;
     this.Managers.Node = nodeController;
     this.Managers.Listener = listenerController;
-    this._updateManagers.always.push(this.Managers.Node, this.Managers.Attacks, this.Managers.Overlay);
+    this._updateManagers.perTick.push(bankController);
+    this._updateManagers.always.push(
+        this.Managers.Node,
+        this.Managers.Attacks,
+        this.Managers.Overlay
+    );
     this._unloadPhase = () => {
         this._resetUpdateManagers();
         this.Managers.Audio.stop();
@@ -327,30 +420,51 @@ PhaseManager.prototype.attackPhase = function (
     Logger.log("[PhaseManager] | Loaded Attack phase");
 };
 
-PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetails, metadata = {}) {
+PhaseManager.prototype.buildPhase = function (
+    layout,
+    nodeOverlayData,
+    nodeDetails,
+    metadata = {}
+) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Build phase");
     this._unloadPhase();
     this.Managers.Physics.activate();
     this._controls.drag.enabled = true;
 
-    const nodeController = new BuildNodeManager(nodeOverlayData, ...this._constructorArgs.Node);
+    const nodeController = new BuildNodeManager(
+        nodeOverlayData,
+        ...this._constructorArgs.Node
+    );
     const overlayController = new BuildOverlayManager(
-        { // callbacks
+        {
+            // callbacks
             nodeInfo: (nodeid) => {
-                overlayController._menuManager.when("loadmenu", detail => {
-                    const node = overlayController._nodeManager.getNode(nodeid);
-                    const nodeDetail = nodeDetails[node.userData.type];
-                    const el = detail.infoElement;
-                    el.text = [
-                        nodeDetail.name,
-                        "\n",
-                        nodeDetail.description,
-                        "Costs: " + (nodeDetail.cost ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}` : "Free"),
-                        "Sell Value: " + (nodeDetail.sell ? `${nodeDetail.sell.amount} ${nodeDetail.sell.type}` : "None")
-                    ].join("\n\n");
-                    el.align("left");
-                }, false, true);
+                overlayController._menuManager.when(
+                    "loadmenu",
+                    (detail) => {
+                        const node =
+                            overlayController._nodeManager.getNode(nodeid);
+                        const nodeDetail = nodeDetails[node.userData.type];
+                        const el = detail.infoElement;
+                        el.text = [
+                            nodeDetail.name,
+                            "\n",
+                            nodeDetail.description,
+                            "Costs: " +
+                                (nodeDetail.cost
+                                    ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`
+                                    : "Free"),
+                            "Sell Value: " +
+                                (nodeDetail.sell
+                                    ? `${nodeDetail.sell.amount} ${nodeDetail.sell.type}`
+                                    : "None"),
+                        ].join("\n\n");
+                        el.align("left");
+                    },
+                    false,
+                    true
+                );
                 overlayController._menuManager.open(["nodeInfo"]);
             },
         },
@@ -359,10 +473,10 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
     const listenerController = new ListenerManager();
     const bankController = {
         // pseudo-manager for bank data
-        get bank () {
+        get bank() {
             return {
                 cash: nodeController.getStoredCurrency("cash"),
-                crypto: nodeController.getStoredCurrency("crypto")
+                crypto: nodeController.getStoredCurrency("crypto"),
             };
         },
         update: function () {
@@ -377,7 +491,7 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
             nodeController.collectCurrencyNode(nodeid);
             overlayController.updateWallet(this.bank);
             return true;
-        }
+        },
     };
 
     layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController);
@@ -390,15 +504,17 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
         // add currency
         let text = [];
         metadata.transfer.forEach((currencyData) => {
-            const [[ currencyType, amount ]] = Object.entries(currencyData);
+            const [[currencyType, amount]] = Object.entries(currencyData);
             nodeController.addCurrency(currencyType, amount);
             text.push(`${amount} ${currencyType}`);
         });
-        const message = "Transferred " + (text.length > 1
-            ? text.slice(0, text.length - 1)
-                .join(", ") +
-                " and " + text.at(-1)
-            : text[0]);
+        const message =
+            "Transferred " +
+            (text.length > 1
+                ? text.slice(0, text.length - 1).join(", ") +
+                  " and " +
+                  text.at(-1)
+                : text[0]);
         overlayController.messagePopup(message);
     }
 
@@ -407,7 +523,9 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
         const bankData = bankController.bank;
         if (cost) {
             if (bankData[cost.type].amount - cost.amount < 0) {
-                overlayController.messagePopup(`Cannot create new Node: Insufficient currency.`);
+                overlayController.messagePopup(
+                    `Cannot create new Node: Insufficient currency.`
+                );
                 overlayController._menuManager.close();
                 return;
             } else {
@@ -429,7 +547,10 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
             self._controls.camera.enabled = false;
             event.object.userData.dragged = true;
             try {
-                nodeController.setNodeEmissive(event.object.uuid, nodeDraggedEmissive);
+                nodeController.setNodeEmissive(
+                    event.object.uuid,
+                    nodeDraggedEmissive
+                );
                 bankController.collect(event.object.uuid);
             } catch {
                 Logger.error(
@@ -464,20 +585,22 @@ PhaseManager.prototype.buildPhase = function (layout, nodeOverlayData, nodeDetai
                 clickedNodeId &&
                 overlayController.focusedNodeId != clickedNodeId
             ) {
-                
                 overlayController.focusNode(clickedNodeId);
                 // attempt to collect currency
                 if (bankController.collect(clickedNodeId))
                     self.Managers.Audio.play("coin");
-                else
-                    self.Managers.Audio.play("click-focus");
+                else self.Managers.Audio.play("click-focus");
             } else overlayController.unfocusNode();
         });
 
     this.Managers.Node = nodeController;
     this.Managers.Overlay = overlayController;
     this.Managers.Listener = listenerController;
-    this._updateManagers.always.push(this.Managers.Node, this.Managers.Physics, this.Managers.Overlay);
+    this._updateManagers.always.push(
+        this.Managers.Node,
+        this.Managers.Physics,
+        this.Managers.Overlay
+    );
     this._updateManagers.perTick.push(bankController);
     this._unloadPhase = () => {
         this._resetUpdateManagers();
@@ -506,7 +629,7 @@ PhaseManager.prototype._updateTick = function (timedelta) {
 };
 
 PhaseManager.prototype.update = function (timedelta) {
-    this._updateManagers.always.forEach(m => m.update(timedelta));
+    this._updateManagers.always.forEach((m) => m.update(timedelta));
     this._updateTick(timedelta);
     // required if controls.enableDamping or controls.autoRotate are set to true
     this._controls.camera.update(); // must be called after any manual changes to the camera"s transform
@@ -515,14 +638,13 @@ PhaseManager.prototype.update = function (timedelta) {
 function AttackManagerWrapper() {
     this._attackManagers = [];
     this.push = function (...managers) {
-        managers.forEach(m => this._attackManagers.push(m));
-    }
+        managers.forEach((m) => this._attackManagers.push(m));
+    };
     this.clear = function () {
-        while (this._attackManagers.length)
-            this._attackManagers.pop().clear();
-    }
+        while (this._attackManagers.length) this._attackManagers.pop().clear();
+    };
     this.update = function (delta) {
-        this._attackManagers.forEach(m => m.update(delta));
-    }
+        this._attackManagers.forEach((m) => m.update(delta));
+    };
     return this;
 }
