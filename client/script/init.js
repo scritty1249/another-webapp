@@ -452,10 +452,13 @@ function mainloop(MenuController) {
                                                     targetData.game,
                                                     DataStore.AttackerData,
                                                     DataStore.AttackTypeData(camera),
-                                                    DataStore.NodeTypeData,
+                                                    DataStore.AttackNodeTypeData,
                                                     DataStore.AttackNodeOverlayData,
                                                     DataStore.AttackSfx,
-                                                    CONFIG.CURRENCY_THEFT_TICKSPEED
+                                                    { 
+                                                        theftRate: CONFIG.CURRENCY_THEFT_TICKSPEED,
+                                                        regenDelay: CONFIG.ATTACK_NODE_REGEN_DELAY,
+                                                    }
                                                 );
                                                 MenuController.close();
                                             } else {
