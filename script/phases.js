@@ -197,7 +197,8 @@ PhaseManager.prototype.attackPhase = function (
     layout,
     attackData,
     attackTypes,
-    nodeTypes
+    nodeTypes,
+    nodeOverlayData,
 ) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Attack phase");
@@ -276,6 +277,7 @@ PhaseManager.prototype.attackPhase = function (
         nodeVictoryCallback,
         nodeTypes,
         attackerTypeData,
+        nodeOverlayData,
         ...this._constructorArgs.Node
     );
     const overlayController = new AttackOverlayManager(

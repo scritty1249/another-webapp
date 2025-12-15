@@ -132,7 +132,7 @@ export const DataStore = {
             slots: 3,
         },
     },
-    NodeOverlayData: {
+    BuildNodeOverlayData: {
         slots: {
             tiles: 7,
             offset: new Vector3(-0.9, -0.95, 0),
@@ -163,6 +163,13 @@ export const DataStore = {
                 _currencyOverlayData.mapSize,
                 _currencyOverlayData.alphaMapSize
             ),
+        },
+    },
+    AttackNodeOverlayData: {
+        health: {
+            offset: new Vector3(-0.9, -0.95, 0),
+            geometry: new PlaneGeometry(0.7, 0.7),
+            material: SSMaterialType.CircleProgress(0xE3E3E3),
         },
     },
     NodeDetailedInfo: {

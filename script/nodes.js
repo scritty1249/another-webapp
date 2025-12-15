@@ -3,6 +3,7 @@ import * as UTIL from "./utils.js";
 import {
     NodeSSOverlay,
     SSFramesMesh,
+    SSProgressMesh,
     SSMaskMesh,
     SSNodeSlotsMesh,
 } from "./spritesheet.js";
@@ -42,6 +43,13 @@ export function NodeManager(
     this.tetherlist = new Proxy(
         this._tetherlist,
         this._proxyHandlers.tetherlist
+    );
+    this._overlay = {};
+    this._overlaylist = [];
+    this.overlay = new Proxy(this._overlay, this._proxyHandlers.overlay);
+    this.overlaylist = new Proxy(
+        this._overlaylist,
+        this._proxyHandlers.overlaylist
     );
 }
 
@@ -139,11 +147,50 @@ NodeManager.prototype = {
                 return Reflect.set(target, prop, val, receiver);
             },
         },
+        overlay: {
+            set(target, prop, val, receiver) {
+                this._instance._overlaylist.push(val);
+                this._instance._scene.add(val);
+                return Reflect.set(target, prop, val, receiver);
+            },
+            deleteProperty(target, prop) {
+                const overlay = target[prop];
+                if (overlay !== undefined) {
+                    this._instance._scene.remove(overlay);
+                    // [!] may be optimizied, see if performance is impacted by this
+                    this._instance._overlaylist.splice(
+                        this._instance._overlaylist
+                            .map((o) => o.uuid)
+                            .indexOf(overlay.uuid),
+                        1
+                    );
+                }
+                return Reflect.deleteProperty(target, prop);
+            },
+        },
+        overlaylist: {
+            set(target, prop, val, receiver) {
+                if (typeof property === "number") {
+                    Logger.throw(
+                        new Error(
+                            `[BuildNodeManager] | Setting specific index of read-only overlaylist is forbidden.`
+                        )
+                    );
+                    return false;
+                }
+                return Reflect.set(target, prop, val, receiver);
+            },
+        },
     },
     _nodes: {},
     _nodelist: [],
     _tethers: {},
     _tetherlist: [],
+    _nodeOverlayData: undefined,
+    overlay: undefined,
+    overlaylist: undefined,
+    _overlay: undefined,
+    _overlaylist: undefined,
     nodes: undefined,
     tethers: undefined,
     nodelist: undefined,
@@ -319,6 +366,7 @@ NodeManager.prototype.addMeshData = function (meshData) {
     );
 };
 NodeManager.prototype.update = function (timedelta) {
+    this._updateOverlays();
     this._updateAnimations(timedelta);
 };
 NodeManager.prototype.getFlatCoordinateFromNode = function (nodeid) {
@@ -549,6 +597,33 @@ NodeManager.prototype.getStorageData = function (nodeid) {
     const node = this.getNode(nodeid);
     return node.userData.exportData.store;
 };
+NodeManager.prototype._updateOverlays = function () {
+    this.overlaylist.forEach((overlay) => {
+        overlay.userData.update(this._camera);
+    });
+};
+NodeManager.prototype.getOverlay = function (overlayid) {
+    const overlay = this.overlay[overlayid];
+    if (!overlay)
+        Logger.throw(
+            new Error(
+                `[NodeManager] | Overlay of UUID ${overlayid} does not exist.`
+            )
+        );
+    return overlay;
+};
+NodeManager.prototype.getOverlayByTarget = function (targetid) {
+    const overlay = this.overlaylist.filter(
+        (o) => o.userData.target.uuid == targetid
+    )?.[0];
+    if (!overlay)
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
+            )
+        );
+    return overlay;
+};
 NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
     // why are we back to BFS bro wtf
     const commonObj = {};
@@ -575,10 +650,12 @@ export function AttackNodeManager(
     phaseCallback,
     nodeTypeData = {},
     attackTypeData = {},
+    nodeOverlayData = {},
     ...parentArgs
 ) {
     NodeManager.call(this, ...parentArgs);
     this._phaseCallback = phaseCallback;
+    this._nodeOverlayData = nodeOverlayData;
     this._nodeTypeData = nodeTypeData;
     this._attackTypeData = attackTypeData;
     this._nodedata = {};
@@ -803,6 +880,43 @@ AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
         this.resetNodeEmissive(nodeid);
     }
 };
+AttackNodeManager.prototype.createNode = function (...args) {
+    const nodeid = NodeManager.prototype.createNode.call(this, ...args);
+    try {
+        const node = this.getNode(nodeid);
+        const overlay = NodeSSOverlay(node);
+        { // node specific overlays
+
+        }
+        const oHealthMesh = SSProgressMesh(
+            this._nodeOverlayData.health.geometry,
+            this._nodeOverlayData.health.material.clone()
+        );
+        overlay.userData.addChild(
+            "health",
+            oHealthMesh,
+            this._nodeOverlayData.health.offset
+        );
+        this.overlay[overlay.uuid] = overlay;
+    } catch (err) {
+        Logger.error(
+            `[AttackNodeManager] | Failed to create overlay for node ${nodeid}: Missing node overlay data from `,
+            this._nodeOverlayData
+        );
+        Logger.debug(err);
+    } finally {
+        return nodeid;
+    }
+};
+AttackNodeManager.prototype._updateOverlays = function () {
+    NodeManager.prototype._updateOverlays.call(this);
+    this.overlaylist.forEach((overlay) => {
+        const node = overlay.userData.target;
+        const nodeData = this.getNodeData(node.uuid);
+        overlay.userData.children.health.userData.progress =
+            nodeData.hp.health / nodeData.hp.maxHealth;
+    });
+};
 AttackNodeManager.prototype.getAllAttacksFrom = function (nodeid) {
     return this.attacklist.filter((attack) => attack.origin == nodeid);
 };
@@ -869,52 +983,11 @@ AttackNodeManager.prototype.clear = function () {
 export function BuildNodeManager(nodeOverlayData, ...parentArgs) {
     NodeManager.call(this, ...parentArgs);
     this._nodeOverlayData = nodeOverlayData;
-    this._overlay = {};
-    this._overlaylist = [];
-    this.overlay = new Proxy(this._overlay, this._proxyHandlers.overlay);
-    this.overlaylist = new Proxy(
-        this._overlaylist,
-        this._proxyHandlers.overlaylist
-    );
 }
 BuildNodeManager.prototype = Object.create(NodeManager.prototype);
 BuildNodeManager.prototype.constructor = BuildNodeManager;
 BuildNodeManager.prototype._proxyHandlers = {
     ...BuildNodeManager.prototype._proxyHandlers,
-    overlay: {
-        set(target, prop, val, receiver) {
-            this._instance._overlaylist.push(val);
-            this._instance._scene.add(val);
-            return Reflect.set(target, prop, val, receiver);
-        },
-        deleteProperty(target, prop) {
-            const overlay = target[prop];
-            if (overlay !== undefined) {
-                this._instance._scene.remove(overlay);
-                // [!] may be optimizied, see if performance is impacted by this
-                this._instance._overlaylist.splice(
-                    this._instance._overlaylist
-                        .map((o) => o.uuid)
-                        .indexOf(overlay.uuid),
-                    1
-                );
-            }
-            return Reflect.deleteProperty(target, prop);
-        },
-    },
-    overlaylist: {
-        set(target, prop, val, receiver) {
-            if (typeof property === "number") {
-                Logger.throw(
-                    new Error(
-                        `[BuildNodeManager] | Setting specific index of read-only overlaylist is forbidden.`
-                    )
-                );
-                return false;
-            }
-            return Reflect.set(target, prop, val, receiver);
-        },
-    },
 };
 BuildNodeManager.prototype.createNode = function (...args) {
     const nodeid = NodeManager.prototype.createNode.call(this, ...args);
@@ -968,24 +1041,6 @@ BuildNodeManager.prototype.createNode = function (...args) {
         return nodeid;
     }
 };
-BuildNodeManager.prototype._updateOverlays = function () {
-    this.overlaylist.forEach((overlay) => {
-        const node = overlay.userData.target;
-        overlay.userData.children.slots.userData.filled =
-            overlay.userData.target.userData._neighborCount;
-        if (this.isCurrencyNode(node.uuid))
-            overlay.userData.children.bar.userData.maskOffset.x =
-                1 -
-                node.userData.exportData.currency.amount /
-                    node.userData.exportData.currency.max;
-        else if (this.isStorageNode(node.uuid))
-            overlay.userData.children.bar.userData.maskOffset.x =
-                1 -
-                node.userData.exportData.store.amount /
-                    node.userData.exportData.store.max;
-        overlay.userData.update(this._camera);
-    });
-};
 BuildNodeManager.prototype._updateCurrencyNodes = function () {
     // doesn't go off of timedelta- more accurate / convienient just use current time
     const nodes = this.nodelist.filter(n => n.userData.exportData?.currency);
@@ -1006,28 +1061,6 @@ BuildNodeManager.prototype._updateCurrencyNodes = function () {
             }
         }
     });
-};
-BuildNodeManager.prototype.getOverlay = function (overlayid) {
-    const overlay = this.overlay[overlayid];
-    if (!overlay)
-        Logger.throw(
-            new Error(
-                `[BuildNodeManager] | Overlay of UUID ${overlayid} does not exist.`
-            )
-        );
-    return overlay;
-};
-BuildNodeManager.prototype.getOverlayByTarget = function (targetid) {
-    const overlay = this.overlaylist.filter(
-        (o) => o.userData.target.uuid == targetid
-    )?.[0];
-    if (!overlay)
-        Logger.throw(
-            new Error(
-                `[BuildNodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
-            )
-        );
-    return overlay;
 };
 BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
     // returns the amount, then sets the amount to zero.
@@ -1083,6 +1116,24 @@ BuildNodeManager.prototype.removeCurrency = function (currencyType, amount) {
     if (remaining) Logger.info(`[BuildNodeManager] | Lost ${remaining} execess ${currencyType} after attempting to add ${amount} ${currencyType}.`);
     return remaining;
 };
+BuildNodeManager.prototype._updateOverlays = function () {
+    NodeManager.prototype._updateOverlays.call(this);
+    this.overlaylist.forEach((overlay) => {
+        const node = overlay.userData.target;
+        overlay.userData.children.slots.userData.filled =
+            overlay.userData.target.userData._neighborCount;
+        if (this.isCurrencyNode(node.uuid))
+            overlay.userData.children.bar.userData.maskOffset.x =
+                1 -
+                node.userData.exportData.currency.amount /
+                    node.userData.exportData.currency.max;
+        else if (this.isStorageNode(node.uuid))
+            overlay.userData.children.bar.userData.maskOffset.x =
+                1 -
+                node.userData.exportData.store.amount /
+                    node.userData.exportData.store.max;
+    });
+};
 BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
     const tether = this._getTetherFromNodes(originid, targetid);
     this.removeTether(tether.uuid);
@@ -1110,7 +1161,6 @@ BuildNodeManager.prototype.removeNode = function (nodeid) {
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);
     this._updateCurrencyNodes();
-    this._updateOverlays();
     this._updateTethers();
 };
 BuildNodeManager.prototype.clear = function () {

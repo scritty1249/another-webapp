@@ -415,7 +415,8 @@ const Nodes = {
         store.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
         store.userData.child("stack").userData.child("5").material = sliceMaterial.clone();
         store.userData.child("stack").userData.child("6").material = sliceMaterial.clone();
-        store.scale.setScalar(0.5);
+        store.userData.child("stack").scale.setScalar(0.65);
+        store.scale.setScalar(0.8);
         store.userData.type = "cashstore";
         store.userData.state = {
             setLowPerformance: function () {},
@@ -465,7 +466,8 @@ const Nodes = {
         store.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
         store.userData.child("stack").userData.child("5").material = sliceMaterial.clone();
         store.userData.child("stack").userData.child("6").material = sliceMaterial.clone();
-        store.scale.setScalar(0.5);
+        store.userData.child("stack").scale.setScalar(0.65);
+        store.scale.setScalar(0.8);
         store.userData.type = "cryptostore";
         store.userData.state = {
             setLowPerformance: function () {},
@@ -513,7 +515,8 @@ const Nodes = {
         farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
         farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
         farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        farm.scale.setScalar(0.4);
+        farm.userData.child("stack").scale.setScalar(0.6);
+        farm.scale.setScalar(0.7);
         farm.userData.type = "cashfarm";
         farm.userData.state = {
             setLowPerformance: function () {},
@@ -561,7 +564,8 @@ const Nodes = {
         farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
         farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
         farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        farm.scale.setScalar(0.4);
+        farm.userData.child("stack").scale.setScalar(0.6);
+        farm.scale.setScalar(0.7);
         farm.userData.type = "cryptofarm";
         farm.userData.state = {
             setLowPerformance: function () {},

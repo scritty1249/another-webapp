@@ -3,11 +3,22 @@ import {
     Vector3,
     FrontSide,
     ShaderMaterial,
+    RawShaderMaterial,
     TextureLoader,
     Group,
     Mesh,
+    Color,
 } from "three";
 import * as UTIL from "./utils.js";
+
+const _vertShader = `
+    varying vec2 vuv;
+    void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        vuv = uv;
+    }
+`;
 
 export const SSMaterialType = {
     // planes, not actual sprites lol
@@ -29,14 +40,7 @@ export const SSMaterialType = {
                 gl_FragColor = vec4(txl, alpha);
             }
         `;
-        const vertShader = `
-            varying vec2 vuv;
-            void main() {
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_Position = projectionMatrix * mvPosition;
-                vuv = uv;
-            }
-        `;
+        const vertShader = _vertShader;
         const material = new ShaderMaterial({
             vertexShader: vertShader,
             fragmentShader: fragShader,
@@ -72,14 +76,7 @@ export const SSMaterialType = {
                 gl_FragColor = vec4(txl, alpha);
             }
         `;
-        const vertShader = `
-            varying vec2 vuv;
-            void main() {
-                vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-                gl_Position = projectionMatrix * mvPosition;
-                vuv = uv;
-            }
-        `;
+        const vertShader = _vertShader;
         const material = new ShaderMaterial({
             vertexShader: vertShader,
             fragmentShader: fragShader,
@@ -93,6 +90,70 @@ export const SSMaterialType = {
                 alphaMap: {
                     value: new TextureLoader().load(alphaMap),
                 },
+            },
+        });
+        return material;
+    },
+    CircleProgress: function (color, bgColor = 0x000000, bgOpacity = .0) {
+        const fragShader = `
+            precision mediump float;
+            varying vec2 vuv;
+            uniform float progress;
+            uniform vec3 color;
+            uniform vec3 bgColor;
+            uniform float bgOpacity;
+            uniform float innerRadius;
+            uniform float outerRadius;
+            void main() {
+                vec2 vuv = vec2( 1. - vuv.y, vuv.x); // rotate, start at 12 o'clock
+                float dist = length(vuv - vec2(.5, .5));
+
+                float ring = smoothstep(innerRadius, innerRadius + 0.01, dist) * 
+                    smoothstep(outerRadius, outerRadius - 0.01, dist);
+                float angle = atan(vuv.y -.5, vuv.x -.5);
+                // Remap angle from [-PI, PI] to [0, 2*PI]
+                angle = angle + PI; 
+
+                float arc = smoothstep(0.0, 0.01, angle - (progress * 2.0 * PI));
+                
+                if (angle < progress * 2.0 * PI && ring > 0.5) {
+                    gl_FragColor = vec4(color, 1.0); // Draw the colored part
+                } else if (ring > 0.5) {
+                    gl_FragColor = vec4(bgColor, bgOpacity); // Draw a dimmer background ring
+                } else {
+                    gl_FragColor = vec4(0.0); // Transparent background
+                }
+            }
+        `;
+        const vertShader = `
+            uniform mat4 projectionMatrix;
+            uniform mat4 viewMatrix;
+            uniform mat4 modelMatrix;
+            attribute vec3 position;
+            attribute vec2 uv;
+            varying vec2 vuv;
+
+            void main() {
+                vuv = uv;
+                gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+            }
+        `;
+        const material = new RawShaderMaterial({
+            vertexShader: vertShader,
+            fragmentShader: fragShader,
+            transparent: true,
+            depthWrite: false,
+            side: FrontSide,
+            uniforms: {
+                progress: { value: 0.0 },
+                color: { value: new Color(color) },
+                bgColor: { value: new Color(bgColor) },
+                bgOpacity: { value: bgOpacity },
+                innerRadius: { value: 0.25 },
+                outerRadius: { value: 0.35 },
+            },
+            defines: {
+                PI: Math.PI,
             },
         });
         return material;
@@ -111,7 +172,7 @@ export function NodeSSOverlay(targetNodeMesh) {
             this.target.getWorldPosition(pos);
             wrapper.position.copy(pos);
             Object.values(this.children).forEach((child) => {
-                if (child?.update) child.update();
+                if (child.userData.update) child.userData.update();
                 if (!child.userData.needsUpdate) return;
                 child.position.copy(
                     child.userData.offset
@@ -177,7 +238,7 @@ export function SSNodeSlotsMesh(geometry, material, slots) {
     // NEVER CLONE THIS.
     const spriteSheetNodeSlotsMesh = new Mesh(geometry, material);
     spriteSheetNodeSlotsMesh.userData = {
-        set slots (value) {
+        set slots(value) {
             if (value > slots || value < 1)
                 Logger.throw(
                     new Error(
@@ -186,10 +247,10 @@ export function SSNodeSlotsMesh(geometry, material, slots) {
                 );
             material.uniforms.maskOffset.value.y = value - 1;
         },
-        get slots () {
+        get slots() {
             return material.uniforms.maskOffset.value.y - 1;
         },
-        set filled (value) {
+        set filled(value) {
             if (value > slots + 1 || value < 0)
                 Logger.throw(
                     new Error(
@@ -197,10 +258,29 @@ export function SSNodeSlotsMesh(geometry, material, slots) {
                     )
                 );
             material.uniforms.maskOffset.value.x = value;
-        }, 
-        get filled () {
+        },
+        get filled() {
             return material.uniforms.maskOffset.value.x;
         },
     };
     return spriteSheetNodeSlotsMesh;
+}
+
+export function SSProgressMesh(geometry, material) {
+    const spriteSheetProgressMesh = new Mesh(geometry, material);
+    spriteSheetProgressMesh.userData = {
+        set progress(value) {
+            if (value > 1 || value < 0)
+                Logger.throw(
+                    new Error(
+                        `[SpriteSheetProgressMesh] | Error: progress must be set to a value between 0 and 1 (inclusive).`
+                    )
+                );
+            material.uniforms.progress.value = value;
+        },
+        get progress() {
+            return material.uniforms.progress.value;
+        },
+    };
+    return spriteSheetProgressMesh;
 }
