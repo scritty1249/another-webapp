@@ -166,6 +166,7 @@ AttackManager.prototype = {
     set instanceCount(count) {
         this.instances.count = UTIL.clamp(count, 0, this.config.maxInstances);
     },
+    onplayback: undefined,
     shader: {
         uniforms: undefined, // Proxy for shader uniforms attribute
         _frag: `
@@ -341,6 +342,8 @@ AttackManager.prototype.playAll = function () {
 
 AttackManager.prototype.play = function (instanceid) {
     this.getOptions(instanceid).playing = true;
+    if (this.onplayback)
+        this.onplayback();
 };
 
 AttackManager.prototype.pause = function (instanceid) {

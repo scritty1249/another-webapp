@@ -33,6 +33,7 @@ export const DataStore = {
         return {
             particle: {
                 mesh: AttackManagerFactory.Particle,
+                sfx: "pew",
                 damage: 8,
                 cooldown: 650, // ms
                 logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
@@ -46,6 +47,7 @@ export const DataStore = {
             },
             laser: {
                 mesh: AttackManagerFactory.Laser,
+                sfx: undefined,
                 damage: 5,
                 cooldown: 0, // ms
                 logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
@@ -59,6 +61,7 @@ export const DataStore = {
             },
             pascualcannon: {
                 mesh: (a) => AttackManagerFactory.PascualCannon(camera, a),
+                sfx: undefined,
                 damage: 10,
                 cooldown: 1000, // ms
                 logic: AttackLogic.BasicLogicFactory,
@@ -84,6 +87,7 @@ export const DataStore = {
             },
             cubedefense: {
                 mesh: AttackManagerFactory.CubeDefense,
+                sfx: undefined,
                 damage: 12,
                 cooldown: 1500, // ms
                 logic: AttackLogic.BasicLogicFactory,
