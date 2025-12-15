@@ -5,12 +5,14 @@ import { SSMaterialType, SSFramesMesh } from "./spritesheet.js";
 
 const _currencyOverlayData = {
     // avoid reinitializing where possible
-    offset: new Vector3(0, 3, 0),
+    offset: new Vector3(0, 1.5, 0),
     geometry: new PlaneGeometry(0.9, 0.3),
     alphaMap: "./source/node-overlay/currency/currency-bar-mask.png",
     mapSize: new Vector2(300, 100),
     alphaMapSize: new Vector2(600, 100),
 };
+
+const _baseHealthRegenPercentage = .02 * .05; // laziness, regens 10% health every X ticks
 
 export const DataStore = {
     AttackerData: {
@@ -98,38 +100,46 @@ export const DataStore = {
             },
         };
     },
-    NodeTypeData: {
+    AttackNodeTypeData: {
         placeholder: {
             health: 50,
             slots: 4,
+            regen: _baseHealthRegenPercentage // per tick
         },
         cube: {
             health: 100,
             slots: 5,
+            regen: _baseHealthRegenPercentage // per tick
         },
         scanner: {
             health: 75,
             slots: 4,
+            regen: _baseHealthRegenPercentage // per tick
         },
         globe: {
             health: 0,
             slots: 3,
+            regen: 0
         },
         cashfarm: {
             health: 75,
             slots: 2,
+            regen: _baseHealthRegenPercentage // per tick
         },
         cashstore: {
             health: 125,
             slots: 3,
+            regen: _baseHealthRegenPercentage // per tick
         },
         cryptofarm: {
             health: 75,
             slots: 2,
+            regen: _baseHealthRegenPercentage // per tick
         },
         cryptostore: {
             health: 125,
             slots: 3,
+            regen: _baseHealthRegenPercentage // per tick
         },
     },
     BuildNodeOverlayData: {

@@ -14,5 +14,6 @@ export const Configuration = {
     AUTOSAVE_INTERVAL: 150000, // ms, interval for autosaves. Shouldn't overlap with saving when leaving the page
     CURRENCY_THEFT_RATIO: 1 / 2, // how much attackers can make from stealing
     CURRENCY_LOSS_RATIO: 2 / 3, // how much defenders can lose when stolen from
-    CURRENCY_THEFT_TICKSPEED: 4, // how many ticks to wait before stealing 1 currency from captured nodes
+    CURRENCY_THEFT_TICKSPEED: 5, // how many ticks to wait before stealing 1 currency from captured nodes
+    ATTACK_NODE_REGEN_DELAY: 4.5, // seconds
 };

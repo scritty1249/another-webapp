@@ -410,6 +410,9 @@ NodeManager.prototype.clear = function () {
     const tethers = [...this.tetherlist];
     tethers.forEach((t) => delete this.tethers[t.uuid]);
     nodes.forEach((n) => delete this.nodes[n.uuid]);
+    const overlays = [...this.overlaylist];
+    overlays.forEach((o) => delete this.overlay[o.uuid]);
+    delete this._nodeOverlayData;
     Logger.debug(
         `[NodeManager] | Cleared ${nodes.length} nodes and ${tethers.length} tethers`
     );
@@ -619,7 +622,7 @@ NodeManager.prototype.getOverlayByTarget = function (targetid) {
     if (!overlay)
         Logger.throw(
             new Error(
-                `[BuildNodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
+                `[NodeManager] | Overlay with Node target of UUID ${targetid} does not exist.`
             )
         );
     return overlay;
@@ -651,9 +654,11 @@ export function AttackNodeManager(
     nodeTypeData = {},
     attackTypeData = {},
     nodeOverlayData = {},
+    configData = {},
     ...parentArgs
 ) {
     NodeManager.call(this, ...parentArgs);
+    this._configData = configData;
     this._phaseCallback = phaseCallback;
     this._nodeOverlayData = nodeOverlayData;
     this._nodeTypeData = nodeTypeData;
@@ -860,6 +865,7 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
         nodeData.friendly = true;
         nodeData.hp.set(nodeTypeData.health / 2);
         nodeData.state.reset();
+        nodeData.lastHit.reset();
         this.setNodeEmissive(nodeid, friendlyEmissiveColor);
     }
     if (this.isAllNodesFriendly()) // check for win condition
@@ -876,6 +882,7 @@ AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
         nodeData.friendly = false;
         nodeData.hp.set(nodeTypeData.health);
         nodeData.state.reset();
+        nodeData.lastHit.reset();
         this.resetNodeColorTint(nodeid);
         this.resetNodeEmissive(nodeid);
     }
@@ -920,20 +927,6 @@ AttackNodeManager.prototype.createNode = function (...args) {
         return nodeid;
     }
 };
-AttackNodeManager.prototype._updateOverlays = function () {
-    NodeManager.prototype._updateOverlays.call(this);
-    this.overlaylist.forEach((overlay) => {
-        const node = overlay.userData.target;
-        const nodeData = this.getNodeData(node.uuid);
-        overlay.userData.children.health.userData.progress =
-            nodeData.hp.health / nodeData.hp.maxHealth;
-        if (this.isStorageNode(node.uuid))
-            overlay.userData.children.bar.userData.maskOffset.x =
-                1 -
-                node.userData.exportData.store.amount /
-                    node.userData.exportData.store.max;
-    });
-};
 AttackNodeManager.prototype.getAllAttacksFrom = function (nodeid) {
     return this.attacklist.filter((attack) => attack.origin == nodeid);
 };
@@ -965,6 +958,22 @@ AttackNodeManager.prototype.addAttackToNode = function (attackType, nodeid) {
         );
     return false;
 };
+AttackNodeManager.prototype._updateOverlays = function () {
+    NodeManager.prototype._updateOverlays.call(this);
+    this.overlaylist.forEach((overlay) => {
+        const node = overlay.userData.target;
+        const nodeData = this.getNodeData(node.uuid);
+        const healthPercent = nodeData.hp.health / nodeData.hp.maxHealth;
+        overlay.userData.children.health.userData.progress = healthPercent;
+        overlay.userData.children.health.visible = healthPercent != 1;
+        if (this.isStorageNode(node.uuid)) {
+            const heldPercent = node.userData.exportData.store.amount /
+                    node.userData.exportData.store.max;
+            overlay.userData.children.bar.userData.maskOffset.x = 1 - heldPercent;
+            overlay.userData.children.bar.visible = heldPercent != 0 && nodeData.isFriendly;
+        }
+    });
+};
 AttackNodeManager.prototype._updateAnimations = function (timedelta) {
     this.nodelist.forEach((node) => {
         if (node.userData.updateAnimations) {
@@ -978,8 +987,23 @@ AttackNodeManager.prototype._updateAnimations = function (timedelta) {
         }
     });
 };
+AttackNodeManager.prototype._updateNodeData = function () { // should be handled seperately, per tick.
+    this.nodelist.forEach((node) => {
+        const nodeData = this.getNodeData(node.uuid);
+        const typeData = this._getNodeTypeData(node.userData.type);
+        // apply regen
+        if (
+            nodeData.hp.health < nodeData.hp.maxHealth &&
+            nodeData.timeSinceLastHit > this._configData.regenDelay
+        )
+            nodeData.hp.applyHeal(nodeData.hp.maxHealth * typeData.regen);
+    });
+};
 AttackNodeManager.prototype._updateAttacks = function () {
     this.attacklist.forEach((attack) => attack.update());
+};
+AttackNodeManager.prototype.updateTick = function () { // not called by update method
+    this._updateNodeData();
 };
 AttackNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);
@@ -1080,7 +1104,6 @@ BuildNodeManager.prototype._updateCurrencyNodes = function () {
     });
 };
 BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
-    // returns the amount, then sets the amount to zero.
     const node = this.getNode(nodeid);
     if (!this.isCurrencyNode(nodeid))
         Logger.throw(
@@ -1096,8 +1119,9 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
         currencyData.amount = 0;
         currencyData.lastUpdated = UTIL.getNowUTCSeconds();
         this.addCurrency(currencyData.type, Math.min(amount, storageData.max));
+        return true;
     }
-    return true;
+    return false;
 };
 BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
     const nodes = this.getStorageNodes(currencyType);
@@ -1182,9 +1206,7 @@ BuildNodeManager.prototype.update = function (timedelta) {
 };
 BuildNodeManager.prototype.clear = function () {
     NodeManager.prototype.clear.call(this);
-    const overlays = [...this.overlaylist];
-    overlays.forEach((o) => delete this.overlay[o.uuid]);
-    delete this._nodeOverlayData;
+    
 };
 
 function AttackFactory(typeData, originid, nodeManager) {
@@ -1318,13 +1340,18 @@ function NodeDataFactory(nodeid, manager) {
                       (nd) => nd.isFriendly != this.isFriendly && !nd.isDead
                   );
         },
+        get timeSinceLastHit () {
+            return UTIL.getNowUTCSeconds() - this.lastHit.timestamp;
+        },
         canAttack: function (targetid) {
             return (
                 this.attackableNeighbors.filter((nd) => nd.uuid == targetid)
                     .length > 0
             );
         },
-        damage: function (value) {
+        damage: function (value, source = undefined) {
+            this.lastHit.timestamp = UTIL.getNowUTCSeconds();
+            this.lastHit.source = source;
             this.hp.applyDamage(value);
             Logger.debug(`Dealt ${value} damage to node ${this.uuid}`);
             if (this.isDead) {
@@ -1338,7 +1365,14 @@ function NodeDataFactory(nodeid, manager) {
             }
             return false;
         },
-
+        lastHit: {
+            source: undefined,
+            timestamp: 0,
+            reset: function () {
+                this.source = undefined;
+                this.timestamp = 0;
+            },
+        },
         uuid: nodeid,
         friendly: node.userData.type == "globe",
         hp: NodeHealthFactory(typeData?.health),

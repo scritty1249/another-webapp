@@ -216,7 +216,7 @@ PhaseManager.prototype.attackPhase = function (
     nodeTypes,
     nodeOverlayData,
     sfxData,
-    theftTickRate = 2,
+    phaseConfig,
 ) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Attack phase");
@@ -278,7 +278,7 @@ PhaseManager.prototype.attackPhase = function (
             crypto: 0,
         },
         tick: 0,
-        interval: theftTickRate,
+        interval: phaseConfig.theftRate,
         get capturedStores() {
             return [
                 ...nodeController.getStorageNodes("cash"),
@@ -366,6 +366,7 @@ PhaseManager.prototype.attackPhase = function (
         nodeTypes,
         attackerTypeData,
         nodeOverlayData,
+        phaseConfig,
         ...this._constructorArgs.Node
     );
     const overlayController = new AttackOverlayManager(
@@ -402,7 +403,10 @@ PhaseManager.prototype.attackPhase = function (
     this.Managers.Overlay = overlayController;
     this.Managers.Node = nodeController;
     this.Managers.Listener = listenerController;
-    this._updateManagers.perTick.push(bankController);
+    this._updateManagers.perTick.push(
+        bankController,
+        this.Managers.Node,
+    );
     this._updateManagers.always.push(
         this.Managers.Node,
         this.Managers.Attacks,
@@ -623,14 +627,19 @@ PhaseManager.prototype._updateTick = function (timedelta) {
         t <= Math.floor(this.tick.delta / this.tick.interval);
         t++
     ) {
-        this._updateManagers.perTick.forEach((m) => m.update());
+        this._updateManagers.perTick.forEach((m) => {
+            if (m.updateTick) // [!] expensive, change this first if optimizing
+                m.updateTick();
+            else
+                m.update();
+        });
     }
     this.tick.delta = this.tick.delta % this.tick.interval;
 };
 
 PhaseManager.prototype.update = function (timedelta) {
-    this._updateManagers.always.forEach((m) => m.update(timedelta));
     this._updateTick(timedelta);
+    this._updateManagers.always.forEach((m) => m.update(timedelta));
     // required if controls.enableDamping or controls.autoRotate are set to true
     this._controls.camera.update(); // must be called after any manual changes to the camera"s transform
 };
