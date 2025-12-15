@@ -488,9 +488,9 @@ PhaseManager.prototype.buildPhase = function (
         collect: function (nodeid) {
             const currencyType = nodeController.isCurrencyNode(nodeid);
             if (!currencyType) return false;
-            nodeController.collectCurrencyNode(nodeid);
+            const collected = nodeController.collectCurrencyNode(nodeid);
             overlayController.updateWallet(this.bank);
-            return true;
+            return collected;
         },
     };
 
@@ -551,7 +551,7 @@ PhaseManager.prototype.buildPhase = function (
                     event.object.uuid,
                     nodeDraggedEmissive
                 );
-                bankController.collect(event.object.uuid);
+
             } catch {
                 Logger.error(
                     "DragControls selected a bad node (dragstart): ",
@@ -581,16 +581,16 @@ PhaseManager.prototype.buildPhase = function (
             const clickedNodeId = nodeController.getNodeFromFlatCoordinate(
                 self.Managers.Mouse.position
             );
-            if (
-                clickedNodeId &&
-                overlayController.focusedNodeId != clickedNodeId
-            ) {
-                overlayController.focusNode(clickedNodeId);
-                // attempt to collect currency
-                if (bankController.collect(clickedNodeId))
+            if (clickedNodeId) {
+                if (bankController.collect(clickedNodeId)) {
                     self.Managers.Audio.play("coin");
-                else self.Managers.Audio.play("click-focus");
-            } else overlayController.unfocusNode();
+                } else if (overlayController.focusedNodeId != clickedNodeId) {
+                    overlayController.focusNode(clickedNodeId);
+                    self.Managers.Audio.play("click-focus");
+                    return;
+                }
+            }
+            overlayController.unfocusNode();
         });
 
     this.Managers.Node = nodeController;
