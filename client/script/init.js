@@ -338,7 +338,7 @@ function mainloop(MenuController) {
                                                 "Loading profile";
                                             PhaseController.buildPhase(
                                                 Storage.get("localLayout"),
-                                                DataStore.NodeOverlayData,
+                                                DataStore.BuildNodeOverlayData,
                                                 DataStore.NodeDetailedInfo,
                                                 dt?.metadata ? dt.metadata : {}
                                             );
@@ -445,7 +445,8 @@ function mainloop(MenuController) {
                                                     targetData.game,
                                                     DataStore.AttackerData,
                                                     DataStore.AttackTypeData(camera),
-                                                    DataStore.NodeTypeData
+                                                    DataStore.NodeTypeData,
+                                                    DataStore.AttackNodeOverlayData,
                                                 );
                                                 MenuController.close();
                                             } else {
@@ -677,7 +678,7 @@ function mainloop(MenuController) {
                     ...__
                 ] = audioData;
                 Logger.info("Finished loading audio data");
-                AudioController.register("pew", pewSfx, 0.4);
+                AudioController.register("pew", pewSfx, 0.3);
                 AudioController.register("click-focus", focusSfx);
                 AudioController.register("coin", coinSfx, 0.55);
 
