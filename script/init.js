@@ -447,6 +447,8 @@ function mainloop(MenuController) {
                                                     DataStore.AttackTypeData(camera),
                                                     DataStore.NodeTypeData,
                                                     DataStore.AttackNodeOverlayData,
+                                                    DataStore.AttackSfx,
+                                                    CONFIG.CURRENCY_THEFT_TICKSPEED
                                                 );
                                                 MenuController.close();
                                             } else {

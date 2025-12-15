@@ -47,7 +47,7 @@ AudioManager.prototype.stop = function () { // stop everything
 };
 
 AudioManager.prototype.play = function (name, delay = 0) { // delay in milliseconds
-    if (!this.buffer?.[name]) {
+    if (!name || !this.buffer?.[name]) {
         Logger.error(`[AudioManager] | Failed to play audio "${name}": No buffer data found.`);
         return false;
     }
