@@ -31,7 +31,7 @@ export function ListenerManager () {
     this.targets = [];
     this.listeners = {};
     this._hash = function () {
-        return Date.now(); // lol
+        return `${Date.now()}${Math.random()}${Math.random()}${Math.random()}`;
     }
     this._addTarget = function (targetObj) {
         const hash = self._hash();
