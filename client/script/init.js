@@ -99,8 +99,7 @@ if (WebGL.isWebGL2Available()) {
                     Session.newlogin(
                         username,
                         password,
-                        UTIL.BLANK_LAYOUT_OBJ,
-                        UTIL.BLANK_BANK
+                        DEFAULT.LAYOUT,
                     ).then((res) => {
                         if (res) mainloop(MenuController);
                         else {
@@ -206,10 +205,6 @@ function mainloop(MenuController) {
                 "contextmenu",
                 controls.camera._onContextMenu
             );
-
-            const backgroundTextureCube =
-                THREEUTIL.loadTextureCube("./source/bg/");
-            scene.background = backgroundTextureCube; // new THREE.Color(0xff3065); // light red
 
             // Control shadows
             const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
@@ -349,7 +344,27 @@ function mainloop(MenuController) {
                                                 DataStore.BuildNodeOverlayData,
                                                 DataStore.NodeDetailedInfo,
                                                 dt?.metadata ? dt.metadata : {}
-                                            );
+                                            ).then(() => {
+                                                MenuController.close();
+                                                if (PhaseController.phase == "build" && Storage.has("deductions", true)) { // apply losses
+                                                    const _deduct = Storage.get("deductions", true);
+                                                    if (Object.values(_deduct.currency).some(a => a > 0)) {
+                                                        let text = [];
+                                                        Object.entries(_deduct.currency).forEach(([currencyType, currencyAmount]) => {
+                                                            const amount = Math.floor(CONFIG.CURRENCY_LOSS_RATIO * currencyAmount);
+                                                            const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
+                                                            text.push(`${amount - _leftover} ${currencyType}`);
+                                                        });
+                                                        Storage.set("deductions", _blankDeuctions, true);
+                                                        const message = `Funds stolen by ${[..._deduct.attackers].map(e => e.username).join(", ")}! Lost ` + (text.length > 1
+                                                            ? text.slice(0, text.length - 1)
+                                                                .join(", ") +
+                                                                " and " + text.at(-1)
+                                                            : text[0]);
+                                                        PhaseController.Managers.Overlay.messagePopup(message, 4500);
+                                                    }
+                                                }
+                                            });
                                             { // process attack results
                                                 setTimeout(() => {
                                                     Logger.info("Fetching defense history");
@@ -390,28 +405,9 @@ function mainloop(MenuController) {
                                                                 Storage.set("defenseHistory", history.map(ar => ({...ar, processed: true})), true);
                                                                 Logger.info("Loaded debt from attacks");
                                                             }
-                                                            if (PhaseController.phase == "build" && Storage.has("deductions", true)) { // apply losses
-                                                                const _deduct = Storage.get("deductions", true);
-                                                                if (Object.values(_deduct.currency).some(a => a > 0)) {
-                                                                    let text = [];
-                                                                    Object.entries(_deduct.currency).forEach(([currencyType, currencyAmount]) => {
-                                                                        const amount = Math.floor(CONFIG.CURRENCY_LOSS_RATIO * currencyAmount);
-                                                                        const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
-                                                                        text.push(`${amount - _leftover} ${currencyType}`);
-                                                                    });
-                                                                    Storage.set("deductions", _blankDeuctions, true);
-                                                                    const message = `Funds stolen by ${[..._deduct.attackers].map(e => e.username).join(", ")}! Lost ` + (text.length > 1
-                                                                        ? text.slice(0, text.length - 1)
-                                                                            .join(", ") +
-                                                                            " and " + text.at(-1)
-                                                                        : text[0]);
-                                                                    PhaseController.Managers.Overlay.messagePopup(message, 4500);
-                                                                }
-                                                            }
                                                         });
                                                 }, 0);
                                             }
-                                            MenuController.close();
                                         }
                                     },
                                     false,
@@ -462,7 +458,7 @@ function mainloop(MenuController) {
                                                             regenDelay: CONFIG.ATTACK_NODE_REGEN_DELAY,
                                                         },
                                                     }
-                                                );
+                                                ).then(() => MenuController.close());
                                                 MenuController.close();
                                             } else {
                                                 Logger.alert(
@@ -593,9 +589,11 @@ function mainloop(MenuController) {
                                                                 }
                                                             );
                                                         },
+                                                    },
+                                                    {
+                                                        background: DataStore.SelectPhaseBackground
                                                     }
-                                                );
-                                                MenuController.close();
+                                                ).then(() => MenuController.close());
                                             }
                                         },
                                         false,

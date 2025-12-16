@@ -53,7 +53,7 @@ export function login (username, password) {
         .catch(err => false);
 }
 
-export function newlogin (username, password, gamedata, bankdata) {
+export function newlogin (username, password, gamedata) {
     Logger.info(`[Session] | Creating new account "${username}"`);
     return Promise.all([
             hash(password), UTIL.getLocation()
@@ -67,7 +67,7 @@ export function newlogin (username, password, gamedata, bankdata) {
                 return setSession(throwFalse(tokenObj));
         })
         .then(sessionToken =>
-            API.saveGameAsync(sessionToken, gamedata.background, gamedata.layout, bankdata.cash, bankdata.crypto))
+            API.saveGameAsync(sessionToken, gamedata.background, gamedata.layout))
         .catch(err => false);
 }
 

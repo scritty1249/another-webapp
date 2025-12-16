@@ -6,12 +6,11 @@ import {
     AttackOverlayManager,
 } from "./overlay.js";
 import { BuildNodeManager, AttackNodeManager } from "./nodes.js";
-import { layoutFromJsonObj } from "./utils.js";
 import { Color } from "three";
 import * as UTIL from "./utils.js";
 
-const selectPhaseBackground = new Color(0x000000);
 const nodeDraggedEmissive = new Color(0xff8888);
+
 
 export function PhaseManager(
     scene,
@@ -105,115 +104,116 @@ PhaseManager.prototype.selectPhase = function (
     // setup new phase
     this._controls.camera.autoRotate = true;
     this._controls.camera.autoRotateSpeed = 0.6;
-    this._scene.background = selectPhaseBackground;
-
-    const overlayController = new SelectOverlayManager(
-        ...this._constructorArgs.Overlay
-    );
-    const listenerController = new ListenerManager();
-    this.Managers.World.init();
-    overlayController.init(self._controls, {
-        Mouse: self.Managers.Mouse,
-    });
-
-    // add targets
-    for (const { geo, id, username } of targets) {
-        const country = self.Managers.World.markOnWorld(geo.lat, geo.long, id);
-        Logger.info("Added marker to " + country);
-    }
-
-    // listeners
-    let rotateTimeout;
-    listenerController
-        .listener(self._controls.camera)
-        .add("end", function (event) {
-            rotateTimeout = setTimeout(() => {
-                if (
-                    self.Managers.World.enabled &&
-                    !self.Managers.World.state.focusedCountry &&
-                    !self.Managers.World.state.tweeningCamera
-                )
-                    self._controls.camera.autoRotate = true;
-            }, 3500);
-        })
-        .add("start", function (event) {
-            if (rotateTimeout) clearTimeout(rotateTimeout);
-            self._controls.camera.autoRotate = false;
-            self.Managers.World.state.tweeningCamera = false;
-        });
-    listenerController
-        .listener(overlayController.element.refreshButton)
-        .add("click", function (event) {
-            Logger.info("[PhaseManager] | Fetching new world targets.");
-            self.Managers.World.unfocusCountry(false);
-            callbacks.Refresh();
-        });
-    listenerController
-        .listener(overlayController.element.menuButton)
-        .add("click", function (event) {
-            overlayController._menuManager._dispatch("swapphase", {
-                phase: "build",
-            });
-        });
-    this.Managers.World.when("click", function (detail) {
-        const last = detail.previous;
-        const curr = detail.current;
-        const target = detail.target;
-        if (target) {
-            if (rotateTimeout) clearTimeout(rotateTimeout);
-            Logger.log(`Selected target: `, target);
-            self.Managers.Overlay._menuManager.when(
-                "loadmenu",
-                (detail) => {
-                    const targetData = Storage.get("targets", true).filter(
-                        (t) => t.id == target.id
-                    )?.[0];
-                    detail.infoElement.text = targetData
-                        ? [
-                              targetData.username,
-                              "\n",
-                              "Currency Stored:",
-                              Array.from(
-                                  Object.entries(
-                                      UTIL.getStoredCurrencyFromLayout(
-                                          targetData.game
-                                      )
-                                  ),
-                                  ([currencyType, currencyAmount]) =>
-                                      `${currencyType}: ${Math.floor(
-                                          currencyRatio * currencyAmount
-                                      )}`
-                              ).join("\n"),
-                          ].join("\n\n")
-                        : "-- No Data Found --";
-                    detail.infoElement.align("left");
-                    detail.buttonElement.addEventListener("click", () => {
-                        callbacks.Attack(target.id);
-                    });
-                },
-                false,
-                true
+    return UTIL.loadBackgroundTexture(metadata?.background, this._scene)
+        .then(layoutLoaded => {
+            const overlayController = new SelectOverlayManager(
+                ...this._constructorArgs.Overlay
             );
-            self.Managers.Overlay._menuManager.open(["targetInfo"]);
-        }
-    });
-    this.Managers.Node = undefined;
-    this.Managers.Overlay = overlayController;
-    this.Managers.Listener = listenerController;
-    this._updateManagers.always.push(
-        this.Managers.World,
-        this.Managers.Overlay
-    );
-    this._unloadPhase = () => {
-        this._resetUpdateManagers();
-        this.Managers.Audio.stop();
-        this._controls.camera.autoRotate = false;
-        this.Managers.Listener.clear();
-        this.Managers.World.clear();
-        this.Managers.Overlay.clear();
-    };
-    this.phase = "select";
-    Logger.log("[PhaseManager] | Loaded Select phase");
+            const listenerController = new ListenerManager();
+            this.Managers.World.init();
+            overlayController.init(self._controls, {
+                Mouse: self.Managers.Mouse,
+            });
+
+            // add targets
+            for (const { geo, id, username } of targets) {
+                const country = self.Managers.World.markOnWorld(geo.lat, geo.long, id);
+                Logger.info("Added marker to " + country);
+            }
+
+            // listeners
+            let rotateTimeout;
+            listenerController
+                .listener(self._controls.camera)
+                .add("end", function (event) {
+                    rotateTimeout = setTimeout(() => {
+                        if (
+                            self.Managers.World.enabled &&
+                            !self.Managers.World.state.focusedCountry &&
+                            !self.Managers.World.state.tweeningCamera
+                        )
+                            self._controls.camera.autoRotate = true;
+                    }, 3500);
+                })
+                .add("start", function (event) {
+                    if (rotateTimeout) clearTimeout(rotateTimeout);
+                    self._controls.camera.autoRotate = false;
+                    self.Managers.World.state.tweeningCamera = false;
+                });
+            listenerController
+                .listener(overlayController.element.refreshButton)
+                .add("click", function (event) {
+                    Logger.info("[PhaseManager] | Fetching new world targets.");
+                    self.Managers.World.unfocusCountry(false);
+                    callbacks.Refresh();
+                });
+            listenerController
+                .listener(overlayController.element.menuButton)
+                .add("click", function (event) {
+                    overlayController._menuManager._dispatch("swapphase", {
+                        phase: "build",
+                    });
+                });
+            this.Managers.World.when("click", function (detail) {
+                const last = detail.previous;
+                const curr = detail.current;
+                const target = detail.target;
+                if (target) {
+                    if (rotateTimeout) clearTimeout(rotateTimeout);
+                    Logger.log(`Selected target: `, target);
+                    self.Managers.Overlay._menuManager.when(
+                        "loadmenu",
+                        (detail) => {
+                            const targetData = Storage.get("targets", true).filter(
+                                (t) => t.id == target.id
+                            )?.[0];
+                            detail.infoElement.text = targetData
+                                ? [
+                                    targetData.username,
+                                    "\n",
+                                    "Currency Stored:",
+                                    Array.from(
+                                        Object.entries(
+                                            UTIL.getStoredCurrencyFromLayout(
+                                                targetData.game
+                                            )
+                                        ),
+                                        ([currencyType, currencyAmount]) =>
+                                            `${currencyType}: ${Math.floor(
+                                                currencyRatio * currencyAmount
+                                            )}`
+                                    ).join("\n"),
+                                ].join("\n\n")
+                                : "-- No Data Found --";
+                            detail.infoElement.align("left");
+                            detail.buttonElement.addEventListener("click", () => {
+                                callbacks.Attack(target.id);
+                            });
+                        },
+                        false,
+                        true
+                    );
+                    self.Managers.Overlay._menuManager.open(["targetInfo"]);
+                }
+            });
+            this.Managers.Node = undefined;
+            this.Managers.Overlay = overlayController;
+            this.Managers.Listener = listenerController;
+            this._updateManagers.always.push(
+                this.Managers.World,
+                this.Managers.Overlay
+            );
+            this._unloadPhase = () => {
+                this._resetUpdateManagers();
+                this.Managers.Audio.stop();
+                this._controls.camera.autoRotate = false;
+                this.Managers.Listener.clear();
+                this.Managers.World.clear();
+                this.Managers.Overlay.clear();
+            };
+            this.phase = "select";
+            Logger.log("[PhaseManager] | Loaded Select phase");
+        });
 };
 
 PhaseManager.prototype.attackPhase = function (
@@ -392,53 +392,55 @@ PhaseManager.prototype.attackPhase = function (
         Node: nodeController,
     });
 
-    layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController);
-    listenerController
-        .listener(self._rendererDom)
-        .add("clicked", function (event) {
-            const clickedNodeId = nodeController.getNodeFromFlatCoordinate(
-                self.Managers.Mouse.position
-            );
-            if (
-                clickedNodeId &&
-                overlayController.focusedNodeId != clickedNodeId
-            )
-                try {
-                    overlayController.focusNode(clickedNodeId);
-                } catch (err) {
-                    Logger.error(err);
-                }
-            else overlayController.unfocusNode();
-        });
-    listenerController
-        .listener(overlayController.element.menuButton)
-        .add("click", function (event) {
-            transferFundsCallback();
-        });
-    overlayController.startTimer(metadata.timelimit, transferFundsCallback);
+    return UTIL.layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController)
+        .then(layoutLoaded => {
+            listenerController
+                .listener(self._rendererDom)
+                .add("clicked", function (event) {
+                    const clickedNodeId = nodeController.getNodeFromFlatCoordinate(
+                        self.Managers.Mouse.position
+                    );
+                    if (
+                        clickedNodeId &&
+                        overlayController.focusedNodeId != clickedNodeId
+                    )
+                        try {
+                            overlayController.focusNode(clickedNodeId);
+                        } catch (err) {
+                            Logger.error(err);
+                        }
+                    else overlayController.unfocusNode();
+                });
+            listenerController
+                .listener(overlayController.element.menuButton)
+                .add("click", function (event) {
+                    transferFundsCallback();
+                });
+            overlayController.startTimer(metadata.timelimit, transferFundsCallback);
 
-    this.Managers.Overlay = overlayController;
-    this.Managers.Node = nodeController;
-    this.Managers.Listener = listenerController;
-    this._updateManagers.perTick.push(
-        bankController,
-        this.Managers.Node,
-    );
-    this._updateManagers.always.push(
-        this.Managers.Node,
-        this.Managers.Attacks,
-        this.Managers.Overlay
-    );
-    this._unloadPhase = () => {
-        this._resetUpdateManagers();
-        this.Managers.Audio.stop();
-        this.Managers.Listener.clear();
-        this.Managers.Overlay.clear();
-        this.Managers.Node.clear();
-        this.Managers.Attacks.clear();
-    };
-    this.phase = "attack";
-    Logger.log("[PhaseManager] | Loaded Attack phase");
+            this.Managers.Overlay = overlayController;
+            this.Managers.Node = nodeController;
+            this.Managers.Listener = listenerController;
+            this._updateManagers.perTick.push(
+                bankController,
+                this.Managers.Node,
+            );
+            this._updateManagers.always.push(
+                this.Managers.Node,
+                this.Managers.Attacks,
+                this.Managers.Overlay
+            );
+            this._unloadPhase = () => {
+                this._resetUpdateManagers();
+                this.Managers.Audio.stop();
+                this.Managers.Listener.clear();
+                this.Managers.Overlay.clear();
+                this.Managers.Node.clear();
+                this.Managers.Attacks.clear();
+            };
+            this.phase = "attack";
+            Logger.log("[PhaseManager] | Loaded Attack phase");
+        });
 };
 
 PhaseManager.prototype.buildPhase = function (
@@ -515,130 +517,132 @@ PhaseManager.prototype.buildPhase = function (
         },
     };
 
-    layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController);
-    overlayController.init(this._controls, {
-        Mouse: self.Managers.Mouse,
-        Node: nodeController,
-    });
+    return UTIL.layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController)
+        .then(layoutLoaded => {
+            overlayController.init(this._controls, {
+                Mouse: self.Managers.Mouse,
+                Node: nodeController,
+            });
 
-    if (metadata.transfer) {
-        // add currency
-        let text = [];
-        metadata.transfer.forEach((currencyData) => {
-            const [[currencyType, amount]] = Object.entries(currencyData);
-            nodeController.addCurrency(currencyType, amount);
-            text.push(`${amount} ${currencyType}`);
-        });
-        const message =
-            "Transferred " +
-            (text.length > 1
-                ? text.slice(0, text.length - 1).join(", ") +
-                  " and " +
-                  text.at(-1)
-                : text[0]);
-        overlayController.messagePopup(message);
-    }
+            if (metadata.transfer) {
+                // add currency
+                let text = [];
+                metadata.transfer.forEach((currencyData) => {
+                    const [[currencyType, amount]] = Object.entries(currencyData);
+                    nodeController.addCurrency(currencyType, amount);
+                    text.push(`${amount} ${currencyType}`);
+                });
+                const message =
+                    "Transferred " +
+                    (text.length > 1
+                        ? text.slice(0, text.length - 1).join(", ") +
+                        " and " +
+                        text.at(-1)
+                        : text[0]);
+                overlayController.messagePopup(message);
+            }
 
-    overlayController._menuManager.when("addnode", (detail) => {
-        const cost = nodeDetails[detail.nodeType]?.cost;
-        const bankData = bankController.bank;
-        if (cost) {
-            if (bankData[cost.type].amount - cost.amount < 0) {
-                overlayController.messagePopup(
-                    `Cannot create new Node: Insufficient currency.`
-                );
-                overlayController._menuManager.close();
-                return;
-            } else {
-                nodeController.removeCurrency(cost.type, cost.amount);
-                overlayController.updateWallet(bankData);
-            }
-        }
-        nodeController.createNode(
-            detail.nodeType,
-            Array.from({ length: 3 }, (_) => UTIL.random(0.001, 0.002))
-        ); // generate random offset so repulsion forces can take effect
-        overlayController._menuManager.close();
-    });
-    // Add event listeners
-    listenerController
-        .listener(self._controls.drag)
-        .add("drag", function (event) {})
-        .add("dragstart", function (event) {
-            self._controls.camera.enabled = false;
-            event.object.userData.dragged = true;
-            try {
-                nodeController.setNodeEmissive(
-                    event.object.uuid,
-                    nodeDraggedEmissive
-                );
-
-            } catch {
-                Logger.error(
-                    "DragControls selected a bad node (dragstart): ",
-                    event.object,
-                    self._controls.drag.objects,
-                    self.Managers.Node.nodelist
-                );
-            }
-        })
-        .add("dragend", function (event) {
-            self._controls.camera.enabled = true;
-            event.object.userData.dragged = false;
-            try {
-                nodeController.resetNodeEmissive(event.object.uuid);
-            } catch {
-                Logger.error(
-                    "DragControls selected a bad node (dragend): ",
-                    event.object,
-                    self._controls.drag.objects,
-                    self.Managers.Node.nodelist
-                );
-            }
-        });
-    listenerController
-        .listener(self._rendererDom)
-        .add("clicked", function (event) {
-            const clickedNodeId = nodeController.getNodeFromFlatCoordinate(
-                self.Managers.Mouse.position
-            );
-            if (clickedNodeId) {
-                if (bankController.collect(clickedNodeId)) {
-                    self.Managers.Audio.play("coin");
-                } else if (overlayController.focusedNodeId != clickedNodeId) {
-                    overlayController.focusNode(clickedNodeId);
-                    self.Managers.Audio.play("click-focus");
-                    return;
+            overlayController._menuManager.when("addnode", (detail) => {
+                const cost = nodeDetails[detail.nodeType]?.cost;
+                const bankData = bankController.bank;
+                if (cost) {
+                    if (bankData[cost.type].amount - cost.amount < 0) {
+                        overlayController.messagePopup(
+                            `Cannot create new Node: Insufficient currency.`
+                        );
+                        overlayController._menuManager.close();
+                        return;
+                    } else {
+                        nodeController.removeCurrency(cost.type, cost.amount);
+                        overlayController.updateWallet(bankData);
+                    }
                 }
-            }
-            overlayController.unfocusNode();
-        });
-    listenerController
-        .listener(overlayController.element.menuButton)
-        .add("click", function (event) {
-            overlayController._menuManager.open();
-        });
+                nodeController.createNode(
+                    detail.nodeType,
+                    Array.from({ length: 3 }, (_) => UTIL.random(0.001, 0.002))
+                ); // generate random offset so repulsion forces can take effect
+                overlayController._menuManager.close();
+            });
+            // Add event listeners
+            listenerController
+                .listener(self._controls.drag)
+                .add("drag", function (event) {})
+                .add("dragstart", function (event) {
+                    self._controls.camera.enabled = false;
+                    event.object.userData.dragged = true;
+                    try {
+                        nodeController.setNodeEmissive(
+                            event.object.uuid,
+                            nodeDraggedEmissive
+                        );
 
-    this.Managers.Node = nodeController;
-    this.Managers.Overlay = overlayController;
-    this.Managers.Listener = listenerController;
-    this._updateManagers.always.push(
-        this.Managers.Node,
-        this.Managers.Physics,
-        this.Managers.Overlay
-    );
-    this._updateManagers.perTick.push(bankController);
-    this._unloadPhase = () => {
-        this._resetUpdateManagers();
-        this.Managers.Audio.stop();
-        this._controls.drag.enabled = false;
-        this.Managers.Listener.clear();
-        this.Managers.Overlay.clear();
-        this.Managers.Physics.deactivate();
-        this.Managers.Node.clear();
-    };
-    this.phase = "build";
-    Logger.log("[PhaseManager] | Loaded Build phase");
+                    } catch {
+                        Logger.error(
+                            "DragControls selected a bad node (dragstart): ",
+                            event.object,
+                            self._controls.drag.objects,
+                            self.Managers.Node.nodelist
+                        );
+                    }
+                })
+                .add("dragend", function (event) {
+                    self._controls.camera.enabled = true;
+                    event.object.userData.dragged = false;
+                    try {
+                        nodeController.resetNodeEmissive(event.object.uuid);
+                    } catch {
+                        Logger.error(
+                            "DragControls selected a bad node (dragend): ",
+                            event.object,
+                            self._controls.drag.objects,
+                            self.Managers.Node.nodelist
+                        );
+                    }
+                });
+            listenerController
+                .listener(self._rendererDom)
+                .add("clicked", function (event) {
+                    const clickedNodeId = nodeController.getNodeFromFlatCoordinate(
+                        self.Managers.Mouse.position
+                    );
+                    if (clickedNodeId) {
+                        if (bankController.collect(clickedNodeId)) {
+                            self.Managers.Audio.play("coin");
+                        } else if (overlayController.focusedNodeId != clickedNodeId) {
+                            overlayController.focusNode(clickedNodeId);
+                            self.Managers.Audio.play("click-focus");
+                            return;
+                        }
+                    }
+                    overlayController.unfocusNode();
+                });
+            listenerController
+                .listener(overlayController.element.menuButton)
+                .add("click", function (event) {
+                    overlayController._menuManager.open();
+                });
+
+            this.Managers.Node = nodeController;
+            this.Managers.Overlay = overlayController;
+            this.Managers.Listener = listenerController;
+            this._updateManagers.always.push(
+                this.Managers.Node,
+                this.Managers.Physics,
+                this.Managers.Overlay
+            );
+            this._updateManagers.perTick.push(bankController);
+            this._unloadPhase = () => {
+                this._resetUpdateManagers();
+                this.Managers.Audio.stop();
+                this._controls.drag.enabled = false;
+                this.Managers.Listener.clear();
+                this.Managers.Overlay.clear();
+                this.Managers.Physics.deactivate();
+                this.Managers.Node.clear();
+            };
+            this.phase = "build";
+            Logger.log("[PhaseManager] | Loaded Build phase");
+        });
 };
 
 PhaseManager.prototype._updateTick = function (timedelta) {
