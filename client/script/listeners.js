@@ -35,6 +35,8 @@ export function ListenerManager () {
     }
     this._addTarget = function (targetObj) {
         const hash = self._hash();
+        if (self.targets.map(({hash}) => hash).includes(hash))
+            Logger.throw(`[ListenerManager] | Hash collision error: Generated overlapping hash ${hash}`); // if this is thrown fix that ugly ass "hash" function
         self.targets.push({
             hash: hash,
             object: targetObj
