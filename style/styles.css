@@ -61,6 +61,12 @@ div.hexagon:has(img.hexagon:active) {
     touch-action: manipulation;
     -ms-touch-action: manipulation;
 }
+#loading-animation {
+    width: calc(var(--vw) * 100);
+    height: calc(var(--vh) * 100);
+    z-index: 50;
+    pointer-events: none;
+}
 #watermark > * {
     margin: 0;
 }

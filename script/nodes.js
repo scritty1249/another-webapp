@@ -8,8 +8,6 @@ import {
     SSNodeSlotsMesh,
 } from "./spritesheet.js";
 
-const friendlyEmissiveColor = new Color(0xaa0000);
-
 export function NodeManager(
     scene,
     renderer,
@@ -866,7 +864,10 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
         nodeData.hp.set(nodeTypeData.health / 2);
         nodeData.state.reset();
         nodeData.lastHit.reset();
-        this.setNodeEmissive(nodeid, friendlyEmissiveColor);
+        this.resetNodeColorTint(nodeid);
+        this.resetNodeEmissive(nodeid);
+        this.setNodeEmissive(nodeid, this._configData.friendlyColor);
+        this.setNodeColorTint(nodeid, this._configData.friendlyTint, 0.8);
     }
     if (this.isAllNodesFriendly()) // check for win condition
         this._phaseCallback();

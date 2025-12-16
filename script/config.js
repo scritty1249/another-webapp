@@ -1,4 +1,4 @@
-import { Vector3 } from "three";
+import { Vector3, Color } from "three";
 
 export const Configuration = {
     tetherForce: 0.2,
@@ -17,6 +17,8 @@ export const Configuration = {
     CURRENCY_THEFT_TICKSPEED: 5, // how many ticks to wait before stealing 1 currency from captured nodes
     ATTACK_NODE_REGEN_DELAY: 4.5, // seconds
     ATTACK_BASE_SECONDS_LIMIT: 120,
+    FRIENDLY_NODE_COLOR: new Color(0xff0000),
+    FRIENDLY_NODE_TINT: new Color(0xff0000),
 };
 
 const DEFAULT_BACKGROUND = "cubes-lines";
