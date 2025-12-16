@@ -16,6 +16,13 @@ const _baseHealthRegenPercentage = .02 * .05; // laziness, regens 10% health eve
 
 export const DataStore = {
     AttackerData: {
+        icons: {
+            particle: "./source/attacks/particle/attack-icon.png",
+            laser: "./source/attacks/laser/attack-icon.png",
+            pascualcannon: "./source/attacks/pascualcannon/attack-icon.png",
+            _unknown: "./source/attacks/unknown-attack-icon.png",
+            _empty: "./source/attacks/blank-attack-icon.png"
+        },
         attacks: [
             {
                 type: "particle",

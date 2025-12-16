@@ -10,7 +10,7 @@ const SelectHud = {
         const wrapper = document.createElement("div");
         wrapper.classList.add("hud", "select");
         return wrapper;
-    }
+    },
 };
 
 const BuildHud = {
@@ -125,19 +125,13 @@ const AttackFocusMenu = {
         });
         return wrapper;
     },
-    createTileElement: function (attackType = undefined) {
+    createTileElement: function (attackType, iconSrc) {
         // hard coded- needs to be updated if file changes.
         const el = document.createElement("div");
         el.classList.add("button", "pointer-events");
         el.dataset.buttonType = "tile";
         el.dataset.attackType = attackType;
-        if (attackType == "particle") {
-            el.style.backgroundImage = `url("./source/particle-attack-icon.png")`;
-        } else if (attackType !== undefined) {
-            el.style.backgroundImage = `url("./source/unknown-attack-icon.png")`;
-        } else {
-            el.style.backgroundImage = `url("./source/blank-attack-icon.png")`;
-        }
+        el.style.backgroundImage = `url("${iconSrc}")`;
         el.style.maxWidth = "25vw";
         el.style.maxHeight = "25vw";
         // actual dims = 500x500 px
@@ -181,15 +175,18 @@ const AttackHud = {
         el.dataset.limit = 0;
         return el;
     },
-    startTimer: function (timerEl, duration) { // duration in seconds
+    startTimer: function (timerEl, duration) {
+        // duration in seconds
         timerEl.dataset.limit = UTIL.getNowUTCSeconds() + duration;
         const setTimer = (remaining) => {
             const mins = Math.floor(remaining / 60);
             const secs = Math.floor(remaining % 60);
-            timerEl.innerText = `${mins}:`.padStart(3, "0") + `${secs}`.padStart(2, "0");
+            timerEl.innerText =
+                `${mins}:`.padStart(3, "0") + `${secs}`.padStart(2, "0");
         };
         const timerid = setInterval(() => {
-            const remaining = parseInt(timerEl.dataset.limit) - UTIL.getNowUTCSeconds();
+            const remaining =
+                parseInt(timerEl.dataset.limit) - UTIL.getNowUTCSeconds();
             setTimer(remaining);
             if (remaining <= 0) {
                 clearInterval(timerEl.dataset.timerid);
@@ -387,8 +384,7 @@ OverlayManager.prototype._initState = function () {
 OverlayManager.prototype._updateFontColor = function () {
     if (this._scene.userData.background?.endsWith("-dark"))
         this.element._overlay.classList.add("dark");
-    else
-        this.element._overlay.classList.remove("dark");
+    else this.element._overlay.classList.remove("dark");
 };
 OverlayManager.prototype._initOverlay = function () {
     this.sprite.focusHighlight = GenericSprite.createFocusGlow();
@@ -399,27 +395,40 @@ OverlayManager.prototype._initOverlay = function () {
 };
 OverlayManager.prototype.messagePopup = function (message, expiresMs = 3000) {
     if (this.element.hud) {
-        const popup = this._menuManager.createElement.textBox(message, true, true, false);
+        const popup = this._menuManager.createElement.textBox(
+            message,
+            true,
+            true,
+            false
+        );
         popup.classList.add("notification");
         this.element.hud.appendChild(popup);
         const timer = setTimeout(() => {
             popup.remove();
         }, expiresMs);
-        popup.addEventListener("click", (e) => {
-            popup.blur();
-            clearTimeout(timer);
-            popup.remove();
-            Logger.info(`[OverlayManager] | Click-removed notification: "${message}"`);
-        }, { once: true });
+        popup.addEventListener(
+            "click",
+            (e) => {
+                popup.blur();
+                clearTimeout(timer);
+                popup.remove();
+                Logger.info(
+                    `[OverlayManager] | Click-removed notification: "${message}"`
+                );
+            },
+            { once: true }
+        );
         Logger.log(`[OverlayManager] | Notification: "${message}"`);
         return popup;
     } else {
-        Logger.warn("[OverlayManager] | Failed to create message popup. HUD not initialized.");
+        Logger.warn(
+            "[OverlayManager] | Failed to create message popup. HUD not initialized."
+        );
         return undefined;
     }
 };
 OverlayManager.prototype.update = function () {
-    this._updateFontColor();
+    this._updateFontColor(); // laziness, horribly inefficient to call this every update
     // must be implemented by extending classes
     this._updateFocusHighlight();
 };
@@ -545,14 +554,17 @@ BuildOverlayManager.prototype._createFocusMenuElement = function () {
                                     Logger.log("unlinked nodes");
                                 } else {
                                     // selected untethered node, create new tether
-                                    const tethered = this._nodeManager.tetherNodes(
-                                        this.focusedNodeId,
-                                        nodeid
-                                    );
-                                    if (tethered)
-                                        Logger.log("interlinked");
+                                    const tethered =
+                                        this._nodeManager.tetherNodes(
+                                            this.focusedNodeId,
+                                            nodeid
+                                        );
+                                    if (tethered) Logger.log("interlinked");
                                     else
-                                        this.messagePopup("Node connection limit reached.", 1500);
+                                        this.messagePopup(
+                                            "Node connection limit reached.",
+                                            1500
+                                        );
                                 }
                             }
                         } else {
@@ -694,13 +706,13 @@ BuildOverlayManager.prototype.getWallet = function () {
                 const [amount, total] = value.split(" / ", 2);
                 walletData[el.dataset.currencyType] = {
                     amount: parseInt(amount),
-                    max: parseInt(amount)
-                }
+                    max: parseInt(amount),
+                };
             } else {
                 walletData[el.dataset.currencyType] = {
                     amount: undefined,
-                    max: undefined
-                }
+                    max: undefined,
+                };
             }
         });
     return walletData;
@@ -721,26 +733,42 @@ export function AttackOverlayManager(targetData, attackManager, ...parentArgs) {
 }
 AttackOverlayManager.prototype = Object.create(OverlayManager.prototype);
 AttackOverlayManager.prototype.constructor = AttackOverlayManager;
+AttackOverlayManager.prototype._getAttackIcon = function (attackType) {
+    return this._attackManager.icons.hasOwnProperty(attackType)
+        ? this._attackManager.icons[attackType]
+        : attackType !== undefined
+        ? this._attackManager.icons._unknown
+        : this._attackManager.icons._empty;
+};
 AttackOverlayManager.prototype._initOverlay = function () {
     OverlayManager.prototype._initOverlay.call(this);
     // create attack bar menu
     const attackTiles = Array.from(this._attackManager.attacks, (attack) => {
-        const tile = AttackFocusMenu.createTileElement(attack.type);
+        const tile = AttackFocusMenu.createTileElement(
+            attack.type,
+            this._getAttackIcon(attack.type)
+        );
         tile.addEventListener("click", (event) => {
             if (
                 this.state.focusedNode &&
                 this._nodeManager.getNodeData(this.focusedNodeId)?.isFriendly
             ) {
-                if (this._nodeManager.addAttackToNode(
-                    attack.type,
-                    this.focusedNodeId
-                )) this._updateFocusMenu();
+                if (
+                    this._nodeManager.addAttackToNode(
+                        attack.type,
+                        this.focusedNodeId
+                    )
+                )
+                    this._updateFocusMenu();
                 else this.messagePopup("Cannot add Attack to Node.");
             }
         });
         return tile;
     });
-    this.element.hud = AttackHud.createHud(this._targetData.username, attackTiles);
+    this.element.hud = AttackHud.createHud(
+        this._targetData.username,
+        attackTiles
+    );
     this.element._overlay.appendChild(this.element.hud);
     // create timer seperately to keep track of it
     this.element._timer = AttackHud.createTimer();
@@ -761,9 +789,10 @@ AttackOverlayManager.prototype._updateFocusMenu = function () {
 AttackOverlayManager.prototype._loadTilesForNode = function () {
     const nodeData = this._nodeManager.getNodeData(this.focusedNodeId);
     const attackerTiles = Array.from(
-        nodeData.isFriendly ? nodeData.slots : new Array(nodeData.slots.length).fill({type: undefined}),
-        ({ type }) =>
-            AttackFocusMenu.createTileElement(type)
+        nodeData.isFriendly
+            ? nodeData.slots
+            : new Array(nodeData.slots.length).fill({ type: undefined }),
+        ({ type }) => AttackFocusMenu.createTileElement(type, this._getAttackIcon(type))
     );
     if (nodeData.isFriendly)
         attackerTiles.forEach((el, i) =>
@@ -803,7 +832,10 @@ AttackOverlayManager.prototype.unfocusNode = function () {
         });
     }
 };
-AttackOverlayManager.prototype.startTimer = function (durationSecs, timerCallback = () => {}) {
+AttackOverlayManager.prototype.startTimer = function (
+    durationSecs,
+    timerCallback = () => {}
+) {
     AttackHud.startTimer(this.element._timer, durationSecs);
     this.element._timer.addEventListener("timerended", function (event) {
         Logger.info(`[AttackOverlayManager] | Timer ended.`);
@@ -856,7 +888,13 @@ SelectOverlayManager.prototype._initOverlay = function () {
     this.element.hud = SelectHud.createHud();
     this.element._overlay.appendChild(this.element.hud);
     // Add refresh targets button
-    this.element.refreshButton = this._menuManager.createElement.button(90, undefined, "Refresh Targets", {}, 2);
+    this.element.refreshButton = this._menuManager.createElement.button(
+        90,
+        undefined,
+        "Refresh Targets",
+        {},
+        2
+    );
     this.element.refreshButton.classList.add("refresh");
     this.element.hud.appendChild(this.element.refreshButton);
 };
