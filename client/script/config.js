@@ -19,7 +19,7 @@ export const Configuration = {
     ATTACK_BASE_SECONDS_LIMIT: 120,
 };
 
-const DEFAULT_BACKGROUND = "bubbles";
+const DEFAULT_BACKGROUND = "cubes-lines";
 export const Default = {
     BG: DEFAULT_BACKGROUND,
     LAYOUT: {
