@@ -563,6 +563,14 @@ PhaseManager.prototype.buildPhase = function (
                 ); // generate random offset so repulsion forces can take effect
                 overlayController._menuManager.close();
             });
+            overlayController._menuManager.when("backgroundchange", (detail) => {
+                const bg = detail?.background;
+                if (bg)
+                    UTIL.loadBackgroundTexture(bg, self._scene)
+                        .then(() => {
+                            overlayController._menuManager.close();
+                        });
+            });
             // Add event listeners
             listenerController
                 .listener(self._controls.drag)

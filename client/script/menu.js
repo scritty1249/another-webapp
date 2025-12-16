@@ -2,7 +2,7 @@ import * as UTIL from "./utils.js";
 
 // main pause menu
 const SVG_NS = "http://www.w3.org/2000/svg";
-const menuPath = "./source/menu/"
+const menuPath = "./source/menu/";
 const menuButtonName = (type) => `menu-${type}-button.png`;
 const stopPropagation = (el) => {
     el.addEventListener("click", function (event) {
@@ -10,6 +10,7 @@ const stopPropagation = (el) => {
     });
     return el;
 }
+const backgroundPreviewPath = (bgName) => `./source/bg/${bgName}/py.png`;
 
 export function MenuManager (
     overlayElement
@@ -235,7 +236,10 @@ export function MenuManager (
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center");
                 const buttons = [ // placeholders
-                    self.createElement.button(90, "gear", "Low performance on", { // placeholder
+                    self.createElement.button(90, "gear", "Change background", {
+                        click: () => self.loadMenu.settings.changeBackground(),
+                    }, 4),
+                    self.createElement.button(90, "gear", "Low performance on", {
                         click: () => self._dispatch("lowperformance", {set: true}),
                     }, 4),
                     self.createElement.button(90, "gear", "Low performance off", {
@@ -252,7 +256,35 @@ export function MenuManager (
                 self._appendMenu(central);
                 self._dispatch("loadmenu", { history: ["main"] });
             },
+            changeBackground: function () {
+                self.loadMenu.clear();
+                self.element.wrapper.classList.add("settings", "changeBackground");
+                const central = document.createElement("div");
+                central.classList.add("center", "absolutely-center");
+                const backgrounds = [
+                    // laziness
+                    "bubbles",
+                    "bubbles-lines",
+                    "cubes",
+                    "cubes-lines",
+                    "lines",
+                    "bubbles-dark",
+                    "bubbles-lines-dark",
+                    "cubes-dark",
+                    "cubes-lines-dark",
+                    "lines-dark",
+                ];
+                const buttons = Array.from(backgrounds, bg => 
+                    self.createElement.tileImg(backgroundPreviewPath(bg), {
+                        click: () => self._dispatch("backgroundchange", {background: bg}),
+                    }, true)
+                );
+                self._appendElement(central, ...buttons);
+                self._appendMenu(central);
+                self._dispatch("loadmenu", {history: ["settings", "main"]});
+            },
         },
+        
         addNode: {
             selectType: function () {
                 self.loadMenu.clear();
@@ -580,6 +612,18 @@ export function MenuManager (
             el.spellcheck = false;
             el.innerHTML = text;
             wrapper.appendChild(el);
+            return wrapper;
+        },
+        tileImg: function (src, events = {}, interactive = false) {
+            const wrapper = document.createElement("div");
+            const img = document.createElement("img");
+            img.src = src;
+            wrapper.classList.add("hexagon");
+            img.classList.add("hexagon");
+            if (interactive)
+                img.classList.add("pointer-events");
+            wrapper.appendChild(img);
+            Object.entries(events).forEach(([eventType, handler]) => wrapper.addEventListener(eventType, handler));
             return wrapper;
         },
     };
