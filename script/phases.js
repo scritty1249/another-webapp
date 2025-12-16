@@ -237,6 +237,7 @@ PhaseManager.prototype.attackPhase = function (
     attackerData.attacks = attackData.attacks.filter((a) =>
         attackTypes.hasOwnProperty(a.type)
     );
+    attackerData.icons = attackData.icons;
     // Attacker attacks
     attackerData.attacks.forEach((attack) => {
         const typeData = attackTypes[attack.type];
