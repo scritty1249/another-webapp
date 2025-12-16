@@ -73,12 +73,17 @@ export const DataStore = {
                     const targetData = nodeManager.getNodeData(attack.target);
                     const targetid = attack.target;
                     nodeManager.resetNodeColorTint(targetid);
-                    nodeManager.setNodeColorTint(attack.target, _purp, 0.95);
+                    nodeManager.resetNodeEmissive(targetid);
+                    nodeManager.setNodeColorTint(targetid, _purp, 0.95);
+                    nodeManager.setNodeEmissive(targetid, _purp);
                     targetData.state.disabled.set(
                         true,
                         1800,
                         () => {
-                            nodeManager.resetNodeColorTint(targetid);
+                            if (!targetData.isFriendly) {
+                                nodeManager.resetNodeColorTint(targetid);
+                                nodeManager.resetNodeEmissive(targetid);
+                            }
                         },
                         true
                     );

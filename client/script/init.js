@@ -456,6 +456,8 @@ function mainloop(MenuController) {
                                                         theftRate: CONFIG.CURRENCY_THEFT_TICKSPEED,
                                                         nodeConfig: {
                                                             regenDelay: CONFIG.ATTACK_NODE_REGEN_DELAY,
+                                                            friendlyColor: CONFIG.FRIENDLY_NODE_COLOR,
+                                                            friendlyTint: CONFIG.FRIENDLY_NODE_TINT,
                                                         },
                                                     }
                                                 ).then(() => MenuController.close());

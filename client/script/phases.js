@@ -100,10 +100,11 @@ PhaseManager.prototype.selectPhase = function (
                 "[PhaseManager] | Error initalizing Select Phase. Missing a callback in given arguments."
             )
         );
-
     // setup new phase
     this._controls.camera.autoRotate = true;
     this._controls.camera.autoRotateSpeed = 0.6;
+
+    this._openLoadingAnimation();
     return UTIL.loadBackgroundTexture(metadata?.background, this._scene)
         .then(layoutLoaded => {
             const overlayController = new SelectOverlayManager(
@@ -212,6 +213,7 @@ PhaseManager.prototype.selectPhase = function (
                 this.Managers.Overlay.clear();
             };
             this.phase = "select";
+            this._closeLoadingAnimation();
             Logger.log("[PhaseManager] | Loaded Select phase");
         });
 };
@@ -265,6 +267,7 @@ PhaseManager.prototype.attackPhase = function (
             sfx: typeData?.sfx,
         };
     }
+
     // init attack managers
     Object.values(attackerTypeData).forEach((typeData) => {
         if (typeData.manager) {
@@ -391,7 +394,7 @@ PhaseManager.prototype.attackPhase = function (
         Mouse: self.Managers.Mouse,
         Node: nodeController,
     });
-
+    this._openLoadingAnimation();
     return UTIL.layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController)
         .then(layoutLoaded => {
             listenerController
@@ -439,6 +442,7 @@ PhaseManager.prototype.attackPhase = function (
                 this.Managers.Attacks.clear();
             };
             this.phase = "attack";
+            this._closeLoadingAnimation();
             Logger.log("[PhaseManager] | Loaded Attack phase");
         });
 };
@@ -516,7 +520,7 @@ PhaseManager.prototype.buildPhase = function (
             return collected;
         },
     };
-
+    this._openLoadingAnimation();
     return UTIL.layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController)
         .then(layoutLoaded => {
             overlayController.init(this._controls, {
@@ -649,6 +653,7 @@ PhaseManager.prototype.buildPhase = function (
                 this.Managers.Node.clear();
             };
             this.phase = "build";
+            this._closeLoadingAnimation();
             Logger.log("[PhaseManager] | Loaded Build phase");
         });
 };
@@ -677,7 +682,18 @@ PhaseManager.prototype.update = function (timedelta) {
     // required if controls.enableDamping or controls.autoRotate are set to true
     this._controls.camera.update(); // must be called after any manual changes to the camera"s transform
 };
-
+PhaseManager.prototype._openLoadingAnimation = function () {
+    const el = document.createElement("img");
+    el.id = "loading-animation";
+    el.src = "./source/loading-phase-single-loop.gif";
+    el.alt = "Loading Phase...";
+    this.Managers.Overlay.element._overlay.appendChild(el);
+};
+PhaseManager.prototype._closeLoadingAnimation = function () {
+    const el = document.getElementById("loading-animation");
+    if (el)
+        el.remove();
+};
 function AttackManagerWrapper() {
     this._attackManagers = [];
     this.push = function (...managers) {
