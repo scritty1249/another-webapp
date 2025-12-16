@@ -16,4 +16,5 @@ export const Configuration = {
     CURRENCY_LOSS_RATIO: 2 / 3, // how much defenders can lose when stolen from
     CURRENCY_THEFT_TICKSPEED: 5, // how many ticks to wait before stealing 1 currency from captured nodes
     ATTACK_NODE_REGEN_DELAY: 4.5, // seconds
+    ATTACK_BASE_SECONDS_LIMIT: 120,
 };

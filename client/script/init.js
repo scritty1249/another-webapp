@@ -454,10 +454,13 @@ function mainloop(MenuController) {
                                                     DataStore.AttackTypeData(camera),
                                                     DataStore.AttackNodeTypeData,
                                                     DataStore.AttackNodeOverlayData,
-                                                    DataStore.AttackSfx,
-                                                    { 
+                                                    {
+                                                        sfx: DataStore.AttackSfx,
+                                                        timelimit: CONFIG.ATTACK_BASE_SECONDS_LIMIT,
                                                         theftRate: CONFIG.CURRENCY_THEFT_TICKSPEED,
-                                                        regenDelay: CONFIG.ATTACK_NODE_REGEN_DELAY,
+                                                        nodeConfig: {
+                                                            regenDelay: CONFIG.ATTACK_NODE_REGEN_DELAY,
+                                                        },
                                                     }
                                                 );
                                                 MenuController.close();
