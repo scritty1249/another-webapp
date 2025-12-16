@@ -384,6 +384,12 @@ OverlayManager.prototype._initState = function () {
         },
     };
 };
+OverlayManager.prototype._updateFontColor = function () {
+    if (this._scene.userData.background?.endsWith("-dark"))
+        this.element._overlay.classList.add("dark");
+    else
+        this.element._overlay.classList.remove("dark");
+};
 OverlayManager.prototype._initOverlay = function () {
     this.sprite.focusHighlight = GenericSprite.createFocusGlow();
     this.sprite.focusHighlight.visible = false;
@@ -413,6 +419,7 @@ OverlayManager.prototype.messagePopup = function (message, expiresMs = 3000) {
     }
 };
 OverlayManager.prototype.update = function () {
+    this._updateFontColor();
     // must be implemented by extending classes
     this._updateFocusHighlight();
 };

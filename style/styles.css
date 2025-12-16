@@ -27,18 +27,19 @@ canvas {
 div.hexagon:has(img.hexagon) {
     --polygon: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     --width: auto;
+    --height: calc(var(--width) * 1.1547);
     --border-size: calc(var(--unit) / 2.5);
     --active-color: #ff5757;
     background: transparent;
     width: calc(var(--width) + var(--border-size));
-    height: calc(var(--width) + var(--border-size));
+    height: calc(var(--height) + var(--border-size));
     clip-path: var(--polygon);
     -webkit-clip-path: var(--polygon);
     > img.hexagon {
         position: absolute;
         transform: translate(var(--border-size), var(--border-size));
         width: calc(var(--width) - var(--border-size));
-        height: calc(var(--width) - var(--border-size));
+        height: calc(var(--height) - var(--border-size));
         clip-path: var(--polygon);
         -webkit-clip-path: var(--polygon);
     }
@@ -108,7 +109,9 @@ div.hexagon:has(img.hexagon:active) {
     height: calc(var(--vh) * 100);
     margin: 0;
     overflow: hidden;
-
+    &.dark {
+        color: #DDD;
+    }
     > .corner-button {
         position: fixed;
         bottom: 0;
