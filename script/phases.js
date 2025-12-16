@@ -88,7 +88,8 @@ PhaseManager.prototype._validateKeys = function (object, expectedNames = []) {
 PhaseManager.prototype.selectPhase = function (
     targets,
     currencyRatio,
-    callbacks
+    callbacks,
+    metadata = {},
 ) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Select phase");
@@ -146,6 +147,13 @@ PhaseManager.prototype.selectPhase = function (
             Logger.info("[PhaseManager] | Fetching new world targets.");
             self.Managers.World.unfocusCountry(false);
             callbacks.Refresh();
+        });
+    listenerController
+        .listener(overlayController.element.menuButton)
+        .add("click", function (event) {
+            overlayController._menuManager._dispatch("swapphase", {
+                phase: "build",
+            });
         });
     this.Managers.World.when("click", function (detail) {
         const last = detail.previous;
@@ -215,8 +223,7 @@ PhaseManager.prototype.attackPhase = function (
     attackTypes,
     nodeTypes,
     nodeOverlayData,
-    sfxData,
-    phaseConfig,
+    metadata = {}
 ) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Attack phase");
@@ -278,7 +285,7 @@ PhaseManager.prototype.attackPhase = function (
             crypto: 0,
         },
         tick: 0,
-        interval: phaseConfig.theftRate,
+        interval: metadata.theftRate,
         get capturedStores() {
             return [
                 ...nodeController.getStorageNodes("cash"),
@@ -306,7 +313,7 @@ PhaseManager.prototype.attackPhase = function (
                     this.notEmpty.add(node.uuid);
                 else if (!this.emptied.has(node.uuid) && this.notEmpty.has(node.uuid) && node.userData.exportData.store.amount <= 0) {
                     this.emptied.add(node.uuid);
-                    self.Managers.Audio.play(sfxData["emptied-store"]);
+                    self.Managers.Audio.play(metadata.sfx?.["emptied-store"]);
                     return;
                 }
             if (node.userData.exportData?.store?.amount <= 0) return;
@@ -322,42 +329,46 @@ PhaseManager.prototype.attackPhase = function (
             this.capturedStores.forEach(n => this.steal(n));
         },
     };
+
+    const transferFundsCallback = () => { // also switches phase to build
+        if (self.phase == "attack") {
+            const { cash, crypto } = bankController.stolen;
+            const transfer = [];
+            const record = []; // this one isn't offset by any ratios, and will be sent to the database.
+            if (cash) {
+                transfer.push({
+                    cash: Math.floor(phaseData.currencyRatio * cash),
+                });
+                record.push({ cash: cash });
+            }
+            if (crypto) {
+                transfer.push({
+                    crypto: Math.floor(phaseData.currencyRatio * crypto),
+                });
+                record.push({ crypto: crypto });
+            }
+            if (cash || crypto) {
+                phaseData.resultHandler(record);
+                self.Managers.Overlay._menuManager._dispatch("swapphase", {
+                    phase: "build",
+                    metadata: { transfer: transfer },
+                });
+            } else
+                self.Managers.Overlay._menuManager._dispatch("swapphase", {
+                    phase: "build",
+                });
+        } else {
+            Logger.debug(
+                `[PhaseManager] | Cannot transfer funds: Phase is no longer set to attack. (${self.phase})`
+            );
+        }
+    };
     const nodeVictoryCallback = () => {
-        Logger.debug("Victory callback triggered");
+        Logger.debug("[PhaseManager] | Victory callback triggered, waiting for theft.");
         bankController.theftPromise
             .then(_ => {
-                Logger.debug("Finished waiting for theft");
-                if (self.phase == "attack") {
-                    const { cash, crypto } = bankController.stolen;
-                    const transfer = [];
-                    const record = []; // this one isn't offset by any ratios, and will be sent to the database.
-                    if (cash) {
-                        transfer.push({
-                            cash: Math.floor(phaseData.currencyRatio * cash),
-                        });
-                        record.push({ cash: cash });
-                    }
-                    if (crypto) {
-                        transfer.push({
-                            crypto: Math.floor(phaseData.currencyRatio * crypto),
-                        });
-                        record.push({ crypto: crypto });
-                    }
-                    if (cash || crypto) {
-                        phaseData.resultHandler(record);
-                        self.Managers.Overlay._menuManager._dispatch("swapphase", {
-                            phase: "build",
-                            metadata: { transfer: transfer },
-                        });
-                    } else
-                        self.Managers.Overlay._menuManager._dispatch("swapphase", {
-                            phase: "build",
-                        });
-                } else {
-                    Logger.debug(
-                        `But phase is no longer set to attack. (${self.phase})`
-                    );
-                }
+                Logger.debug("[PhaseManager] | Finished waiting for theft.");
+                transferFundsCallback();
             });
     };
 
@@ -366,7 +377,7 @@ PhaseManager.prototype.attackPhase = function (
         nodeTypes,
         attackerTypeData,
         nodeOverlayData,
-        phaseConfig,
+        metadata.nodeConfig,
         ...this._constructorArgs.Node
     );
     const overlayController = new AttackOverlayManager(
@@ -399,6 +410,12 @@ PhaseManager.prototype.attackPhase = function (
                 }
             else overlayController.unfocusNode();
         });
+    listenerController
+        .listener(overlayController.element.menuButton)
+        .add("click", function (event) {
+            transferFundsCallback();
+        });
+    overlayController.startTimer(metadata.timelimit, transferFundsCallback);
 
     this.Managers.Overlay = overlayController;
     this.Managers.Node = nodeController;
@@ -595,6 +612,11 @@ PhaseManager.prototype.buildPhase = function (
                 }
             }
             overlayController.unfocusNode();
+        });
+    listenerController
+        .listener(overlayController.element.menuButton)
+        .add("click", function (event) {
+            overlayController._menuManager.open();
         });
 
     this.Managers.Node = nodeController;

@@ -174,6 +174,33 @@ const AttackHud = {
         el.innerText = `Target: ${targetName}`;
         return el;
     },
+    createTimer: function () {
+        const el = document.createElement("div");
+        el.classList.add("timer");
+        el.innerText = `--:--`;
+        el.dataset.limit = 0;
+        return el;
+    },
+    startTimer: function (timerEl, duration) { // duration in seconds
+        timerEl.dataset.limit = UTIL.getNowUTCSeconds() + duration;
+        const setTimer = (remaining) => {
+            const mins = Math.floor(remaining / 60);
+            const secs = Math.floor(remaining % 60);
+            timerEl.innerText = `${mins}:`.padStart(3, "0") + `${secs}`.padStart(2, "0");
+        };
+        const timerid = setInterval(() => {
+            const remaining = parseInt(timerEl.dataset.limit) - UTIL.getNowUTCSeconds();
+            setTimer(remaining);
+            if (remaining <= 0) {
+                clearInterval(timerEl.dataset.timerid);
+                timerEl.dataset.limit = 0;
+                timerEl.dispatchEvent(UTIL.createEvent("timerended"));
+            }
+        }, 1000);
+        timerEl.dataset.timerid = timerid;
+        setTimer(duration);
+        return timerid;
+    },
 };
 
 const GenericElement = {
@@ -257,15 +284,12 @@ const GenericSprite = {
 
 const Button = {
     // unlikke some of the others, this is for buttons making it to prod!
-    mainMenu: function (openMenuCallback = () => {}) {
+    mainMenu: function () {
         const el = document.createElement("div");
         el.classList.add("corner-button", "button", "pointer-events");
         el.style.height = "calc(var(--unit) * 10)";
         el.style.width = "calc(var(--unit) * 10)";
         el.style.backgroundImage = `url("./source/menu-corner-button.png")`;
-        el.addEventListener("click", function (event) {
-            openMenuCallback();
-        });
         el.addEventListener("contextmenu", function (event) {
             event.preventDefault();
         });
@@ -364,7 +388,7 @@ OverlayManager.prototype._initOverlay = function () {
     this.sprite.focusHighlight = GenericSprite.createFocusGlow();
     this.sprite.focusHighlight.visible = false;
     this._scene.add(this.sprite.focusHighlight);
-    this.element.menuButton = Button.mainMenu(() => this._menuManager.open());
+    this.element.menuButton = Button.mainMenu();
     this.element._overlay.appendChild(this.element.menuButton);
 };
 OverlayManager.prototype.messagePopup = function (message, expiresMs = 3000) {
@@ -711,6 +735,9 @@ AttackOverlayManager.prototype._initOverlay = function () {
     });
     this.element.hud = AttackHud.createHud(this._targetData.username, attackTiles);
     this.element._overlay.appendChild(this.element.hud);
+    // create timer seperately to keep track of it
+    this.element._timer = AttackHud.createTimer();
+    this.element.hud.appendChild(this.element._timer);
 };
 AttackOverlayManager.prototype._updateFocusMenu = function () {
     if (this.state.focusedNode) {
@@ -769,6 +796,19 @@ AttackOverlayManager.prototype.unfocusNode = function () {
         });
     }
 };
+AttackOverlayManager.prototype.startTimer = function (durationSecs, timerCallback = () => {}) {
+    AttackHud.startTimer(this.element._timer, durationSecs);
+    this.element._timer.addEventListener("timerended", function (event) {
+        Logger.info(`[AttackOverlayManager] | Timer ended.`);
+        timerCallback();
+    });
+    Logger.info(`[AttackOverlayManager] | Started timer for ${durationSecs}s.`);
+};
+AttackOverlayManager.prototype.clear = function () {
+    if (parseInt(this.element._timer.dataset.limit))
+        clearInterval(this.element._timer.dataset.timerid);
+    OverlayManager.prototype.clear.call(this);
+};
 AttackOverlayManager.prototype.update = function () {
     OverlayManager.prototype.update.call(this);
     if (
@@ -790,11 +830,6 @@ AttackOverlayManager.prototype.init = function (...args) {
         );
     });
     this._initOverlay();
-    this.element.menuButton.remove();
-    this.element.menuButton = Button.mainMenu(() =>
-        this._menuManager._dispatch("swapphase", { phase: "build" })
-    );
-    this.element._overlay.appendChild(this.element.menuButton);
 };
 
 export function SelectOverlayManager(...parentArgs) {
@@ -806,11 +841,6 @@ SelectOverlayManager.prototype.constructor = SelectOverlayManager;
 SelectOverlayManager.prototype.init = function (...args) {
     OverlayManager.prototype.init.call(this, ...args);
     this._initOverlay();
-    this.element.menuButton.remove();
-    this.element.menuButton = Button.mainMenu(() =>
-        this._menuManager._dispatch("swapphase", { phase: "build" })
-    );
-    this.element._overlay.appendChild(this.element.menuButton);
 };
 
 SelectOverlayManager.prototype._initOverlay = function () {

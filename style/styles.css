@@ -292,6 +292,13 @@ canvas {
                 left: 0;
                 top: 50%;
             }
+            > .timer {
+                top: calc(var(--unit) / 2);
+                position: relative;
+                margin: 0 auto;
+                width: 100%;
+                text-align: center;
+            }
         }
     }
 
