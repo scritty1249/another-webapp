@@ -18,3 +18,20 @@ export const Configuration = {
     ATTACK_NODE_REGEN_DELAY: 4.5, // seconds
     ATTACK_BASE_SECONDS_LIMIT: 120,
 };
+
+const DEFAULT_BACKGROUND = "bubbles";
+export const Default = {
+    BG: DEFAULT_BACKGROUND,
+    LAYOUT: {
+        background: DEFAULT_BACKGROUND,
+        layout: {
+            neighbors: [],
+            nodes: [{ uuid: "0", type: "globe", position: [0, 0, 0], _data: {} }],
+        },
+    },
+    GEO: {
+        // lol
+        lat: 63.5888,
+        long: 154.4931,
+    },
+};

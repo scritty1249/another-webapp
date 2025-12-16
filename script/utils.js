@@ -3,24 +3,8 @@ import * as THREE from "three";
 
 const b64RegPattern =
     /^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/;
-const DEFAULT_BACKGROUND = "./source/bg/";
-export const BLANK_LAYOUT_OBJ = {
-    background: DEFAULT_BACKGROUND,
-    layout: {
-        neighbors: [],
-        nodes: [{ uuid: "0", type: "globe", position: [0, 0, 0], _data: {} }],
-    },
-};
-export const BLANK_BANK = {
-    cash: 300,
-    crypto: 15
-};
-
-export const DEFAULT_GEO = {
-    // lol
-    lat: 63.5888,
-    long: 154.4931,
-};
+const backgroundPath = (backgroundName) => `./source/bg/${backgroundName}/`;
+const defaultBackgroundColor = new THREE.Color(0x010101);
 
 function nestedSetEquals (set1, set2) { // [!] only compares to a depth of 2
     for (const item1 of set1) {
@@ -46,6 +30,16 @@ function nestedSetEquals (set1, set2) { // [!] only compares to a depth of 2
             return false;
     }
     return true;
+}
+
+export function loadBackgroundTexture (background, scene, loadingBg = defaultBackgroundColor) {
+    scene.background = loadingBg;
+    return loadTextureCube(backgroundPath(background), ".png")
+        .then((tex) => {
+            scene.background = tex;
+            scene.userData.background = background;
+            return true;
+        });
 }
 
 export function loadAudio (src, ctx) {
@@ -127,7 +121,7 @@ export function getLocation() {
             };
         })
         .catch((err) => {
-            return DEFAULT_GEO;
+            return DEFAULT.GEO;
         });
 }
 
@@ -196,7 +190,7 @@ export function layoutsEqual(thisLayout, thatLayout) { // [!] currently, does no
 
 export function layoutToJsonObj(scene, nodeManager) {
     const data = {
-        background: "./source/bg/",
+        background: scene.userData?.background ? scene.userData.background : DEFAULT.BG,
         layout: {
             nodes: [],
             neighbors: [],
@@ -254,32 +248,36 @@ export function layoutToJson(scene, nodeManager, obfuscate = true) {
 export function layoutFromJsonObj(jsonObj, scene, dragControls, nodeManager) {
     try {
         const newIds = {};
+        let res;
         if (jsonObj.background)
             try {
-                scene.background = loadTextureCube(jsonObj.background);
+                res = loadBackgroundTexture(jsonObj.background, scene);
             } catch (error) {
                 Logger.error(
                     `Failed to load background from source: ${jsonObj.background}`
                 );
                 Logger.error(error);
-                scene.background = loadTextureCube(DEFAULT_BACKGROUND);
+                res = loadBackgroundTexture(DEFAULT.BG, scene);
             }
-        jsonObj.layout.nodes.forEach((node) => {
-            const newId = nodeManager.createNode(node.type, node.position, node._data);
-            newIds[node.uuid] = newId;
-        });
-        jsonObj.layout.neighbors.forEach((tether) =>
-            nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]])
-        );
-        // update references
-        dragControls.objects = nodeManager.nodelist;
-        nodeManager.centerNodes();
-        Logger.debug("Loaded layout: ", jsonObj);
-        return true;
+        return res
+            .then(_ => {
+                jsonObj.layout.nodes.forEach((node) => {
+                    const newId = nodeManager.createNode(node.type, node.position, node._data);
+                    newIds[node.uuid] = newId;
+                });
+                jsonObj.layout.neighbors.forEach((tether) =>
+                    nodeManager.tetherNodes(newIds[tether[0]], newIds[tether[1]])
+                );
+                // update references
+                dragControls.objects = nodeManager.nodelist;
+                nodeManager.centerNodes();
+                Logger.debug("Loaded layout: ", jsonObj);
+                return true;
+            })
     } catch (error) {
         Logger.error(`Error loading layout: `, jsonObj);
         Logger.error(error);
-        return false;
+        return Promise.resolve(false);
     }
 }
 

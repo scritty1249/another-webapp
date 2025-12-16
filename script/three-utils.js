@@ -13,11 +13,13 @@ function isVectorZero(vector) {
     );
 }
 function loadTextureCube(cubeAssetsPath, cubeAssetsFormat = ".png") {
-    return new CubeTextureLoader().load([
-        cubeAssetsPath + 'px' + cubeAssetsFormat, cubeAssetsPath + 'nx' + cubeAssetsFormat,
-        cubeAssetsPath + 'py' + cubeAssetsFormat, cubeAssetsPath + 'ny' + cubeAssetsFormat,
-        cubeAssetsPath + 'pz' + cubeAssetsFormat, cubeAssetsPath + 'nz' + cubeAssetsFormat
-    ]);
+    return new Promise((resolve, reject) => {
+        new CubeTextureLoader().load([
+            cubeAssetsPath + 'px' + cubeAssetsFormat, cubeAssetsPath + 'nx' + cubeAssetsFormat,
+            cubeAssetsPath + 'py' + cubeAssetsFormat, cubeAssetsPath + 'ny' + cubeAssetsFormat,
+            cubeAssetsPath + 'pz' + cubeAssetsFormat, cubeAssetsPath + 'nz' + cubeAssetsFormat
+        ], resolve, ()=>{}, reject);
+    });
 }
 function loadTexture(texturePath) {
     return (new TextureLoader()).loadAsync(texturePath);
