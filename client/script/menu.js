@@ -277,7 +277,7 @@ export function MenuManager (
                 const buttons = Array.from(backgrounds, bg => 
                     self.createElement.tileImg(backgroundPreviewPath(bg), {
                         click: () => self._dispatch("backgroundchange", {background: bg}),
-                    }, true)
+                    }, true, true)
                 );
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
@@ -317,13 +317,13 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "baseType");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center");
+                central.classList.add("center", "absolutely-center", "scrollview");
                 const buttons = [ // placeholders
                     self.createElement.button(90, "add-node", "Add placeholder", { // placeholder
-                        click: () => self._dispatch("addnode", {nodeType: "placeholder"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "placeholder", typeMenu: "baseType"}),
                     }, 4),
                     self.createElement.button(90, "add-node", "Add globe", { // globe
-                        click: () => self._dispatch("addnode", {nodeType: "globe"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "globe", typeMenu: "baseType"}),
                     }, 4),
                     self.createElement.button(90, "lock", undefined, {
 
@@ -340,13 +340,13 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "defenseType");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center");
+                central.classList.add("center", "absolutely-center", "scrollview");
                 const buttons = [ // placeholders
                     self.createElement.button(90, "add-node", "Add cube", { // cube
-                        click: () => self._dispatch("addnode", {nodeType: "cube"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cube", typeMenu: "defenseType"}),
                     }, 4),
                     self.createElement.button(90, "add-node", "Add scanner", { // scanner
-                        click: () => self._dispatch("addnode", {nodeType: "scanner"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "scanner", typeMenu: "defenseType"}),
                     }, 4),
                     self.createElement.button(90, "lock", undefined, {
 
@@ -363,24 +363,59 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "econType");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center");
-                const buttons = [ // placeholders
+                central.classList.add("center", "absolutely-center", "scrollview");
+                const buttons = [
                     self.createElement.button(90, "add-node", "Add cash node", { // cashfarm
-                        click: () => self._dispatch("addnode", {nodeType: "cashfarm"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cashfarm", typeMenu: "econType"}),
                     }, 4),
                     self.createElement.button(90, "add-node", "Add credit node", { // cryptofarm
-                        click: () => self._dispatch("addnode", {nodeType: "cryptofarm"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cryptofarm", typeMenu: "econType"}),
                     }, 4),
                     self.createElement.button(90, "add-node", "Add cash storage", { // cashstore
-                        click: () => self._dispatch("addnode", {nodeType: "cashstore"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cashstore", typeMenu: "econType"}),
                     }, 4),
                     self.createElement.button(90, "add-node", "Add credit storage", { // cryptostore
-                        click: () => self._dispatch("addnode", {nodeType: "cryptostore"}),
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cryptostore", typeMenu: "econType"}),
+                    }, 4),
+                    self.createElement.button(90, "lock", undefined, {
+
+                    }, 4),
+                    self.createElement.button(90, "lock", undefined, {
+
+                    }, 4),
+                    self.createElement.button(90, "lock", undefined, {
+
                     }, 4),
                 ];
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
                 self._dispatch("loadmenu", {history: ["addNode", "selectType"]});
+            },
+            nodeDetail: function (
+                details, // expects {_type, description, cost(str), name, thumb}
+                lastMenu
+            ) { // called externally
+                self.loadMenu.clear();
+                self.element.wrapper.classList.add("addNode", "nodeDetail");
+                const central = document.createElement("div");
+                central.classList.add("center", "absolutely-center");
+                
+                const infoWindow = self.createElement.statusTextBox(true, false);
+                infoWindow.element.classList.add("description");
+                infoWindow.text = details.description;
+                const previewTile = self.createElement.tileSvg(1, 0, [
+                    self.createElement.svgImage(details.thumb),
+                    self.createElement.svgText([details.name, "", ""])
+                ]);
+                previewTile.classList.add("preview");
+                const buyButton = self.createElement.button(90, undefined, details.cost, {
+                    click: () => self._dispatch("addnode", {nodeType: details._type}),
+                }, 2);
+                buyButton.classList.add("buy");
+                
+                self._appendElement(central, previewTile, infoWindow.element, buyButton);
+                self._appendMenu(central);
+                self._dispatch("loadmenu", {history: ["addNode", lastMenu]});
             },
         },
     };
@@ -391,11 +426,6 @@ export function MenuManager (
                 children.push(self.createElement.svgImage(menuPath + buttonType + "-icon.png"));
             if (text)
                 children.push(self.createElement.svgText(text.split("\n")));
-            if (buttonType && text) {
-                children[0].setAttributeNS(null,"x","-80%");
-                children[0].setAttributeNS(null,"width","100%");
-                children[1].setAttributeNS(null,"x","10%");
-            }
             const el = self.createElement.tileSvg(buttonLength, angle, children)
             el.classList.add("pointer-events", "button");
             el.style.setProperty("--length", buttonLength)
@@ -537,33 +567,24 @@ export function MenuManager (
             return svg;
         },
         svgImage: function (imgPath) {
-            // original dimensions should be 500x500 px
             const el = document.createElementNS(SVG_NS,"image");
-            el.setAttributeNS(null,"height","100%");
-            el.setAttributeNS(null,"width","100%");
             el.setAttributeNS("http://www.w3.org/1999/xlink","href", imgPath);
-            el.setAttributeNS(null,"x","-50%");
-            el.setAttributeNS(null,"y","-100%");
-            el.setAttributeNS(null, "visibility", "visible");
             return el;
         },
-        svgText: function (textlines, scale = 0.75, fontColor = "#ff5757", fontPath = undefined) {
+        svgText: function (textlines) {
             const el = document.createElementNS(SVG_NS,"text");
+            // these values are ignored in css, must be defined inline
             el.setAttributeNS(null,"height","100%");
             el.setAttributeNS(null,"width","100%");
             el.setAttributeNS(null,"y","-50%");
-            el.setAttributeNS(null, "fill", fontColor);
-            el.setAttributeNS(null, "visibility", "visible");
-            el.setAttributeNS(null, "dominant-baseline", "central");
-            el.setAttributeNS(null, "text-anchor", "middle");
+
+            // centering text
+            const firstLineOffset = `${-.6 * (textlines.length - 1)}em`;
+
             textlines.forEach((textline, i) => {
                 const line = document.createElementNS(SVG_NS, "tspan");
                 line.setAttributeNS(null, "x", "0");
-                if (textlines.length > 1)
-                    if (i)
-                        line.setAttributeNS(null, "dy", "1.2em");
-                    else
-                        line.setAttributeNS(null, "dy", "-.6em");
+                line.setAttributeNS(null, "dy", i ? "1.2em" : firstLineOffset);
                 line.textContent = textline;
                 el.appendChild(line);
             });
@@ -615,15 +636,21 @@ export function MenuManager (
             wrapper.appendChild(el);
             return wrapper;
         },
-        tileImg: function (src, events = {}, interactive = false) {
+        tileImg: function (src, events = {}, alternate = false, interactive = false, outline = false) {
             const wrapper = document.createElement("div");
             const img = document.createElement("img");
             img.src = src;
-            wrapper.classList.add("hexagon", "alt");
+            wrapper.classList.add("hexagon");
             img.classList.add("hexagon");
             if (interactive) {
                 wrapper.classList.add("button");
                 img.classList.add("pointer-events");
+            }
+            if (outline) {
+                wrapper.classList.add("outline");
+            }
+            if (alternate) {
+                wrapper.classList.add("alt");
             }
             wrapper.appendChild(img);
             Object.entries(events).forEach(([eventType, handler]) => wrapper.addEventListener(eventType, handler));

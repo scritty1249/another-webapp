@@ -48,6 +48,9 @@ div.hexagon:has(img.hexagon) {
 div.hexagon.button:has(img.hexagon:active) {
     background: var(--active-color);
 }
+div.hexagon.outline {
+    background: var(--active-color);
+}
 div.hexagon:not(.alt) {
     --width: var(--size);
     --height: calc(var(--width) * 1.1547);
@@ -138,22 +141,45 @@ div.hexagon.alt {
         display: none;
     }
 
-    svg.button {
+    svg {
         --length: 1;
         background-blend-mode: luminosity;
         width: calc(var(--unit) * 12.5);
         height: calc(var(--unit) * 12.5);
-        transform: scale(var(--length));
-    }
-    svg.pointer-events {
-        pointer-events: none !important;
-        filter: blur(0);
-        > path {
-            pointer-events: visiblePainted !important;
+        scale: var(--length);
+        image {
+            width: calc(calc(var(--scale) * 100%) * 1);
+            height: calc(calc(var(--scale) * 100%) * 1);
+            x: calc(calc(var(--scale) * 50%) * -1);
+            y: calc(calc(calc(var(--scale) * 50%) + 50%) * -1);
+            visibility: visible;
         }
-    }
-    svg.button:active {
-        filter: brightness(2) grayscale(1);
+        text {
+            --font-color: #ff5757;
+            font-size: calc(var(--scale) * 1em);
+            fill: var(--font-color);
+            visibility: visible;
+            dominant-baseline: central;
+            text-anchor: middle;
+        }
+        * {
+            --scale: 1;
+        }
+        &.pointer-events {
+            pointer-events: none !important;
+            filter: blur(0);
+            > path {
+                pointer-events: visiblePainted !important;
+            }
+        }
+        &.button {
+            &:has(text) image {
+                transform: translateX(-25%);
+            }
+            &:active {
+                filter: brightness(2) grayscale(1);
+            }
+        }
     }
     div.textbox {
         &:not(.naked) {
@@ -513,6 +539,36 @@ div.hexagon.alt {
                     display: flex;
                     flex-direction: column;
                     flex-wrap: nowrap;
+                    > * {
+                        margin: 0 auto;
+                    }
+                }
+            }
+            &.nodeDetail {
+                > div.center {
+                    display: flex;
+                    flex-direction: column;
+                    flex-wrap: nowrap;
+                    > * {
+                        margin: 0 auto;
+                    }
+                    > svg.preview {
+                        --length: 3 !important;
+                        margin-top: 0;
+                        margin-bottom: 50%;
+                        > image {
+                            --scale: 0.75 !important;
+                        }
+                    }
+                    > .description {
+
+                    }
+                    > .buy {
+                        --length: 1 !important;
+                        text {
+                            --scale: 2 !important;
+                        }
+                    }
                 }
             }
         }

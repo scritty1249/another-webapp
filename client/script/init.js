@@ -355,7 +355,7 @@ function mainloop(MenuController) {
                                                             const _leftover = PhaseController.Managers.Node.removeCurrency(currencyType, amount);
                                                             text.push(`${amount - _leftover} ${currencyType}`);
                                                         });
-                                                        Storage.set("deductions", _blankDeuctions, true);
+                                                        Storage.set("deductions", DEFAULT.DEDUCTIONS, true);
                                                         const message = `Funds stolen by ${[..._deduct.attackers].map(e => e.username).join(", ")}! Lost ` + (text.length > 1
                                                             ? text.slice(0, text.length - 1)
                                                                 .join(", ") +
@@ -370,13 +370,6 @@ function mainloop(MenuController) {
                                                     Logger.info("Fetching defense history");
                                                     Session.getDefenseHistory()
                                                         .then((res) => {
-                                                            const _blankDeuctions = {
-                                                                currency: {
-                                                                    cash: 0,
-                                                                    crypto: 0
-                                                                },
-                                                                attackers: []
-                                                            };
                                                             if (res) { // process history
                                                                 const newHistory = res.filter(ar => ar?.processed == false);
                                                                 // [!] temp solution: store history
@@ -389,9 +382,9 @@ function mainloop(MenuController) {
                                                                 const newAttackers = new Set();
                                                                 let _deduct = Storage.has("deductions", true)
                                                                     ? Storage.get("deductions", true)
-                                                                    : UTIL.deepCopy(_blankDeuctions);
+                                                                    : UTIL.deepCopy(DEFAULT.DEDUCTIONS);
                                                                 if (_deduct?.attackers === undefined || _deduct?.currency === undefined)
-                                                                    _deduct = UTIL.deepCopy(_blankDeuctions);
+                                                                    _deduct = UTIL.deepCopy(DEFAULT.DEDUCTIONS);
                                                                 history.filter(ar => ar?.processed == false).forEach(attackResult =>
                                                                         attackResult.losses.forEach(_loss => {
                                                                             const [[ _lossType, _lossAmount]] = Object.entries(_loss);
