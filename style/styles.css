@@ -26,11 +26,11 @@ canvas {
     display: block;
 }
 div.hexagon:has(img.hexagon) {
-    --polygon: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    --width: auto;
-    --height: calc(var(--width) * 1.1547);
+    --size: auto;
     --border-size: calc(var(--unit) / 2.5);
     --active-color: #ff5757;
+     /* Make hexagons always take the same amount of space even if alternate (flipped 90deg). Override margins to zero to disable this. */
+    margin: calc(max(calc(var(--width) - var(--height)), 0px) / 2) calc(max(calc(var(--height) - var(--width)), 0px) / 2);
     background: transparent;
     width: calc(var(--width) + var(--border-size));
     height: calc(var(--height) + var(--border-size));
@@ -45,8 +45,18 @@ div.hexagon:has(img.hexagon) {
         -webkit-clip-path: var(--polygon);
     }
 }
-div.hexagon:has(img.hexagon:active) {
+div.hexagon.button:has(img.hexagon:active) {
     background: var(--active-color);
+}
+div.hexagon:not(.alt) {
+    --width: var(--size);
+    --height: calc(var(--width) * 1.1547);
+    --polygon: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+}
+div.hexagon.alt {
+    --width: calc(var(--height) * 1.1547);
+    --height: var(--size);
+    --polygon: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
 }
 .absolutely-center {
     top: 50%;
@@ -96,7 +106,8 @@ div.hexagon:has(img.hexagon:active) {
 .button {
     background-size: contain;
 }
-.hide-scroll {
+.hide-scroll,
+#overlay .scrollview {
     scrollbar-width: none !important;
     -ms-overflow-style: none !important;
     &::-webkit-scrollbar {
@@ -184,6 +195,21 @@ div.hexagon:has(img.hexagon:active) {
                 text-align: right;
             }
         }
+    }
+
+    .scrollview {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-evenly;
+        align-content: flex-start;
+        flex-wrap: wrap;
+        overflow-x: scroll;
+        height: calc(var(--vh) * 80);
+        width: calc(var(--vw) * 90);
+        padding: 10% 0;
+        mask: linear-gradient(to top, transparent 0%, black 5%, black 90%, transparent 100%);
+        -webkit-mask-composite: exclude;
+        mask-composite: exclude;
     }
 
     > .nodeMenu {
@@ -505,21 +531,9 @@ div.hexagon:has(img.hexagon:active) {
             }
             &.changeBackground {
                 > div.center {
-                    display: flex;
-                    flex-direction: row;
-                    justify-content: space-evenly;
-                    align-content: space-evenly;
-                    flex-wrap: wrap;
-                    overflow-x: scroll;
-                    gap: calc(var(--vw) * 2);
-                    height: calc(var(--vh) * 80);
-                    width: calc(var(--vw) * 90);
-                    padding: 10% 0;
-                    mask: linear-gradient(to top, transparent 0%, black 5%, black 90%, transparent 100%);
-                    -webkit-mask-composite: exclude;
-                    mask-composite: exclude;
+                    gap: var(--vw);
                     > div.hexagon {
-                        --width: calc(var(--unit) * 20);
+                        --size: calc(var(--unit) * 25);
                     }
                 }
             }
