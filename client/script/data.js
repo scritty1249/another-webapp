@@ -229,7 +229,7 @@ export const DataStore = {
             },
             name: "_placeholder_",
             description: "Placeholder. Doesn't do anything.",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumg: "",
         },
         cube: {
             cost: {
@@ -242,14 +242,14 @@ export const DataStore = {
             },
             name: "Cube",
             description: "Captures hostile Nodes within 1 step.",
-            thumb: "./source/node-thumbs/cube.gif",
+            thumb: "./source/node-thumbs/cube.gif", // placeholder
         },
         globe: {
             cost: undefined,
             sell: undefined,
             name: "Access Port",
             description: `Required for your net to exist.\nAll nodes exist within ${CONFIG.maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumb: "./source/node-thumbs/globe.gif",
         },
         scanner: {
             cost: {
@@ -262,7 +262,7 @@ export const DataStore = {
             },
             name: "Sentinal",
             description: "Scans for Attacker activity within [TBD] steps.",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumb: "./source/node-thumbs/scanner.gif",
         },
         cashfarm: {
             // cost: {
@@ -278,7 +278,7 @@ export const DataStore = {
             name: "Cash Farm",
             description:
                 "Farms for cash. Can be collected from to use for purchases.",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumb: "",
         },
         cryptofarm: {
             // cost: {
@@ -294,21 +294,21 @@ export const DataStore = {
             name: "Credits Farm",
             description:
                 "Farms for credits. Can be collected from to use for purchases.",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumb: "",
         },
         cashstore: {
             cost: undefined,
             sell: undefined,
             name: "Cash Storage",
             description: "Holds Cash",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumb: "",
         },
         cryptostore: {
             cost: undefined,
             sell: undefined,
             name: "Credits Storage",
             description: "Holds Credits",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
+            thumb: "",
         },
     },
     SelectPhaseBackground: "_world",

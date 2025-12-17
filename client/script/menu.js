@@ -398,11 +398,11 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "nodeDetail");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center");
+                central.classList.add("center", "absolutely-center", "scrollview");
                 
-                const infoWindow = self.createElement.statusTextBox(true, false);
-                infoWindow.element.classList.add("description");
-                infoWindow.text = details.description;
+                const descriptionWindow = self.createElement.textBox(details.description, true, false);
+                descriptionWindow.classList.add("description");
+                descriptionWindow.firstChild.classList.add("align-left");
                 const previewTile = self.createElement.tileSvg(1, 0, [
                     self.createElement.svgImage(details.thumb),
                     self.createElement.svgText([details.name, "", ""])
@@ -413,8 +413,9 @@ export function MenuManager (
                 }, 2);
                 buyButton.classList.add("buy");
                 
-                self._appendElement(central, previewTile, infoWindow.element, buyButton);
+                self._appendElement(central, previewTile, descriptionWindow, buyButton);
                 self._appendMenu(central);
+                central.scrollTo = 0;
                 self._dispatch("loadmenu", {history: ["addNode", lastMenu]});
             },
         },
