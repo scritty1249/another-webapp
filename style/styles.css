@@ -148,6 +148,7 @@ div.hexagon.alt {
         min-width: calc(var(--unit) * 12.5);
         height: calc(var(--unit) * 12.5);
         min-height: calc(var(--unit) * 12.5);
+        transform-origin: center;
         scale: var(--length);
         image {
             width: calc(calc(var(--scale) * 100%) * 1);
@@ -341,8 +342,9 @@ div.hexagon.alt {
             > svg.button.refresh {
                 position: fixed;
                 left: 50%;
+                transform-origin: left; /* idfk anymore, it works */
                 bottom: calc(var(--vh) * 6);
-                transform: translateX(-50%) scale(var(--length));
+                transform: translateX(-50%);
             }
         }
         &.build {
