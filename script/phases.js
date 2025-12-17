@@ -576,6 +576,28 @@ PhaseManager.prototype.buildPhase = function (
                             overlayController._menuManager.close();
                         });
             });
+
+            // shop menu
+            overlayController._menuManager.when("shopdisplay", (detail) => {
+                const shopType = detail?.shop;
+                if (shopType == "addnode") {
+                    const nodeType = detail?.nodeType;
+                    const nodeDetail = nodeDetails[nodeType];
+                    overlayController._menuManager.loadMenu.addNode.nodeDetail(
+                        { // expects {_type, description, cost(str), name, thumb}
+                            _type: nodeType,
+                            description: nodeDetail.description,
+                            cost: nodeDetail.cost
+                                ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`
+                                : "Free",
+                            name: nodeDetail.name,
+                            thumb: nodeDetail.thumb,
+                        },
+                        detail?.typeMenu
+                    );
+                }
+
+            });
             // Add event listeners
             listenerController
                 .listener(self._controls.drag)

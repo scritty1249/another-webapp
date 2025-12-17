@@ -36,4 +36,11 @@ export const Default = {
         lat: 63.5888,
         long: 154.4931,
     },
+    DEDUCTIONS: {
+        currency: {
+            cash: 0,
+            crypto: 0
+        },
+        attackers: []
+    },
 };
