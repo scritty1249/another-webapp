@@ -260,7 +260,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("settings", "changeBackground");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center");
+                central.classList.add("center", "absolutely-center", "hide-scroll");
                 const backgrounds = [
                     // laziness
                     "bubbles",
@@ -281,6 +281,7 @@ export function MenuManager (
                 );
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
+                central.scrollTop = 0; // scroll to top if overflowing
                 self._dispatch("loadmenu", {history: ["settings", "main"]});
             },
         },
