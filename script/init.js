@@ -316,7 +316,7 @@ function mainloop(MenuController) {
                                                 .then((res) => {
                                                     if (!res) {
                                                         // Session token expired
-                                                        CookieJar.remove("session");
+                                                        Session.clearSession();
                                                         Logger.alert(
                                                             "Session expired, please log in again."
                                                         );
