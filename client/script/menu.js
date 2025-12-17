@@ -260,7 +260,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("settings", "changeBackground");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center", "hide-scroll");
+                central.classList.add("center", "absolutely-center", "scrollview");
                 const backgrounds = [
                     // laziness
                     "bubbles",
@@ -619,10 +619,12 @@ export function MenuManager (
             const wrapper = document.createElement("div");
             const img = document.createElement("img");
             img.src = src;
-            wrapper.classList.add("hexagon");
+            wrapper.classList.add("hexagon", "alt");
             img.classList.add("hexagon");
-            if (interactive)
+            if (interactive) {
+                wrapper.classList.add("button");
                 img.classList.add("pointer-events");
+            }
             wrapper.appendChild(img);
             Object.entries(events).forEach(([eventType, handler]) => wrapper.addEventListener(eventType, handler));
             return wrapper;
