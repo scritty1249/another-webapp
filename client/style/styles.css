@@ -500,7 +500,8 @@ div.hexagon.alt {
                     position: fixed;
                     left: 50%;
                     bottom: calc(var(--vh) * 13);
-                    transform: translateX(-50%) scale(var(--length));
+                    transform: translateX(-50%);
+                    transform-origin: left; /* idfk anymore, it works */
                 }
             }
         }
