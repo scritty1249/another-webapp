@@ -33,28 +33,73 @@ function loadGLTFShape(gltfPath) {
             ])
         )
         .then((values) => {
-            return {
+            const exported = {
                 mesh: values[0],
                 animations: values[1],
             };
+            Logger.info(`Found in scene "${gltfPath}":`, exported);
+            return exported;
         });
 }
-function getMesh(scene) {
+function loadGLTFShapes(gltfPath) {
+    return loadGLTF(gltfPath)
+        .then((gltf) =>
+            Promise.resolve([
+                getMeshes(gltf.scene),
+                getAnimations(gltf.animations)
+            ])
+        )
+        .then((values) => {
+            const exported = {
+                meshes: values[0],
+                animations: values[1],
+            };
+            Logger.info(`Found in scene "${gltfPath}":`, exported);
+            return exported;
+        });
+}
+function getMesh(scene) { // only returns the first mesh (will also return any children)
     let mesh = undefined;
     scene.traverse(function (child) {
         if (child.isMesh) {
             // "child" is a THREE.Mesh object
-            if (!mesh) {
-                Logger.info(`Found Mesh object "${child.name}":`, child);
+            if (!mesh)
                 mesh = child;
-            }
         }
     });
-    if (!mesh) {
-        Logger.error("Error getting mesh");
-        return;
-    }
     return mesh;
+}
+function getMeshes(scene) {
+    const meshes = [];
+    scene.traverse(function (child) {
+        if (child.isMesh && !isMeshChild(child))
+            meshes.push(child);
+    });
+    return meshes;
+}
+function isMeshChild(mesh) {
+    let curr = mesh?.parent;
+    while (curr) {
+        if (curr.isMesh)
+            return true;
+        curr = curr.parent;
+    }
+    return false;
+}
+function getAnimations(animations) {
+    const anis = {};
+    for (const animation of animations) {
+        const name = animation.name.includes(".")
+            ? animation.name.split(".", 2)[0]
+            : animation.name.includes("-")
+                ? animation.name.split("-", 2)[0]
+                : animation.name;
+        if (anis.hasOwnProperty(name))
+            anis[name].push(animation);
+        else
+            anis[name] = [animation];
+    }
+    return anis;
 }
 async function loadGLTF(gltfPath) {
     const loader = new GLTFLoader();
@@ -106,6 +151,7 @@ function distanceTo(object, point) { // check vertexes, so should go based off e
 export {
     isVectorZero,
     loadGLTFShape,
+    loadGLTFShapes,
     getZoom,
     loadTextureCube,
     loadTexture,

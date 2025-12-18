@@ -29,6 +29,7 @@ export function AttackManager(
             x: 1,
             y: 1,
         },
+        glowIntensity: 1
     }
 ) {
     const self = this;
@@ -59,6 +60,7 @@ export function AttackManager(
         uniforms: {
             map: { value: this._atlas.map },
             alphaMap: { value: this._atlas.alphaMap },
+            glowIntensity: { value: textureOptions?.glowIntensity ? textureOptions.glowIntensity : 1},
         },
     });
     this.instanceAttributes = {};
@@ -173,6 +175,7 @@ AttackManager.prototype = {
          	varying vec2 vuv;
             uniform sampler2D map;
             uniform sampler2D alphaMap;
+            uniform float glowIntensity;
             varying vec2 repeatXY;
             varying float mapTileIdx;
             void main() {
@@ -183,7 +186,7 @@ AttackManager.prototype = {
                 vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
                 vec4 alphaTxl = textureGrad(alphaMap, uv, duv.xy, duv.zw);
                 float alpha = ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
-                gl_FragColor = vec4(txl, alpha);
+                gl_FragColor = vec4(txl * glowIntensity, alpha);
             }
         `,
         _vert: `

@@ -10,12 +10,10 @@ export function WorldManager(
     camera,
     raycaster,
     mouseManager,
-    effectRenderer,
     orbitControls
 ) {
     const self = this;
     this._orbitControls = orbitControls;
-    this._fxRenderer = effectRenderer;
     this._renderer = renderer;
     this._raycaster = raycaster;
     this._camera = camera;
@@ -35,7 +33,6 @@ export function WorldManager(
 }
 WorldManager.prototype = {
     _orbitControls: undefined,
-    _fxRenderer: undefined,
     _raycaster: undefined,
     _camera: undefined,
     _mesh: undefined,
@@ -168,7 +165,6 @@ WorldManager.prototype.focusCountry = function (countryid, dispatch = true) {
     this._orbitControls.autoRotate = false;
     country.userData.moveTo(country.position.clone().multiplyScalar(1.1), 0.12);
     country.userData.scaleTo(2, 0.12);
-    this._fxRenderer.addOutline(country, { recursive: false });
     this.focusedCountryId = countryid;
     this._focusMarkers();
     this.faceCameraTo(countryid);
@@ -185,7 +181,6 @@ WorldManager.prototype.unfocusCountry = function (dispatch = true) {
     const country = this.getCountry(this.focusedCountryId);
     country.userData.revert(0.12);
     this._unfocusMarkers();
-    this._fxRenderer.removeOutline(country);
     this.focusedCountryId = undefined;
     this._orbitControls.autoRotate = true;
     if (dispatch)

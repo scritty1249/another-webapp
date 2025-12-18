@@ -200,7 +200,50 @@ export function layoutsEqual(thisLayout, thatLayout) {
         return false;
     }
 }
+function getAllPropertyDescriptors(obj) {
+    const descriptors = {};
+    let curr = obj;
+    while (curr !== null) {
+        const ownKeys = Reflect.ownKeys(curr);
+        for (const key of ownKeys)
+            try {
+                if (
+                    (Object.hasOwn && !Object.hasOwn(descriptors, key)) || // use hasOwn where supported (MS Edge is gay)
+                    (descriptors.hasOwnProperty && !descriptors.hasOwnProperty(key)) || // [!] wtf
+                    descriptors[key] !== undefined
+                )
+                    descriptors[key] = Object.getOwnPropertyDescriptor(curr, key);
+            } catch {
+                Logger.log(descriptors)
+            }
 
+        curr = Object.getPrototypeOf(curr);
+    }
+    return descriptors;
+}
+
+export function CollectionWrapper(array) {
+    const wrapper = {};
+    const descriptors = Object.entries(getAllPropertyDescriptors(array[0]));
+    descriptors.forEach(([prop, descriptor]) => {
+        if (typeof descriptor.value === "function")
+            wrapper[prop] = function (...args) {
+                return Array.from(array, (element) => element[prop](...args));
+            }
+        else
+            Object.defineProperty(wrapper, prop, {
+                get: function () {
+                    return Array.from(array, (element) => element[prop]);
+                },
+                set: function(value) {
+                    return Array.from(array, (element) => element[prop] = value);
+                },
+                enumerable: descriptor.enumerable,
+                configurable: descriptor.configurable,
+            });
+    });
+    return wrapper;
+}
 export function layoutToJsonObj(scene, nodeManager) {
     const data = {
         background: scene.userData?.background

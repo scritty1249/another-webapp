@@ -13,9 +13,14 @@ import { PhaseManager } from "./phases.js";
 import * as UTIL from "./utils.js";
 import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
-import { SelectiveOutlineEffect } from "./renderer.js";
 import { DataStore } from "./data.js";
 import { AudioManager } from "./audio.js";
+
+// bloom
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'; // Optional, but useful for modern tone mapping
 
 // Setup
 // MouseController functionality
@@ -40,8 +45,22 @@ renderer.shadowMap.enabled = false;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.LinearToneMapping;
 
-// outline effect for select phase
-const effect = new SelectiveOutlineEffect(renderer);
+
+// fx
+const effect = new EffectComposer(renderer);
+{
+    const renderScene = new RenderPass(scene, camera);
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.35, // strength
+        0.42, // radius
+        1.8 // threshold
+    );
+    const outputPass = new OutputPass();
+    effect.addPass(renderScene);
+    effect.addPass(bloomPass);
+    effect.addPass(outputPass);
+}
 
 // change camera on window resize
 window.addEventListener("resize", () => {
@@ -192,7 +211,6 @@ function mainloop(MenuController) {
                 camera,
                 raycaster,
                 MouseController,
-                effect,
                 controls.camera
             );
 
@@ -207,11 +225,11 @@ function mainloop(MenuController) {
             );
 
             // Control shadows
-            const ambientLight = new THREE.AmbientLight(0x404040, 15); // soft white light
+            const ambientLight = new THREE.AmbientLight(0x404040, 250); // soft white light
             scene.add(ambientLight);
 
             // render a light
-            const light = new THREE.PointLight(0xffffff, 3500);
+            const light = new THREE.PointLight(0xFFDFDF, 1500);
             light.position.set(-10, 20, 10);
             scene.add(light);
             light.castShadow = true;
@@ -655,13 +673,15 @@ function mainloop(MenuController) {
             }
             statusEl.text = "Loading mesh data";
             const gtlfs = Promise.all([
-                THREEUTIL.loadGLTFShape("./source/placeholder-cube.glb"),
-                THREEUTIL.loadGLTFShape("./source/not-cube.glb"),
-                THREEUTIL.loadGLTFShape("./source/globe.glb"),
-                THREEUTIL.loadGLTFShape("./source/scanner.glb"),
                 THREEUTIL.loadGLTFShape("./source/accurate-world.glb"),
-                THREEUTIL.loadGLTFShape("./source/squarestack.glb"),
-                THREEUTIL.loadGLTFShape("./source/circlestack.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/globe.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/scanner.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/placeholder.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/not-cube.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/cryptofarm.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/cashfarm.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/cryptostore.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/cashstore.glb"),
             ]);
             const sounds = Promise.all([
                 UTIL.loadAudio("./source/audio/pew.mp3", AudioController.ctx),
@@ -670,13 +690,15 @@ function mainloop(MenuController) {
             ]);
             Promise.all([gtlfs, sounds]).then(([modelData, audioData]) => {
                 const [
-                    placeholderData,
-                    cubeData,
+                    worldData,
                     globeData,
                     eyeData,
-                    worldData,
-                    squareStackData,
-                    cricleStackData,
+                    placeholderData,
+                    cubeData,
+                    cryptoFarmData,
+                    cashFarmData,
+                    cryptoStoreData,
+                    cashStoreData,
                     ..._
                 ] = modelData;
                 const [
@@ -694,15 +716,15 @@ function mainloop(MenuController) {
                 console.info(modelData);
 
                 NodeController.addMeshData({
+                    globe: () => MESH.Nodes.Globe(globeData),
                     placeholder: () => MESH.Nodes.Placeholder(placeholderData),
                     cube: () => MESH.Nodes.Cube(cubeData),
-                    globe: () => MESH.Nodes.Globe(globeData),
                     scanner: () => MESH.Nodes.Scanner(eyeData),
                     tether: (o, t) => MESH.Tether(o, t),
-                    cashfarm: () => MESH.Nodes.CashFarm(squareStackData),
-                    cryptofarm: () => MESH.Nodes.CryptoFarm(squareStackData),
-                    cashstore: () => MESH.Nodes.CashStore(cricleStackData),
-                    cryptostore: () => MESH.Nodes.CryptoStore(cricleStackData),
+                    cashfarm: () => MESH.Nodes.CashFarm(cashFarmData),
+                    cryptofarm: () => MESH.Nodes.CryptoFarm(cryptoFarmData),
+                    cashstore: () => MESH.Nodes.CashStore(cashStoreData),
+                    cryptostore: () => MESH.Nodes.CryptoStore(cryptoStoreData),
                 });
                 WorldController.addMeshData(MESH.SelectionGlobe(worldData, 4));
 
@@ -758,7 +780,10 @@ function mainloop(MenuController) {
                     //requestIdleCallback(animate)
                     PhaseController.update(delta);
                     FPSCounter.update();
-                    effect.render(scene, camera);
+                    if (NodeController.lowPerformanceMode)
+                        renderer.render(scene, camera);
+                    else
+                        effect.render(scene, camera);
                 }
                 FPSCounter.reset();
                 renderer.setAnimationLoop(animate);
