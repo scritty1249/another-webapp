@@ -5,6 +5,7 @@ import {
     Mesh,
     MeshPhongMaterial,
     MeshBasicMaterial,
+    MeshStandardMaterial,
     MeshPhysicalMaterial,
     CylinderGeometry,
     PlaneGeometry,
@@ -156,12 +157,14 @@ function WorldMarker(startPos, endPos, lineOptions = {}) {
     };
     return marker;
 }
-function Node(mesh, animations = []) {
+function Node(meshes, animations) {
     const wrapper = new Group();
-    wrapper.add(mesh.clone());
+    for (const mesh of meshes)
+        wrapper.add(mesh.clone());
     wrapper.userData = {
         exportData: {},
         animations: {},
+        _animations: {},
         dragged: false,
         mixer: new AnimationMixer(wrapper),
         tethers: {
@@ -179,13 +182,16 @@ function Node(mesh, animations = []) {
                 recurseMeshChildren(parentMesh, 3, callback, ...args)
             );
         },
-        addAnimation: function (animation, secDelay = 0) {
-            this.animations[animation.name] =
-                this.mixer.clipAction(animation);
-            this.animations[animation.name].startAt(
-                this.mixer.time + secDelay
-            );
-            return this.animations[animation.name];
+        addAnimation: function (name, animationData, secDelay = 0) {
+            this._animations[name] =
+                    [this.mixer.clipAction(animationData[0])];
+            for (const animation of animationData.slice(1))
+                this._animations[name].push(
+                    this.mixer.clipAction(animation)
+                );
+            this.animations[name] = UTIL.CollectionWrapper(this._animations[name]);
+            this.animations[name].startAt(this.mixer.time + secDelay);
+            return this.animations[name];
         },
         updateAnimations: function (timedelta) {
             Object.values(this.animations).forEach(
@@ -207,8 +213,8 @@ function Node(mesh, animations = []) {
             return child ? child.at(0) : undefined;
         };
     });
-    Object.values(animations).forEach((animation) =>
-        wrapper.userData.addAnimation(animation)
+    Object.entries(animations).forEach(([name, animationData]) =>
+        wrapper.userData.addAnimation(name, animationData)
     );
     return wrapper;
 }
@@ -220,7 +226,8 @@ function SelectionGlobe(sceneData, scale) {
         color: 0xaa0000,
         side: FrontSide,
         specular: 0xaa0505,
-        shininess: 65,
+        shininess: 15,
+        reflectivity: 0.025,
     });
     const CORE_SCALE = 0.95; // from model file
     wrapper.add(sceneData.mesh.children[0].clone()); // core
@@ -272,9 +279,9 @@ function SelectionGlobe(sceneData, scale) {
     wrapper.userData.core.material = new MeshPhysicalMaterial({
         color: 0x0f0f0f,
         transmission: 1,
-        roughness: 0,
+        roughness: .14,
         opacity: 1,
-        reflectivity: 0.4,
+        reflectivity: 0.05,
         thickness: 0.1,
     });
     wrapper.userData.core.material.needsUpdate = true;
@@ -401,27 +408,39 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const store = Node(sceneData.mesh, sceneData.animations);
-        const sliceMaterial = new MeshPhongMaterial({
-                color: 0xD3AF37,
-                emissive: 0x000000, 
-                emissiveIntensity: 7,
-                shininess: 45,
-            });
-        store.userData.child("stack").material = InvisibleMat;
-        store.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("5").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("6").material = sliceMaterial.clone();
-        store.userData.child("stack").scale.setScalar(0.65);
+        const store = Node(sceneData.meshes, sceneData.animations);
+        const highPerfMat = new MeshPhysicalMaterial({
+            transmission: 0.9,
+            roughness: 0.2,
+            color: 0xFFF44F
+        });
+        const lowPerfMat = new MeshPhongMaterial({
+            color: 0xFFF44F,
+        });
+        const storeWrap = store.userData.child("stack");
+        storeWrap.material = InvisibleMat;
+        storeWrap.scale.setScalar(0.65);
         store.scale.setScalar(0.8);
         store.userData.type = "cashstore";
         store.userData.state = {
-            setLowPerformance: function () {},
-            setHighPerformance: function () {},
+            setLowPerformance: function () {
+                storeWrap.userData.child("1").material = lowPerfMat.clone();
+                storeWrap.userData.child("2").material = lowPerfMat.clone();
+                storeWrap.userData.child("3").material = lowPerfMat.clone();
+                storeWrap.userData.child("4").material = lowPerfMat.clone();
+                storeWrap.userData.child("5").material = lowPerfMat.clone();
+                storeWrap.userData.child("6").material = lowPerfMat.clone();
+            },
+            setHighPerformance: function () {
+                storeWrap.userData.child("1").material = highPerfMat.clone();
+                storeWrap.userData.child("2").material = highPerfMat.clone();
+                storeWrap.userData.child("3").material = highPerfMat.clone();
+                storeWrap.userData.child("4").material = highPerfMat.clone();
+                storeWrap.userData.child("5").material = highPerfMat.clone();
+                storeWrap.userData.child("6").material = highPerfMat.clone();
+            },
         };
+        store.userData.state.setHighPerformance();
         store.userData.exportData.maxConnections = 3;
         store.userData.exportData.store = {
             type: "cash",
@@ -437,12 +456,7 @@ const Nodes = {
                 store.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                store.userData.animations["1-idle"].play();
-                store.userData.animations["2-idle"].play();
-                store.userData.animations["3-idle"].play();
-                store.userData.animations["4-idle"].play();
-                store.userData.animations["5-idle"].play();
-                store.userData.animations["6-idle"].play();
+                store.userData.animations["idle"].play();
             }
         }
 
@@ -452,27 +466,37 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const store = Node(sceneData.mesh, sceneData.animations);
-        const sliceMaterial = new MeshPhongMaterial({
-                color: 0xF7931A,
-                emissive: 0x000000, 
-                emissiveIntensity: 7,
-                shininess: 45,
-            });
-        store.userData.child("stack").material = InvisibleMat;
-        store.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("5").material = sliceMaterial.clone();
-        store.userData.child("stack").userData.child("6").material = sliceMaterial.clone();
-        store.userData.child("stack").scale.setScalar(0.65);
+        const store = Node(sceneData.meshes, sceneData.animations);
+        const highPerfMat = new MeshPhysicalMaterial({
+            transmission: 0.9,
+            roughness: 0.24,
+            color: 0xF7931A,
+            iridescence: 0.75,
+        });
+        const lowPerfMat = new MeshPhongMaterial({
+            color: 0xF7931A,
+        });
+        const storeWrap = store.userData.child("stack");
+        storeWrap.material = InvisibleMat;
+        
+        storeWrap.scale.setScalar(0.65);
         store.scale.setScalar(0.8);
         store.userData.type = "cryptostore";
         store.userData.state = {
-            setLowPerformance: function () {},
-            setHighPerformance: function () {},
+            setLowPerformance: function () {
+                storeWrap.userData.child("1").material = lowPerfMat.clone();
+                storeWrap.userData.child("2").material = lowPerfMat.clone();
+                storeWrap.userData.child("3").material = lowPerfMat.clone();
+                storeWrap.userData.child("4").material = lowPerfMat.clone();
+            },
+            setHighPerformance: function () {
+                storeWrap.userData.child("1").material = highPerfMat.clone();
+                storeWrap.userData.child("2").material = highPerfMat.clone();
+                storeWrap.userData.child("3").material = highPerfMat.clone();
+                storeWrap.userData.child("4").material = highPerfMat.clone();
+            },
         };
+        store.userData.state.setHighPerformance();
         store.userData.exportData.maxConnections = 3;
         store.userData.exportData.store = {
             type: "crypto",
@@ -488,12 +512,7 @@ const Nodes = {
                 store.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                store.userData.animations["1-idle"].play();
-                store.userData.animations["2-idle"].play();
-                store.userData.animations["3-idle"].play();
-                store.userData.animations["4-idle"].play();
-                store.userData.animations["5-idle"].play();
-                store.userData.animations["6-idle"].play();
+                store.userData.animations["idle"].play();
             }
         }
 
@@ -503,25 +522,39 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const farm = Node(sceneData.mesh, sceneData.animations);
-        const sliceMaterial = new MeshPhongMaterial({
-                color: 0xD3AF37,
-                emissive: 0x000000, 
-                emissiveIntensity: 7,
-                shininess: 45,
-            });
-        farm.userData.child("stack").material = InvisibleMat;
-        farm.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
-        farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
-        farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
-        farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        farm.userData.child("stack").scale.setScalar(0.6);
-        farm.scale.setScalar(0.7);
+        const farm = Node(sceneData.meshes, sceneData.animations);
+        const highPerfMat = new MeshPhysicalMaterial({
+            transmission: 0.9,
+            roughness: 0.2,
+            color: 0xD3AF37
+        });
+        const lowPerfMat = new MeshPhongMaterial({
+            color: 0xD3AF37,
+        });
         farm.userData.type = "cashfarm";
+        farm.scale.setScalar(0.7);
         farm.userData.state = {
-            setLowPerformance: function () {},
-            setHighPerformance: function () {},
+            setLowPerformance: function () {
+                farm.userData.child("right").material = lowPerfMat.clone();
+                farm.userData.child("left").material = lowPerfMat.clone();
+                farm.userData.child("back").material = lowPerfMat.clone();
+                farm.userData.child("bottom").material = lowPerfMat.clone();
+            },
+            setHighPerformance: function () {
+                farm.userData.child("right").material = highPerfMat.clone();
+                farm.userData.child("left").material = highPerfMat.clone();
+                farm.userData.child("back").material = highPerfMat.clone();
+                farm.userData.child("bottom").material = highPerfMat.clone();
+            },
         };
+        farm.userData.child("core").material = new MeshStandardMaterial({
+            color: 0xD3AF37,
+            emissive: 0x707070,
+            emissiveIntensity: 1,
+            roughness: 0.5,
+            metalness: 0.6
+        });
+        farm.userData.state.setHighPerformance();
         farm.userData.exportData.maxConnections = 3;
         farm.userData.exportData.currency = {
             type: "cash",
@@ -539,10 +572,7 @@ const Nodes = {
                 farm.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                farm.userData.animations["1-idle"].play();
-                farm.userData.animations["2-idle"].play();
-                farm.userData.animations["3-idle"].play();
-                farm.userData.animations["4-idle"].play();
+                farm.userData.animations["idle"].play();
             }
         }
 
@@ -552,25 +582,38 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const farm = Node(sceneData.mesh, sceneData.animations);
-        const sliceMaterial = new MeshPhongMaterial({
-                color: 0xF7931A,
-                emissive: 0x000000, 
-                emissiveIntensity: 7,
-                shininess: 45,
-            });
-        farm.userData.child("stack").material = InvisibleMat;
-        farm.userData.child("stack").userData.child("1").material = sliceMaterial.clone();
-        farm.userData.child("stack").userData.child("2").material = sliceMaterial.clone();
-        farm.userData.child("stack").userData.child("3").material = sliceMaterial.clone();
-        farm.userData.child("stack").userData.child("4").material = sliceMaterial.clone();
-        farm.userData.child("stack").scale.setScalar(0.6);
+        const farm = Node(sceneData.meshes, sceneData.animations);
+        const highPerfMat = new MeshPhysicalMaterial({
+            transmission: 0.9,
+            roughness: 0.2,
+            color: 0xF7931A
+        });
+        const lowPerfMat = new MeshPhongMaterial({
+            color: 0xF7931A,
+        });
+        const farmWrap = farm.userData.child("wrap");
         farm.scale.setScalar(0.7);
+        farmWrap.material = InvisibleMat;
         farm.userData.type = "cryptofarm";
         farm.userData.state = {
-            setLowPerformance: function () {},
-            setHighPerformance: function () {},
+            setLowPerformance: function () {
+                farmWrap.userData.child("top_cap").material = lowPerfMat.clone();
+                farmWrap.userData.child("bottom_cap").material = lowPerfMat.clone();
+
+            },
+            setHighPerformance: function () {
+                farmWrap.userData.child("top_cap").material = highPerfMat.clone();
+                farmWrap.userData.child("bottom_cap").material = highPerfMat.clone();
+            },
         };
+        farmWrap.userData.child("core").material = new MeshStandardMaterial({
+            color: 0xF5F5F5,
+            emissive: 0xDC4D01,
+            emissiveIntensity: 1,
+            roughness: 0.5,
+            metalness: 0.6
+        });
+        farm.userData.state.setHighPerformance();
         farm.userData.exportData.maxConnections = 3;
         farm.userData.exportData.currency = {
             type: "crypto",
@@ -588,10 +631,7 @@ const Nodes = {
                 farm.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                farm.userData.animations["1-idle"].play();
-                farm.userData.animations["2-idle"].play();
-                farm.userData.animations["3-idle"].play();
-                farm.userData.animations["4-idle"].play();
+                farm.userData.animations["idle"].play();
             }
         }
 
@@ -601,10 +641,13 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const cube = Node(sceneData.mesh, sceneData.animations);
-        cube.userData.child("cube").material = new MeshPhongMaterial({
-            color: 0x000000,
-        });
+        const cube = Node(sceneData.meshes, sceneData.animations);
+        cube.userData.child("cube").material =
+            new MeshStandardMaterial({
+                color: 0x000000,
+                roughness: 0.5,
+                metalness: 0.6
+            });
         cube.userData.type = "cube";
         cube.userData.exportData = {
             maxConnections: 4
@@ -621,7 +664,7 @@ const Nodes = {
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                cube.userData.animations["cube-idle"].play();
+                cube.userData.animations["idle"].play();
             }
         }
         return cube;
@@ -630,7 +673,7 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const globe = Node(sceneData.mesh, sceneData.animations);
+        const globe = Node(sceneData.meshes, sceneData.animations);
         const lowPerfMat = new MeshPhongMaterial({
             color: 0xB8B8B8,
             specular: 0xff0000,
@@ -638,41 +681,29 @@ const Nodes = {
         });
         const highPerfMat = new MeshPhysicalMaterial({
             transmission: 0.9,
-            roughness: 0.2,
+            roughness: 0.28,
             color: 0xB8B8B8
         });
-        globe.userData.child("globe").material = InvisibleMat;
-        globe.userData.child("globe").userData.child("frame").material =
-            new MeshPhongMaterial({
+        globe.userData.child("frame").material =
+            new MeshStandardMaterial({
                 color: 0x880101,
-                specular: 0xff0000,
-                shininess: 100,
+                roughness: 0.5,
+                metalness: 0.6
             });
-        globe.userData.child("globe").userData.child("ball").material =
+        globe.userData.child("ball").material =
             highPerfMat;
         globe.userData.state = {
             setLowPerformance: function () {
-                globe.userData
-                    .child("globe")
-                    .userData.child("ball").material = lowPerfMat;
-                globe.userData
-                    .child("globe")
-                    .userData.child("ball").material.needsUpdate = true;
+                globe.userData.child("ball").material = lowPerfMat;
+                globe.userData.child("ball").material.needsUpdate = true;
             },
             setHighPerformance: function () {
-                globe.userData
-                    .child("globe")
-                    .userData.child("ball").material = highPerfMat;
-                globe.userData
-                    .child("globe")
-                    .userData.child("ball").material.needsUpdate = true;
+                globe.userData.child("ball").material = highPerfMat;
+                globe.userData.child("ball").material.needsUpdate = true;
             },
         };
         // transparent objects that are nested are not rendered. Tell the renderer to draw our nested transparent mesh FIRST so it actually does it
-        globe.userData
-            .child("globe")
-            .userData.child("frame").renderOrder = 1;
-        globe.userData.child("globe").renderOrder = 1;
+        globe.userData.child("frame").renderOrder = 1;
         globe.userData.type = "globe";
         globe.userData.exportData = {
             maxConnections: 1
@@ -686,8 +717,7 @@ const Nodes = {
                 globe.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                globe.userData.animations["frame-idle"].play();
-                globe.userData.animations["ball-idle"].play();
+                globe.userData.animations["idle"].play();
             }
         }
         return globe;
@@ -696,12 +726,12 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const scanner = Node(sceneData.mesh, sceneData.animations);
+        const scanner = Node(sceneData.meshes, sceneData.animations);
         const ballMat = new MeshPhongMaterial({ color: 0x000000 });
         const pupilMat = new MeshPhongMaterial({
             toneMapped: false,
             color: 0x880101,
-            emissive: 0xff0000,
+            emissive: 0xff4040,
             emissiveIntensity: 7,
         });
         scanner.userData.state = {
@@ -724,8 +754,7 @@ const Nodes = {
                 scanner.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                scanner.userData.animations["ball-idle"].play();
-                scanner.userData.animations["pupil-idle"].play();
+                scanner.userData.animations["idle"].play();
             }
         }
         return scanner;
@@ -734,13 +763,13 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const cube = Node(sceneData.mesh, sceneData.animations);
+        const cube = Node(sceneData.meshes, sceneData.animations);
         const lowPerfMat = new MeshPhongMaterial({
-            color: 0x757575,
-            shininess: 80,
+            color: 0x454545,
+            shininess: 5,
         });
         const highPerfMat = new MeshPhysicalMaterial({
-            color: 0x757575,
+            color: 0x454545,
             transmission: 0.3,
             roughness: 0.2,
         });
@@ -768,7 +797,7 @@ const Nodes = {
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                cube.userData.animations["cube-idle"].play();
+                cube.userData.animations["idle"].play();
             }
         }
         return cube;
@@ -786,7 +815,8 @@ function SpriteProjectile( // not actaully using sprites. PlaneGeometry updated 
         fps: undefined,
         frames: undefined,
     },
-    playbackSpeed = 1
+    playbackSpeed = 1,
+    glow = 1,
 ) {
     const aniMeta = {
         // animation metadata
@@ -798,6 +828,7 @@ function SpriteProjectile( // not actaully using sprites. PlaneGeometry updated 
             x: 1,
             y: 1,
         },
+        glowIntensity: glow,
     };
     const geometry = new PlaneGeometry(size, size);
 
@@ -908,7 +939,8 @@ function WrappedProjectile(
         fps: undefined,
         frames: undefined,
     },
-    playbackSpeed = 1
+    playbackSpeed = 1,
+    glow = 1,
 ) {
     const aniMeta = {
         // animation metadata
@@ -920,6 +952,7 @@ function WrappedProjectile(
             x: repeatX,
             y: repeatY,
         },
+        glowIntensity: glow, 
     };
     const geometry = new CylinderGeometry(
         thickness,
@@ -1039,7 +1072,8 @@ function Beam(
         fps: undefined,
         frames: undefined,
     },
-    playbackSpeed = 1
+    playbackSpeed = 1,
+    glow = 1,
 ) {
     const aniMeta = {
         // animation metadata
@@ -1051,6 +1085,7 @@ function Beam(
             x: repeatX,
             y: 1,
         },
+        glowIntensity: glow, 
     };
     const geometry = new CylinderGeometry(
         thickness,
@@ -1210,8 +1245,7 @@ const AttackManagerFactory = {
             maskpath: "./source/attacks/laser/attack-mask.png",
             fps: 30,
             frames: 31,
-        });
-
+        }, 1, 1.805);
         return LaserController;
     },
     PascualCannon: function (camera, count) {
@@ -1227,7 +1261,8 @@ const AttackManagerFactory = {
                 fps: 30,
                 frames: 61,
             },
-            1
+            1,
+            4.5
         );
 
         return PCannonController;

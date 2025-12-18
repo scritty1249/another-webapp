@@ -227,9 +227,11 @@ export const DataStore = {
                 type: "cash",
                 amount: 1,
             },
+            cost: undefined,
+            sell: undefined,
             name: "_placeholder_",
             description: "Placeholder. Doesn't do anything.",
-            thumg: "",
+            thumb: "./source/node-thumbs/placeholder.gif",
         },
         cube: {
             cost: {
@@ -240,6 +242,8 @@ export const DataStore = {
                 type: "crypto",
                 amount: 1,
             },
+            cost: undefined,
+            sell: undefined,
             name: "Cube",
             description: "Captures hostile Nodes within 1 step.",
             thumb: "./source/node-thumbs/cube.gif", // placeholder
@@ -260,55 +264,57 @@ export const DataStore = {
                 type: "cash",
                 amount: 5,
             },
+            cost: undefined,
+            sell: undefined,
             name: "Sentinal",
             description: "Scans for Attacker activity within [TBD] steps.",
             thumb: "./source/node-thumbs/scanner.gif",
         },
         cashfarm: {
-            // cost: {
-            //     type: "crypto",
-            //     amount: 1,
-            // },
-            // sell: {
-            //     type: "crypto",
-            //     amount: 1,
-            // },
+            cost: {
+                type: "crypto",
+                amount: 1,
+            },
+            sell: {
+                type: "crypto",
+                amount: 1,
+            },
             cost: undefined,
             sell: undefined,
             name: "Cash Farm",
             description:
                 "Farms for cash. Can be collected from to use for purchases.",
-            thumb: "",
+            thumb: "./source/node-thumbs/cashfarm.gif",
         },
         cryptofarm: {
-            // cost: {
-            //     type: "cash",
-            //     amount: 5,
-            // },
-            // sell: {
-            //     type: "cash",
-            //     amount: 5,
-            // },
+            cost: {
+                type: "cash",
+                amount: 5,
+            },
+            sell: {
+                type: "cash",
+                amount: 5,
+            },
             cost: undefined,
             sell: undefined,
             name: "Credits Farm",
             description:
                 "Farms for credits. Can be collected from to use for purchases.",
-            thumb: "",
+            thumb: "./source/node-thumbs/cryptofarm.gif",
         },
         cashstore: {
             cost: undefined,
             sell: undefined,
             name: "Cash Storage",
             description: "Holds Cash",
-            thumb: "",
+            thumb: "./source/node-thumbs/cashstore.gif",
         },
         cryptostore: {
             cost: undefined,
             sell: undefined,
             name: "Credits Storage",
             description: "Holds Credits",
-            thumb: "",
+            thumb: "./source/node-thumbs/cryptostore.gif",
         },
     },
     SelectPhaseBackground: "_world",
