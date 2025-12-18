@@ -102,7 +102,6 @@ PhaseManager.prototype.selectPhase = function (
         );
     // setup new phase
     this._controls.camera.autoRotate = true;
-    this._controls.camera.autoRotateSpeed = 0.6;
 
     this._openLoadingAnimation();
     return UTIL.loadBackgroundTexture(metadata?.background, this._scene)
@@ -599,6 +598,18 @@ PhaseManager.prototype.buildPhase = function (
 
             });
             // Add event listeners
+            let rotateTimeout;
+            listenerController
+                .listener(self._controls.camera)
+                .add("end", function (event) {
+                    rotateTimeout = setTimeout(() => {
+                            self._controls.camera.autoRotate = true;
+                    }, 8500);
+                })
+                .add("start", function (event) {
+                    if (rotateTimeout) clearTimeout(rotateTimeout);
+                    self._controls.camera.autoRotate = false;
+                });
             listenerController
                 .listener(self._controls.drag)
                 .add("drag", function (event) {})
@@ -667,8 +678,10 @@ PhaseManager.prototype.buildPhase = function (
             );
             this._updateManagers.perTick.push(bankController);
             this._unloadPhase = () => {
+                clearTimeout(rotateTimeout);
                 this._resetUpdateManagers();
                 this.Managers.Audio.stop();
+                this._controls.camera.autoRotate = false;
                 this._controls.drag.enabled = false;
                 this.Managers.Listener.clear();
                 this.Managers.Overlay.clear();

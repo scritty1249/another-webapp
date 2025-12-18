@@ -201,6 +201,7 @@ function mainloop(MenuController) {
             controls.camera.enablePan = false;
             controls.camera.maxDistance = 25;
             controls.camera.enableDamping = true;
+            controls.camera.autoRotateSpeed = 0.6;
             controls.camera.dampingFactor = 0.12;
             controls.drag.transformGroup = true;
             controls.drag.rotateSpeed = 0;
