@@ -604,7 +604,7 @@ PhaseManager.prototype.buildPhase = function (
                         name: nodeDetail.name,
                         thumb: nodeDetail.thumb,
                     };
-                    if (nodeCount >= Math.floor(nodeDetail.limit.base + (nodeDetail.limit.increase * 0))) { // [!] Process player level here, when implemented
+                    if (nodeCount >= Math.floor(nodeDetail.limit.base + (nodeDetail.limit.increase * 1))) { // [!] Process player level here, when implemented
                         nodeDetailMenuInfo.cost = undefined;
                     } else if (
                         (nodeDetail.freecount && nodeCount < nodeDetail.freecount) ||

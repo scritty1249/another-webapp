@@ -279,8 +279,8 @@ export const DataStore = {
                 amount: 5,
             },
             limit: {
-                base: 0,
-                increase: .2 // this can be a decimal, but final value is floored after calculation
+                base: .5,
+                increase: .5 // this can be a decimal, but final value is floored after calculation
             },
             highlightSteps: 2,
             name: "Sentinal",
