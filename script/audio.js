@@ -1,4 +1,6 @@
 import * as UTIL from "./utils.js";
+import { zeroVector } from "./three-utils.js";
+import { MathUtils, Vector3 } from "three";
 
 export function AudioManager (audioContext) {
     const self = this;
@@ -6,6 +8,7 @@ export function AudioManager (audioContext) {
     this.buffer = {};
     this.sound = [];
     this._filter.volume = this.ctx.createGain();
+    this._tempVec = new Vector3();
 
     // init
     this._filter.volume.connect(this.output);
@@ -23,7 +26,8 @@ AudioManager.prototype = {
     _filter: {
         volume: undefined,
     },
-    _connect: undefined, // modify this to the bottommost as more filter nodes are added
+    _connect: undefined, // modify this to the "bottommost" node as more filter nodes are added
+    _tempVec: undefined,
     get volume () {
         return this._filter.volume.gain.value;
     },
@@ -38,32 +42,58 @@ AudioManager.prototype = {
     },
 };
 
-AudioManager.prototype.stop = function () { // stop everything
+AudioManager.prototype.update = function (position, maxDistance) {
     const soundStack = [...this.sound];
-    soundStack.forEach(s => {
-        s.stop(0);
-        s.onended();
+    soundStack.forEach(({pos, vol}) => {
+        if (pos.isObject3D) { // object as source
+            pos.getWorldPosition(this._tempVec);
+            vol.gain.value = (maxDistance - Math.abs(position.distanceTo(this._tempVec))) / maxDistance;
+        } else if (pos.isVector3) { // position as source
+            vol.gain.value = (maxDistance - Math.abs(position.distanceTo(pos))) / maxDistance;
+        }
     });
 };
 
-AudioManager.prototype.play = function (name, delay = 0) { // delay in milliseconds
+AudioManager.prototype.stop = function () { // stop everything
+    const soundStack = [...this.sound];
+    soundStack.forEach(({src, onended}) => {
+        src.stop(0);
+        onended();
+    });
+};
+AudioManager.prototype.isPlaying = function (id) {
+    return this.sound.some(s => s.id == id);
+};
+AudioManager.prototype.play = function (name, source = undefined, delay = 0) { // delay in milliseconds
     if (!name || !this.buffer?.[name]) {
         Logger.error(`[AudioManager] | Failed to play audio "${name}": No buffer data found.`);
         return false;
     }
     const srcNode = this.ctx.createBufferSource();
+    const volNode = this.ctx.createGain();
+    volNode.gain.value = 1;
     srcNode.buffer = this.buffer[name].array;
-    srcNode.connect(this.buffer[name]._volume);
+    srcNode.connect(volNode);
+    volNode.connect(this.buffer[name]._volume);
 
     const soundStack = this.sound;
-    this.sound.push(srcNode);
+    const id = MathUtils.generateUUID();
+    this.sound.push({
+        id: id,
+        src: srcNode,
+        vol: volNode,
+        pos: source,
+        get onended() {
+            return srcNode.onended;
+        }
+    });
     srcNode.onended = () => {
-        const idx = soundStack.indexOf(srcNode);
+        const idx = soundStack.map(s => s.id).indexOf(id);
         if(idx !== -1)
             soundStack.splice(idx, 1);
     };
     setTimeout(() => srcNode.start(0), delay);
-    return true;
+    return id;
 };
 
 AudioManager.prototype.register = function (name, arrayBuffer, volume = 1) {

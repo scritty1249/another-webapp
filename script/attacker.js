@@ -346,7 +346,7 @@ AttackManager.prototype.playAll = function () {
 AttackManager.prototype.play = function (instanceid) {
     this.getOptions(instanceid).playing = true;
     if (this.onplayback)
-        this.onplayback();
+        this.onplayback(this.getMatrixComposition(instanceid)[0]);
 };
 
 AttackManager.prototype.pause = function (instanceid) {
@@ -455,7 +455,6 @@ AttackManager.prototype.setScale = function (instanceid, scale) {
     const [p, r, s] = this.getMatrixComposition(instanceid);
     this.setMatrixComposition(instanceid, p, r, scale);
 };
-
 AttackManager.prototype.getElapsed = function (instanceid) {
     // returns animation progress as a float between 0-1
     const frame = this.getFrame(instanceid);

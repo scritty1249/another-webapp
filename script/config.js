@@ -7,6 +7,7 @@ export const Configuration = {
     shapeMaxProximity: 4,
     mouseClickDurationThreshold: 0.4 * 1000, // ms
     maxStepsFromGlobe: 9, // max number of steps from a Globe each node is allowed to be
+    maxCameraDistance: 25,
     TICKSPEED: 0.1, // seconds
     TARGETS_TTL: 300, // seconds, how long we should store targets for before querying again - 5 minutes
     WORLD_TARGET_COUNT: 5,
@@ -24,7 +25,7 @@ export const Configuration = {
         RADIUS: .42,
         THRESHOLD: 5
     },
-    AMBIENT_LIGHT_STRENGTH: 350, // basically, brightness
+    AMBIENT_LIGHT_STRENGTH: 300, // basically, brightness
 };
 
 const DEFAULT_BACKGROUND = "cubes-lines";

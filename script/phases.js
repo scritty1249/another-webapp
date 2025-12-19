@@ -274,8 +274,8 @@ PhaseManager.prototype.attackPhase = function (
         if (typeData.manager) {
             typeData.manager.init(this._scene);
             if (typeData.sfx)
-                typeData.manager.onplayback = () =>
-                    self.Managers.Audio.play(typeData.sfx);
+                typeData.manager.onplayback = (position) =>
+                    self.Managers.Audio.play(typeData.sfx, position);
             this.Managers.Attacks.push(typeData.manager);
         }
     });
@@ -317,7 +317,7 @@ PhaseManager.prototype.attackPhase = function (
                     this.notEmpty.add(node.uuid);
                 else if (!this.emptied.has(node.uuid) && this.notEmpty.has(node.uuid) && node.userData.exportData.store.amount <= 0) {
                     this.emptied.add(node.uuid);
-                    self.Managers.Audio.play(metadata.sfx?.["emptied-store"]);
+                    self.Managers.Audio.play(metadata.sfx?.["emptied-store"], node);
                     return;
                 }
             if (node.userData.exportData?.store?.amount <= 0) return;
@@ -670,13 +670,13 @@ PhaseManager.prototype.buildPhase = function (
                         linesHighlighted = false;
                     }
                     if (clickedNodeId) {
+                        const node = nodeController.getNode(clickedNodeId);
                         if (bankController.collect(clickedNodeId)) {
-                            self.Managers.Audio.play("coin");
+                            self.Managers.Audio.play("coin", node);
                         } else if (overlayController.focusedNodeId != clickedNodeId) {
                             overlayController.focusNode(clickedNodeId);
-                            self.Managers.Audio.play("click-focus");
+                            self.Managers.Audio.play("click-focus", node);
                             {
-                                const node = nodeController.getNode(clickedNodeId);
                                 if (nodeDetails[node.userData.type]?.highlightSteps) {
                                     const maxSteps = nodeDetails[node.userData.type].highlightSteps;
                                     nodeController.tetherlist
