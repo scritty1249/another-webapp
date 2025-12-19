@@ -10,7 +10,8 @@ import { Color } from "three";
 import * as UTIL from "./utils.js";
 
 const nodeDraggedEmissive = new Color(0xff8888);
-
+const tetherStepStartColor = new Color(0xff0000);
+const tetherStepEndColor = new Color(0x000000);
 
 export function PhaseManager(
     scene,
@@ -607,6 +608,7 @@ PhaseManager.prototype.buildPhase = function (
             });
             // Add event listeners
             let rotateTimeout;
+            let linesHighlighted;
             listenerController
                 .listener(self._controls.camera)
                 .add("end", function (event) {
@@ -661,12 +663,30 @@ PhaseManager.prototype.buildPhase = function (
                     const clickedNodeId = nodeController.getNodeFromFlatCoordinate(
                         self.Managers.Mouse.position
                     );
+                    if (linesHighlighted) {
+                        nodeController.tetherlist
+                            .filter((t) => t.material.uuid != t.userData.sourceMaterial.uuid)
+                            .forEach((t) => t.material = t.userData.sourceMaterial.clone());
+                        linesHighlighted = false;
+                    }
                     if (clickedNodeId) {
                         if (bankController.collect(clickedNodeId)) {
                             self.Managers.Audio.play("coin");
                         } else if (overlayController.focusedNodeId != clickedNodeId) {
                             overlayController.focusNode(clickedNodeId);
                             self.Managers.Audio.play("click-focus");
+                            {
+                                const node = nodeController.getNode(clickedNodeId);
+                                if (nodeDetails[node.userData.type]?.highlightSteps) {
+                                    const maxSteps = nodeDetails[node.userData.type].highlightSteps;
+                                    nodeController.tetherlist
+                                        .forEach((t) => t.material.color.set(tetherStepEndColor));
+                                    nodeController.traverseTethers(clickedNodeId, function (tether, depth, sourceid) {
+                                        tether.material.color.lerpColors(tetherStepEndColor, tetherStepStartColor, depth / maxSteps);
+                                    }, maxSteps);
+                                    linesHighlighted = true;
+                                }
+                            }
                             return;
                         }
                     }

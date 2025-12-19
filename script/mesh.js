@@ -437,6 +437,7 @@ function Tether(origin, target, color = 0xc0c0c0) {
     tether.toJSON = function () {
         return { uuid: tether.uuid, ...tether.userData };
     };
+    tether.userData.sourceMaterial = material.clone();
     tether.userData.vectors = {
         origin: new Vector3(),
         target: new Vector3(),
