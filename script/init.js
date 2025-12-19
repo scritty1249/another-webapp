@@ -334,6 +334,17 @@ function mainloop(MenuController) {
             }
 
             {
+                // stop dragging if using more than one touch point (two finger zoom / pan)
+                renderer.domElement.addEventListener("touchstart", function (event) {
+                    if (event.touches.length > 1 && PhaseController.phase == "build") {
+                        controls.drag.enabled = false;
+                    }
+                });
+                renderer.domElement.addEventListener("touchend", function (event) {
+                    if (event.touches.length > 1 && PhaseController.phase == "build") {
+                        setTimeout(() => controls.drag.enabled = true);
+                    }
+                });
                 // persistent listeners
                 MenuController.when(
                     "swapphase",
