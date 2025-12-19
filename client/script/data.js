@@ -229,11 +229,11 @@ export const DataStore = {
         placeholder: {
             cost: {
                 type: "cash",
-                amount: 1,
+                amount: 10,
             },
             sell: {
                 type: "cash",
-                amount: 1,
+                amount: 0,
             },
             limit: {
                 base: 99,
@@ -246,11 +246,11 @@ export const DataStore = {
         cube: {
             cost: {
                 type: "crypto",
-                amount: 2,
+                amount: 6,
             },
             sell: {
                 type: "crypto",
-                amount: 1,
+                amount: 3,
             },
             limit: {
                 base: 2,
@@ -277,11 +277,11 @@ export const DataStore = {
         scanner: {
             cost: {
                 type: "cash",
-                amount: 10,
+                amount: 550,
             },
             sell: {
                 type: "cash",
-                amount: 5,
+                amount: 240,
             },
             limit: {
                 base: .5,
@@ -295,7 +295,7 @@ export const DataStore = {
         cashfarm: {
             cost: {
                 type: "crypto",
-                amount: 2,
+                amount: 5,
             },
             sell: {
                 type: "crypto",
@@ -314,11 +314,11 @@ export const DataStore = {
         cryptofarm: {
             cost: {
                 type: "cash",
-                amount: 10,
+                amount: 275,
             },
             sell: {
                 type: "cash",
-                amount: 10,
+                amount: 135,
             },
             limit: {
                 base: 1,
@@ -333,11 +333,11 @@ export const DataStore = {
         cashstore: {
             cost: {
                 type: "crypto",
-                amount: 1,
+                amount: 5,
             },
             sell: {
                 type: "crypto",
-                amount: 1,
+                amount: 2,
             },
             limit: {
                 base: 2,
@@ -351,11 +351,11 @@ export const DataStore = {
         cryptostore: {
             cost: {
                 type: "cash",
-                amount: 5,
+                amount: 500,
             },
             sell: {
                 type: "cash",
-                amount: 5,
+                amount: 250,
             },
             limit: {
                 base: 2,
@@ -369,11 +369,11 @@ export const DataStore = {
         botnet: {
             cost: {
                 type: "crypto",
-                amount: 3,
+                amount: 35,
             },
             sell: {
                 type: "crypto",
-                amount: 3,
+                amount: 18,
             },
             limit: {
                 base: 1,
