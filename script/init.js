@@ -662,6 +662,7 @@ function mainloop(MenuController) {
                 MenuController.when(
                     "logout",
                     function (_) {
+                        _autosaveHandler();
                         Session.clearSession();
                         window.location.reload();
                     },
