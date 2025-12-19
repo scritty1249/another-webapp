@@ -681,7 +681,10 @@ PhaseManager.prototype.buildPhase = function (
                     if (linesHighlighted) {
                         nodeController.tetherlist
                             .filter((t) => t.material.uuid != t.userData.sourceMaterial.uuid)
-                            .forEach((t) => t.material = t.userData.sourceMaterial.clone());
+                            .forEach((t) => {
+                                t.material = t.userData.sourceMaterial.clone()
+                                delete t.userData._depthTouched;
+                            });
                         linesHighlighted = false;
                     }
                     if (clickedNodeId) {
@@ -697,7 +700,10 @@ PhaseManager.prototype.buildPhase = function (
                                     nodeController.tetherlist
                                         .forEach((t) => t.material.color.set(tetherStepEndColor));
                                     nodeController.traverseTethers(clickedNodeId, function (tether, depth, sourceid) {
-                                        tether.material.color.lerpColors(tetherStepEndColor, tetherStepStartColor, depth / maxSteps);
+                                        if (!tether.userData._depthTouched || tether.userData._depthTouched < depth) {
+                                            tether.material.color.lerpColors(tetherStepEndColor, tetherStepStartColor, depth / maxSteps);
+                                            tether.userData._depthTouched = depth;
+                                        }
                                     }, maxSteps);
                                     linesHighlighted = true;
                                 }
