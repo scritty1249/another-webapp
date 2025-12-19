@@ -251,6 +251,7 @@ export const DataStore = {
                 base: 2,
                 increase: 1 // this can be a decimal, but final value is floored after calculation
             },
+            highlightSteps: 1,
             name: "Cube",
             description: "Captures hostile Nodes within 1 step.",
             thumb: "./source/node-thumbs/cube.gif", // placeholder
@@ -263,6 +264,7 @@ export const DataStore = {
                 increase: 0.34 // this can be a decimal, but final value is floored after calculation
             },
             freecount: 2,
+            highlightSteps: CONFIG.maxStepsFromGlobe,
             name: "Access Port",
             description: `Required for your net to exist.\nAll nodes exist within ${CONFIG.maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
             thumb: "./source/node-thumbs/globe.gif",
@@ -280,8 +282,9 @@ export const DataStore = {
                 base: 0,
                 increase: .2 // this can be a decimal, but final value is floored after calculation
             },
+            highlightSteps: 2,
             name: "Sentinal",
-            description: "Scans for Attacker activity within [TBD] steps.",
+            description: "Scans for Attacker activity within 2 steps.",
             thumb: "./source/node-thumbs/scanner.gif",
         },
         cashfarm: {

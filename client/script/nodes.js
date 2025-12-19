@@ -255,16 +255,21 @@ NodeManager.prototype.centerNodes = function () {
     this.nodelist.forEach((node) => node.position.sub(mean));
     this._updateTethers();
 };
-NodeManager.prototype._getTetherFromNodes = function (originid, targetid) {
+NodeManager.prototype._getTetherFromNodes = function (originid, targetid) { // doesn't care which is origin or target
     // there should only be one tether between each node
     const tether = this.tetherlist.filter(
         (t) =>
-            t.userData.origin.uuid === originid &&
-            t.userData.target.uuid === targetid
+            (
+                t.userData.origin.uuid === originid &&
+                t.userData.target.uuid === targetid
+            ) || (
+                t.userData.origin.uuid === targetid &&
+                t.userData.target.uuid === originid
+            )
     );
     if (!tether.length)
         throw new Error(
-            `[NodeManager] | A tether from Node UUID "${originid}" to "${targetid}" does not exist.`
+            `[NodeManager] | A tether between Nodes "${originid}" and "${targetid}" does not exist.`
         );
     return tether[0]; // there should only be one
 };
@@ -298,6 +303,15 @@ NodeManager.prototype.getNeighbors = function (nodeid) {
         ),
     ].filter((n) => n);
 };
+NodeManager.prototype.traverseTethers = function (nodeid, callback, depth, ignorenodes = []) {
+    if (!depth) return;
+    this.getNeighbors(nodeid)
+        .filter((n) => !ignorenodes.includes(n.uuid))
+        .forEach((n) => {
+            callback(this._getTetherFromNodes(nodeid, n.uuid), depth, nodeid);
+            this.traverseTethers(n.uuid, callback, depth - 1, [...ignorenodes, nodeid])
+        });
+}
 NodeManager.prototype.getNodes = function (...nodeids) {
     return nodeids.map((nodeid) => this.getNode(nodeid));
 };
@@ -463,6 +477,13 @@ NodeManager.prototype.getTether = function (tetherid) {
         );
     return tether;
 };
+NodeManager.prototype.getTethers = function (nodeid) {
+    const node = this.getNode(nodeid);
+    return [
+        ...Object.values(node.userData.tethers.origin),
+        ...Object.values(node.userData.tethers.target)
+    ].filter((t) => t);
+}
 NodeManager.prototype.getDistance = function (originid, targetid) {
     const [origin, target] = this.getNodes(originid, targetid);
     return origin.position.distanceTo(target.position);
@@ -515,24 +536,6 @@ NodeManager.prototype.getStoredCurrency = function (currencyType) {
         amount: amount ? amount : 0,
         max: total ? total : 0,
     };
-};
-NodeManager.prototype._BFSNode = function (nodeid) {
-    const visited = new Set();
-    const queue = [nodeid];
-    const distances = { [nodeid]: 0 };
-    let dist = 0;
-    visited.add(nodeid);
-    while (queue.length > 0) {
-        const curr = queue.shift();
-        for (const neighbor of this.getNeighbors(curr).map((node) => node.uuid))
-            if (!visited.has(neighbor)) {
-                distances[neighbor] = dist;
-                visited.add(neighbor);
-                queue.push(neighbor);
-            }
-        dist += 1;
-    }
-    return distances;
 };
 NodeManager.prototype.isCurrencyNode = function (nodeid) {
     const node = this.getNode(nodeid);
@@ -618,25 +621,21 @@ NodeManager.prototype.getOverlayByTarget = function (targetid) {
     return overlay;
 };
 NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
-    // why are we back to BFS bro wtf
-    const commonObj = {};
-    const objs = Array.from(
-        this.nodelist.filter((n) => n.userData.type == "globe"),
-        (n) => this._BFSNode(n.uuid)
-    );
-    objs.forEach((obj) => {
-        for (const key of Object.keys(obj))
-            if (commonObj.hasOwnProperty(key))
-                commonObj[key] = Math.min(commonObj[key], obj[key]);
-            else commonObj[key] = obj[key];
-    });
-    const allNodes = this.nodelist.map((n) => n.uuid);
-    const allFound = Object.keys(commonObj);
-    return (
-        allFound.length == allNodes.length &&
-        allFound.every((nodeid) => allNodes.includes(nodeid)) &&
-        Object.values(commonObj).every((dist) => dist <= maxGlobeDistance)
-    );
+    const foundNodes = new Set();
+    const _collectNodes = (_, __, id) => {
+        foundNodes.add(id);
+    };
+    const _nodes = new Set(this.nodelist.map(n => n.uuid));
+    this.nodelist
+        .filter((n) => n.userData.type == "globe")
+        .forEach((n) => this.traverseTethers(n.uuid, _collectNodes, maxGlobeDistance + 1));
+    const isValid = foundNodes.size == _nodes.size;
+    if (!isValid) {
+        Logger.info("[NodeManager] | Layout invalid");
+        Logger.info("[NodeManager] | Found extra nodes:", foundNodes.difference(_nodes));
+        Logger.info("[NodeManager] | Didn't find nodes:", _nodes.difference(foundNodes));
+    }
+    return isValid;
 };
 
 export function AttackNodeManager(
