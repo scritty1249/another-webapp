@@ -230,7 +230,11 @@ export const DataStore = {
                 type: "cash",
                 amount: 1,
             },
-            name: "_placeholder_",
+            limit: {
+                base: 99,
+                increase: 0 // this can be a decimal, but final value is floored after calculation
+            },
+            name: "_???_",
             description: "Placeholder. Doesn't do anything.",
             thumb: "./source/node-thumbs/placeholder.gif",
         },
@@ -243,6 +247,10 @@ export const DataStore = {
                 type: "crypto",
                 amount: 1,
             },
+            limit: {
+                base: 2,
+                increase: 1 // this can be a decimal, but final value is floored after calculation
+            },
             name: "Cube",
             description: "Captures hostile Nodes within 1 step.",
             thumb: "./source/node-thumbs/cube.gif", // placeholder
@@ -250,6 +258,11 @@ export const DataStore = {
         globe: {
             cost: undefined,
             sell: undefined,
+            limit: {
+                base: 2,
+                increase: 0.34 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 2,
             name: "Access Port",
             description: `Required for your net to exist.\nAll nodes exist within ${CONFIG.maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
             thumb: "./source/node-thumbs/globe.gif",
@@ -263,6 +276,10 @@ export const DataStore = {
                 type: "cash",
                 amount: 5,
             },
+            limit: {
+                base: 0,
+                increase: .2 // this can be a decimal, but final value is floored after calculation
+            },
             name: "Sentinal",
             description: "Scans for Attacker activity within [TBD] steps.",
             thumb: "./source/node-thumbs/scanner.gif",
@@ -270,14 +287,17 @@ export const DataStore = {
         cashfarm: {
             cost: {
                 type: "crypto",
-                amount: 1,
+                amount: 2,
             },
             sell: {
                 type: "crypto",
-                amount: 1,
+                amount: 2,
             },
-            cost: undefined,
-            sell: undefined,
+            limit: {
+                base: 1,
+                increase: 1 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 1,
             name: "Cash Farm",
             description:
                 "Farms for cash. Can be collected from to use for purchases.",
@@ -286,29 +306,54 @@ export const DataStore = {
         cryptofarm: {
             cost: {
                 type: "cash",
-                amount: 5,
+                amount: 10,
             },
             sell: {
                 type: "cash",
-                amount: 5,
+                amount: 10,
             },
-            cost: undefined,
-            sell: undefined,
+            limit: {
+                base: 1,
+                increase: 1 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 0,
             name: "Credits Farm",
             description:
                 "Farms for credits. Can be collected from to use for purchases.",
             thumb: "./source/node-thumbs/cryptofarm.gif",
         },
         cashstore: {
-            cost: undefined,
-            sell: undefined,
+            cost: {
+                type: "crypto",
+                amount: 1,
+            },
+            sell: {
+                type: "crypto",
+                amount: 1,
+            },
+            limit: {
+                base: 2,
+                increase: 1 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 1,
             name: "Cash Storage",
             description: "Holds Cash",
             thumb: "./source/node-thumbs/cashstore.gif",
         },
         cryptostore: {
-            cost: undefined,
-            sell: undefined,
+            cost: {
+                type: "cash",
+                amount: 5,
+            },
+            sell: {
+                type: "cash",
+                amount: 5,
+            },
+            limit: {
+                base: 2,
+                increase: 1 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 0,
             name: "Credits Storage",
             description: "Holds Credits",
             thumb: "./source/node-thumbs/cryptostore.gif",
@@ -322,6 +367,11 @@ export const DataStore = {
                 type: "crypto",
                 amount: 3,
             },
+            limit: {
+                base: 1,
+                increase: .34 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 1,
             name: "Botnet Processing Farm",
             description:
                 "Uses a processing network to compile and upgrade Attacks.",

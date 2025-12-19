@@ -408,9 +408,15 @@ export function MenuManager (
                     self.createElement.svgText([details.name, "", ""])
                 ]);
                 previewTile.classList.add("preview");
-                const buyButton = self.createElement.button(90, undefined, details.cost, {
-                    click: () => self._dispatch("addnode", {nodeType: details._type}),
-                }, 2);
+                const buyButton = details?.free
+                    ? self.createElement.button(90, undefined, "Free", {
+                        click: () => self._dispatch("addnode", {nodeType: details._type, free: true}),
+                    }, 2)
+                    : details.cost
+                        ? self.createElement.button(90, undefined, details.cost, {
+                            click: () => self._dispatch("addnode", {nodeType: details._type}),
+                        }, 2)
+                        : self.createElement.button(90, "lock", "unavailable", {}, 2);  // if cost string is undefined, node is unpurchasable
                 buyButton.classList.add("buy");
                 
                 self._appendElement(central, previewTile, descriptionWindow, buyButton);
