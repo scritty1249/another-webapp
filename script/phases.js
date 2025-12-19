@@ -27,6 +27,7 @@ export function PhaseManager(
         World: this.Managers.World,
         Mouse: this.Managers.Mouse,
         Audio: this.Managers.Audio,
+        Effects: this.Managers.Effects,
     } = Managers);
     this._scene = scene;
     this._controls = controls;
@@ -62,6 +63,7 @@ PhaseManager.prototype = {
         Mouse: undefined,
         Attacks: undefined,
         Audio: undefined,
+        Effects: undefined,
     },
     _constructorArgs: {
         Node: undefined,
@@ -426,7 +428,14 @@ PhaseManager.prototype.attackPhase = function (
                 .add("click", function (event) {
                     transferFundsCallback();
                 });
-            overlayController.startTimer(metadata.timelimit, transferFundsCallback);
+            overlayController.startTimer(
+                metadata.timelimit, transferFundsCallback,
+                5, () => {
+                    self.Managers.Effects.vignette.flash(1000)
+                        .then(() => self.Managers.Effects.vignette.flash(1000))
+                        .then(() => self.Managers.Effects.vignette.flash(1000));
+                }
+            );
 
             this.Managers.Overlay = overlayController;
             this.Managers.Node = nodeController;
