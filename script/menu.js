@@ -10,6 +10,12 @@ const stopPropagation = (el) => {
     });
     return el;
 }
+const stopContextMenu = (el) => {
+    el.addEventListener("contextmenu", function (event) {
+        event.preventDefault();
+    });
+    return el;
+}
 const backgroundPreviewPath = (bgName) => `./source/bg/${bgName}/py.png`;
 
 export function MenuManager (
@@ -259,7 +265,7 @@ export function MenuManager (
             changeBackground: function () {
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("settings", "changeBackground");
-                const central = document.createElement("div");
+                const central = stopContextMenu(document.createElement("div"));
                 central.classList.add("center", "absolutely-center", "scrollview", "pointer-events");
                 const backgrounds = [
                     // laziness
@@ -279,7 +285,6 @@ export function MenuManager (
                         click: () => self._dispatch("backgroundchange", {background: bg}),
                     }, true, true)
                 );
-                central.addEventListener("contextmenu", (e) => e.preventDefault());
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
                 central.scrollTop = 0; // scroll to top if overflowing
@@ -397,15 +402,15 @@ export function MenuManager (
             ) { // called externally
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "nodeDetail");
-                const central = document.createElement("div");
+                const central = stopContextMenu(document.createElement("div"));
                 central.classList.add("center", "absolutely-center", "scrollview");
-                
+                const titleEl = self.createElement.textBox(details.name, false, false, false);
+                titleEl.classList.add("title");
                 const descriptionWindow = self.createElement.textBox(details.description, true, false);
                 descriptionWindow.classList.add("description");
                 descriptionWindow.firstChild.classList.add("align-left");
                 const previewTile = self.createElement.tileSvg(1, 0, [
-                    self.createElement.svgImage(details.thumb),
-                    self.createElement.svgText([details.name, "", ""])
+                    self.createElement.svgImage(details.thumb)
                 ]);
                 previewTile.classList.add("preview");
                 const buyButton = details?.free
@@ -419,7 +424,7 @@ export function MenuManager (
                         : self.createElement.button(90, "lock", "unavailable", {}, 2);  // if cost string is undefined, node is unpurchasable
                 buyButton.classList.add("buy");
                 
-                self._appendElement(central, previewTile, descriptionWindow, buyButton);
+                self._appendElement(central, titleEl, previewTile, descriptionWindow, buyButton);
                 self._appendMenu(central);
                 central.scrollTo = 0;
                 self._dispatch("loadmenu", {history: ["addNode", lastMenu]});
