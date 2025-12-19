@@ -8,6 +8,7 @@ export const Configuration = {
     mouseClickDurationThreshold: 0.4 * 1000, // ms
     maxStepsFromGlobe: 9, // max number of steps from a Globe each node is allowed to be
     maxCameraDistance: 25,
+    minCameraDistance: 2,
     TICKSPEED: 0.1, // seconds
     TARGETS_TTL: 300, // seconds, how long we should store targets for before querying again - 5 minutes
     WORLD_TARGET_COUNT: 5,
