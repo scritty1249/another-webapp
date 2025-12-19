@@ -200,6 +200,7 @@ function mainloop(MenuController) {
 
             controls.camera.enablePan = false;
             controls.camera.maxDistance = CONFIG.maxCameraDistance;
+            controls.camera.minDistance = CONFIG.minCameraDistance;
             controls.camera.enableDamping = true;
             controls.camera.autoRotateSpeed = 0.6;
             controls.camera.dampingFactor = 0.12;
