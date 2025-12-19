@@ -545,11 +545,10 @@ PhaseManager.prototype.buildPhase = function (
                         : text[0]);
                 overlayController.messagePopup(message);
             }
-
             overlayController._menuManager.when("addnode", (detail) => {
                 const cost = nodeDetails[detail.nodeType]?.cost;
                 const bankData = bankController.bank;
-                if (cost) {
+                if (!detail?.free && cost) {
                     if (bankData[cost.type].amount - cost.amount < 0) {
                         overlayController.messagePopup(
                             `Cannot create new Node: Insufficient currency.`
@@ -582,16 +581,25 @@ PhaseManager.prototype.buildPhase = function (
                 if (shopType == "addnode") {
                     const nodeType = detail?.nodeType;
                     const nodeDetail = nodeDetails[nodeType];
+                    const nodeCount = nodeController.nodelist.filter(n => n.userData.type == nodeType).length;
+                    const nodeDetailMenuInfo = { // expects {_type, description, cost(str), name, thumb}
+                        _type: nodeType,
+                        description: nodeDetail.description,
+                        name: nodeDetail.name,
+                        thumb: nodeDetail.thumb,
+                    };
+                    if (nodeCount >= Math.floor(nodeDetail.limit.base + (nodeDetail.limit.increase * 0))) { // [!] Process player level here, when implemented
+                        nodeDetailMenuInfo.cost = undefined;
+                    } else if (
+                        (nodeDetail.freecount && nodeCount < nodeDetail.freecount) ||
+                        !nodeDetail.cost
+                    ) {
+                        nodeDetailMenuInfo.free = true;
+                    } else {
+                        nodeDetailMenuInfo.cost = `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`;
+                    }
                     overlayController._menuManager.loadMenu.addNode.nodeDetail(
-                        { // expects {_type, description, cost(str), name, thumb}
-                            _type: nodeType,
-                            description: nodeDetail.description,
-                            cost: nodeDetail.cost
-                                ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`
-                                : "Free",
-                            name: nodeDetail.name,
-                            thumb: nodeDetail.thumb,
-                        },
+                        nodeDetailMenuInfo,
                         detail?.typeMenu
                     );
                 }
