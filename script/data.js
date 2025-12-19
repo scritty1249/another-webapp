@@ -154,6 +154,11 @@ export const DataStore = {
             slots: 3,
             regen: _baseHealthRegenPercentage // per tick
         },
+        botnet: {
+            health: 225,
+            slots: 5,
+            regen: _baseHealthRegenPercentage // per tick
+        },
     },
     BuildNodeOverlayData: {
         slots: {
