@@ -322,6 +322,15 @@ function mainloop(MenuController) {
                         CONFIG.AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
                     );
                 }
+                MenuController.when(
+                    "logout",
+                    function (_) {
+                        _autosaveHandler();
+                        Session.clearSession();
+                        window.location.reload();
+                    },
+                    true
+                );
             }
 
             {
@@ -656,15 +665,6 @@ function mainloop(MenuController) {
                         const toggleTo = detail.set;
                         NodeController.lowPerformanceMode = toggleTo;
                         MenuController.close();
-                    },
-                    true
-                );
-                MenuController.when(
-                    "logout",
-                    function (_) {
-                        _autosaveHandler();
-                        Session.clearSession();
-                        window.location.reload();
                     },
                     true
                 );
