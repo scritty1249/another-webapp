@@ -15,12 +15,14 @@ import * as Session from "./session.js";
 import { WorldManager } from "./world.js";
 import { DataStore } from "./data.js";
 import { AudioManager } from "./audio.js";
+import { VignetteShaderPass } from "./vignette.js";
 
 // bloom
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'; // Optional, but useful for modern tone mapping
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
 
 // Setup
 // MouseController functionality
@@ -47,7 +49,10 @@ renderer.toneMapping = THREE.LinearToneMapping;
 
 
 // fx
-const effect = new EffectComposer(renderer);
+const effects = {
+    vignette: new VignetteShaderPass()
+};
+const composer = new EffectComposer(renderer);
 {
     const renderScene = new RenderPass(scene, camera);
     const bloomPass = new UnrealBloomPass(
@@ -57,9 +62,10 @@ const effect = new EffectComposer(renderer);
         CONFIG.BLOOM.THRESHOLD
     );
     const outputPass = new OutputPass();
-    effect.addPass(renderScene);
-    effect.addPass(bloomPass);
-    effect.addPass(outputPass);
+    composer.addPass(renderScene);
+    composer.addPass(bloomPass);
+    composer.addPass(outputPass);
+    composer.addPass(effects.vignette.pass);
 }
 
 // change camera on window resize
@@ -254,6 +260,7 @@ function mainloop(MenuController) {
                     World: WorldController,
                     Mouse: MouseController,
                     Audio: AudioController,
+                    Effects: effects,
                 }
             );
 
@@ -789,7 +796,7 @@ function mainloop(MenuController) {
                     if (NodeController.lowPerformanceMode)
                         renderer.render(scene, camera);
                     else
-                        effect.render(scene, camera);
+                        composer.render(scene, camera);
                 }
                 FPSCounter.reset();
                 renderer.setAnimationLoop(animate);

@@ -175,7 +175,8 @@ const AttackHud = {
         el.dataset.limit = 0;
         return el;
     },
-    startTimer: function (timerEl, duration) {
+    startTimer: function (timerEl, duration, alertAt = -1) {
+        let alertFired = false;
         // duration in seconds
         timerEl.dataset.limit = UTIL.getNowUTCSeconds() + duration;
         const setTimer = (remaining) => {
@@ -188,6 +189,10 @@ const AttackHud = {
             const remaining =
                 parseInt(timerEl.dataset.limit) - UTIL.getNowUTCSeconds();
             setTimer(remaining);
+            if (!alertFired && remaining <= alertAt) {
+                alertFired = true;
+                timerEl.dispatchEvent(UTIL.createEvent("timeralert"));
+            }
             if (remaining <= 0) {
                 clearInterval(timerEl.dataset.timerid);
                 timerEl.dataset.limit = 0;
@@ -834,13 +839,20 @@ AttackOverlayManager.prototype.unfocusNode = function () {
 };
 AttackOverlayManager.prototype.startTimer = function (
     durationSecs,
-    timerCallback = () => {}
+    timerCallback = () => {},
+    alertAt = -1,
+    alertAtCallback = () => {},
 ) {
-    AttackHud.startTimer(this.element._timer, durationSecs);
+    AttackHud.startTimer(this.element._timer, durationSecs, alertAt);
     this.element._timer.addEventListener("timerended", function (event) {
         Logger.info(`[AttackOverlayManager] | Timer ended.`);
         timerCallback();
     });
+    if (alertAtCallback)
+        this.element._timer.addEventListener("timeralert", function (event) {
+            Logger.info(`[AttackOverlayManager] | Timer alert fired.`);
+            alertAtCallback();
+        });
     Logger.info(`[AttackOverlayManager] | Started timer for ${durationSecs}s.`);
 };
 AttackOverlayManager.prototype.clear = function () {
