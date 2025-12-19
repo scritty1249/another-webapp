@@ -478,7 +478,7 @@ const Nodes = {
         store.userData.exportData.store = {
             type: "cash",
             amount: 0,
-            max: 200
+            max: 1050
         };
 
         if (animationOptions) {
@@ -507,7 +507,7 @@ const Nodes = {
         store.userData.exportData.store = {
             type: "crypto",
             amount: 0,
-            max: 30
+            max: 55
         };
 
         if (animationOptions) {
@@ -535,8 +535,8 @@ const Nodes = {
         farm.userData.exportData.currency = {
             type: "cash",
             amount: 0,
-            max: 10,
-            rate: 1800, // per hour
+            max: 350,
+            rate: 100, // per hour
             lastUpdated: UTIL.getNowUTCSeconds(),
         };
 
@@ -565,8 +565,8 @@ const Nodes = {
         farm.userData.exportData.currency = {
             type: "crypto",
             amount: 0,
-            max: 10,
-            rate: 720, // per hour
+            max: 35,
+            rate: 15, // per hour
             lastUpdated: UTIL.getNowUTCSeconds(),
         };
 
