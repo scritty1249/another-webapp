@@ -260,7 +260,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("settings", "changeBackground");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center", "scrollview");
+                central.classList.add("center", "absolutely-center", "scrollview", "pointer-events");
                 const backgrounds = [
                     // laziness
                     "bubbles",
@@ -279,13 +279,13 @@ export function MenuManager (
                         click: () => self._dispatch("backgroundchange", {background: bg}),
                     }, true, true)
                 );
+                central.addEventListener("contextmenu", (e) => e.preventDefault());
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
                 central.scrollTop = 0; // scroll to top if overflowing
                 self._dispatch("loadmenu", {history: ["settings", "main"]});
             },
         },
-        
         addNode: {
             selectType: function () {
                 self.loadMenu.clear();
@@ -325,8 +325,8 @@ export function MenuManager (
                     self.createElement.button(90, "add-node", "Add globe", { // globe
                         click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "globe", typeMenu: "baseType"}),
                     }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
+                    self.createElement.button(90, "add-node", "Add botnet", {
+                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "botnet", typeMenu: "baseType"}),
                     }, 4),
                     self.createElement.button(90, "lock", undefined, {
 

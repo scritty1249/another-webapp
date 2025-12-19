@@ -52,9 +52,9 @@ const effect = new EffectComposer(renderer);
     const renderScene = new RenderPass(scene, camera);
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.35, // strength
-        0.42, // radius
-        1.8 // threshold
+        CONFIG.BLOOM.STRENGTH,
+        CONFIG.BLOOM.RADIUS,
+        CONFIG.BLOOM.THRESHOLD
     );
     const outputPass = new OutputPass();
     effect.addPass(renderScene);
@@ -226,7 +226,7 @@ function mainloop(MenuController) {
             );
 
             // Control shadows
-            const ambientLight = new THREE.AmbientLight(0x404040, 250); // soft white light
+            const ambientLight = new THREE.AmbientLight(0x404040, CONFIG.AMBIENT_LIGHT_STRENGTH); // soft white light
             scene.add(ambientLight);
 
             // render a light
@@ -278,7 +278,7 @@ function mainloop(MenuController) {
                                 Logger.log("saved changed layout");
                                 Storage.set("localLayout", currLayout);
                             }
-                        } else
+                        } else if (event?.returnValue !== undefined)
                             event.returnValue =
                                 "You have unsaved changes to your network. Are you sure you want to leave?";
 
@@ -683,6 +683,7 @@ function mainloop(MenuController) {
                 THREEUTIL.loadGLTFShapes("./source/meshes/cashfarm.glb"),
                 THREEUTIL.loadGLTFShapes("./source/meshes/cryptostore.glb"),
                 THREEUTIL.loadGLTFShapes("./source/meshes/cashstore.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/botnet.glb"),
             ]);
             const sounds = Promise.all([
                 UTIL.loadAudio("./source/audio/pew.mp3", AudioController.ctx),
@@ -700,6 +701,7 @@ function mainloop(MenuController) {
                     cashFarmData,
                     cryptoStoreData,
                     cashStoreData,
+                    botNetData,
                     ..._
                 ] = modelData;
                 const [
@@ -726,6 +728,7 @@ function mainloop(MenuController) {
                     cryptofarm: () => MESH.Nodes.CryptoFarm(cryptoFarmData),
                     cashstore: () => MESH.Nodes.CashStore(cashStoreData),
                     cryptostore: () => MESH.Nodes.CryptoStore(cryptoStoreData),
+                    botnet: () => MESH.Nodes.Botnet(botNetData),
                 });
                 WorldController.addMeshData(MESH.SelectionGlobe(worldData, 4));
 

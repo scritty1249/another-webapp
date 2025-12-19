@@ -9,13 +9,13 @@
 - ~~Stealing currency from enemy nodes~~ `@ 12/13/2025`
   - ~~Update target layout data with deducted currnecy amounts~~ `@ 12/13/2025`
     - Prevent attacks on currently online users to ~~avoid gamedata desync~~ `@ 12/13/2025`
-- Actual background
-- Display Node Detail menu when purchasing new Nodes
+- ~~Actual background~~ `@ 12/16/2025`
+- ~~Display Node Detail menu when purchasing new Nodes~~ `@ 12/17/2025`
 ### Known Bugs
 - Clicking a newly created node sometimes retrieves an undefined NodeID, crashing OverlayManager
 - ~~Collecting Credits can exceed storage limit~~ `@ 12/13/2025`
 - Number of steps from nearest Access Port Node is improperly counted (9 max - flagged at 7 steps - internally read as 11)
 - Node Detail menu does not display line breaks on mobile (iOS Safari)
-- Save debug file button can crash page (pressing forced a reload while testing)
-- CashFarm, CreditFarm, CashStore, and CreditStore node emissive set too high while dragging (appears fully bright white instead of tinged red)
+- ~~Save debug file button can crash page (pressing forced a reload while testing)~~ `@ 12/18/2025`
+- ~~CashFarm, CreditFarm, CashStore, and CreditStore node emissive set too high while dragging (appears fully bright white instead of tinged red)~~ `@ 12/18/2025`
 - ~~Scene background images are incorrectly stored and fails to load (git page version saves unintended part of url path)~~ `@ 12/12/2025`

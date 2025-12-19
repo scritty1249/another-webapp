@@ -94,7 +94,50 @@ export const SSMaterialType = {
         });
         return material;
     },
-    CircleProgress: function (color, bgColor = 0x000000, bgOpacity = .0) {
+    DoubleMask: function (map, alphaMap, mapSize, alphaMapSize, staticAlphaMap) { // staticAlphaMap size should match map
+        // [!] hides all fully black pixels on static map. Doesn't care/process partial transparency.
+        const fragShader = `
+            varying vec2 vuv;
+            uniform sampler2D map;
+            uniform sampler2D alphaMap;
+            uniform sampler2D staticMap;
+            uniform vec2 maskOffset;
+            uniform vec2 mapSizeRatio;
+            void main() {
+                vec2 uv = fract(vuv);
+                vec2 alphaUv = fract((vuv + maskOffset) * mapSizeRatio);
+                vec4 duv = vec4(dFdx(vuv), dFdy(vuv));
+                vec4 alphaDuv = vec4(dFdx(vuv * mapSizeRatio), dFdy(vuv * mapSizeRatio));
+                vec3 txl = textureGrad(map, uv, duv.xy, duv.zw).rgb;
+                vec4 alphaTxl = textureGrad(alphaMap, alphaUv, alphaDuv.xy, alphaDuv.zw);
+                vec3 staticTxl = textureGrad(staticMap, uv, duv.xy, duv.zw).rgb;
+                float alpha = (staticTxl.r + staticTxl.g + staticTxl.b) > 0. ? 0. : ((alphaTxl.r + alphaTxl.g + alphaTxl.b) / 3.);
+
+                gl_FragColor = vec4(txl, alpha);
+            }
+        `;
+        const vertShader = _vertShader;
+        const material = new ShaderMaterial({
+            vertexShader: vertShader,
+            fragmentShader: fragShader,
+            transparent: true,
+            depthWrite: false,
+            side: FrontSide,
+            uniforms: {
+                mapSizeRatio: { value: mapSize.clone().divide(alphaMapSize) },
+                maskOffset: { value: new Vector2() },
+                map: { value: new TextureLoader().load(map) },
+                alphaMap: {
+                    value: new TextureLoader().load(alphaMap),
+                },
+                staticMap: {
+                    value: new TextureLoader().load(staticAlphaMap),
+                },
+            },
+        });
+        return material;
+    },
+    CircleProgress: function (color, bgColor = 0x000000, bgOpacity = 0.0) {
         const fragShader = `
             precision mediump float;
             varying vec2 vuv;

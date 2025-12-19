@@ -8,6 +8,7 @@ const _currencyOverlayData = {
     offset: new Vector3(0, 1.5, 0),
     geometry: new PlaneGeometry(0.9, 0.3),
     alphaMap: "./source/node-overlay/currency/currency-bar-mask.png",
+    staticMap: "./source/node-overlay/currency/static-bar-mask.png",
     mapSize: new Vector2(300, 100),
     alphaMapSize: new Vector2(600, 100),
 };
@@ -169,21 +170,23 @@ export const DataStore = {
         cash: {
             offset: _currencyOverlayData.offset,
             geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.Mask(
+            material: SSMaterialType.DoubleMask(
                 "./source/node-overlay/currency/cash-bar.png",
                 _currencyOverlayData.alphaMap,
                 _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize
+                _currencyOverlayData.alphaMapSize,
+                _currencyOverlayData.staticMap
             ),
         },
         crypto: {
             offset: _currencyOverlayData.offset,
             geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.Mask(
+            material: SSMaterialType.DoubleMask(
                 "./source/node-overlay/currency/crypto-bar.png",
                 _currencyOverlayData.alphaMap,
                 _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize
+                _currencyOverlayData.alphaMapSize,
+                _currencyOverlayData.staticMap
             ),
         },
     },
@@ -227,8 +230,6 @@ export const DataStore = {
                 type: "cash",
                 amount: 1,
             },
-            cost: undefined,
-            sell: undefined,
             name: "_placeholder_",
             description: "Placeholder. Doesn't do anything.",
             thumb: "./source/node-thumbs/placeholder.gif",
@@ -242,8 +243,6 @@ export const DataStore = {
                 type: "crypto",
                 amount: 1,
             },
-            cost: undefined,
-            sell: undefined,
             name: "Cube",
             description: "Captures hostile Nodes within 1 step.",
             thumb: "./source/node-thumbs/cube.gif", // placeholder
@@ -264,8 +263,6 @@ export const DataStore = {
                 type: "cash",
                 amount: 5,
             },
-            cost: undefined,
-            sell: undefined,
             name: "Sentinal",
             description: "Scans for Attacker activity within [TBD] steps.",
             thumb: "./source/node-thumbs/scanner.gif",
@@ -315,6 +312,20 @@ export const DataStore = {
             name: "Credits Storage",
             description: "Holds Credits",
             thumb: "./source/node-thumbs/cryptostore.gif",
+        },
+        botnet: {
+            cost: {
+                type: "crypto",
+                amount: 3,
+            },
+            sell: {
+                type: "crypto",
+                amount: 3,
+            },
+            name: "Botnet Processing Farm",
+            description:
+                "Uses a processing network to compile and upgrade Attacks.",
+            thumb: "./source/node-thumbs/botnet.gif",
         },
     },
     SelectPhaseBackground: "_world",

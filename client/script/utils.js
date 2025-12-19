@@ -202,19 +202,25 @@ export function layoutsEqual(thisLayout, thatLayout) {
 }
 function getAllPropertyDescriptors(obj) {
     const descriptors = {};
+    const keysThatBreakThisFunction = new Set([
+        // dont overwrite these properties
+        "hasOwnProperty"
+    ]);
     let curr = obj;
     while (curr !== null) {
         const ownKeys = Reflect.ownKeys(curr);
         for (const key of ownKeys)
             try {
                 if (
-                    (Object.hasOwn && !Object.hasOwn(descriptors, key)) || // use hasOwn where supported (MS Edge is gay)
-                    (descriptors.hasOwnProperty && !descriptors.hasOwnProperty(key)) || // [!] wtf
-                    descriptors[key] !== undefined
+                    !keysThatBreakThisFunction.has(key) &&
+                    (
+                        (Object.hasOwn && !Object.hasOwn(descriptors, key)) || // use hasOwn where supported (MS Edge is gay)
+                        !descriptors.hasOwnProperty(key)
+                    )
                 )
                     descriptors[key] = Object.getOwnPropertyDescriptor(curr, key);
-            } catch {
-                Logger.log(descriptors)
+            } catch (err) {
+                Logger.warn(`Error while parsing property descriptors: `, err, descriptors);
             }
 
         curr = Object.getPrototypeOf(curr);
@@ -387,7 +393,7 @@ export const _DebugTool = {
         const layoutData = layoutToJson(scene, nodeManager, false);
         const domData = document.documentElement.outerHTML;
         Logger.log("Generating debug file for download");
-        download(`CUBE_GAME-${new Date().toISOString()}.log`, logger.history);
+        download(`CUBE_GAME-${new Date().toISOString()}.log`, `=== [LOG] ===\n${logger.history}\n\n=== [LAYOUT] ===\n${layoutData}\n\n=== [DOM] ===\n${domData}`);
     },
     marker: function (
         scene = undefined,
