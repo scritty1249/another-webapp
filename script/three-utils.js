@@ -49,10 +49,24 @@ function loadGLTFShapes(gltfPath) {
                 getAnimations(gltf.animations)
             ])
         )
-        .then((values) => {
+        .then(([meshes, animations]) => {
+            const meshNames = new Set(meshes.map(mesh => mesh.name));
+            meshes.forEach(mesh =>
+                mesh.traverse(function (child) {
+                    meshNames.add(child.name);
+                })
+            );
+            // remove animations for objects not being imported
+            const filteredAnims = {};
+            Object.entries(animations).forEach(([key, value]) => {
+                filteredAnims[key] = value.filter(clip => {
+                    const trackName = clip.tracks[0].name;
+                    return meshNames.has(trackName.slice(0, trackName.lastIndexOf(".")));
+                });
+            });
             const exported = {
-                meshes: values[0],
-                animations: values[1],
+                meshes: meshes,
+                animations: filteredAnims,
             };
             Logger.info(`Found in scene "${gltfPath}":`, exported);
             return exported;
@@ -71,20 +85,25 @@ function getMesh(scene) { // only returns the first mesh (will also return any c
 }
 function getMeshes(scene) {
     const meshes = [];
+    const parents = new Set();
     scene.traverse(function (child) {
-        if (child.isMesh && !isMeshChild(child))
+        if (
+            (child.userData?.keep || child.isMesh) &&
+            !isChildOf(child, parents)
+        ) {
+            parents.add(child.uuid);
             meshes.push(child);
+        }
     });
     return meshes;
 }
-function isMeshChild(mesh) {
-    let curr = mesh?.parent;
-    while (curr) {
-        if (curr.isMesh)
-            return true;
-        curr = curr.parent;
-    }
-    return false;
+function isChildOf(object, collectionUUIDs) {
+    let found = false;
+    object.traverseAncestors(function (parent) {
+        if (!found && collectionUUIDs.has(parent.uuid))
+            found = true;
+    });
+    return found;
 }
 function getAnimations(animations) {
     const anis = {};
@@ -106,11 +125,11 @@ async function loadGLTF(gltfPath) {
     try {
         const gltf = await loader.loadAsync(gltfPath);
         // Access the loaded scene, animations, etc.
-        Logger.info("Scene loaded successfully:", gltf.scene);
+        Logger.info(`Model "${gltfPath}" loaded succesfully.`);
+        console.info(gltf);
         return gltf;
     } catch (error) {
-        Logger.error("Error loading model:", error);
-        Logger.throw(error); // Re-throw the error for further handling
+        Logger.error(`Error loading model "${gltfPath}":`, error);
     }
 }
 function getZoom(camera) {

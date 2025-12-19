@@ -213,20 +213,16 @@ NodeManager.prototype = {
 };
 NodeManager.prototype.setNodeEmissive = function (nodeid, emissive) {
     const node = this.getNode(nodeid);
-    node.userData.traverseMesh(function (mesh) {
-        if (mesh.material.emissive) {
-            if (!mesh.userData.oldEmissive)
-                mesh.userData.oldEmissive = mesh.material.emissive.clone();
+    node.traverse(function (mesh) {
+        if (mesh.material?.emissive && mesh.userData.sourceMaterial)
             mesh.material.emissive.set(emissive);
-        }
     });
 };
 NodeManager.prototype.resetNodeEmissive = function (nodeid) {
     const node = this.getNode(nodeid);
-    node.userData.traverseMesh(function (mesh) {
-        if (mesh.material.emissive && mesh.userData.oldEmissive) {
-            mesh.material.emissive.set(mesh.userData.oldEmissive);
-        }
+    node.traverse(function (mesh) {
+        if (mesh.material?.emissive && mesh.userData.sourceMaterial)
+            mesh.material.emissive.set(mesh.userData.sourceMaterial.emissive);
     });
 };
 NodeManager.prototype.setNodeColorTint = function (
@@ -235,24 +231,20 @@ NodeManager.prototype.setNodeColorTint = function (
     strength = 0.65
 ) {
     const node = this.getNode(nodeid);
-    node.userData.traverseMesh(function (mesh) {
-        if (mesh.material.color) {
-            if (!mesh.userData.oldColor)
-                mesh.userData.oldColor = mesh.material.color.clone();
+    node.traverse(function (mesh) {
+        if (mesh.material?.color && mesh.userData.sourceMaterial)
             mesh.material.color.lerpColors(
-                mesh.userData.oldColor,
+                mesh.userData.sourceMaterial.color,
                 new Color(color),
                 strength
             );
-        }
     });
 };
 NodeManager.prototype.resetNodeColorTint = function (nodeid) {
     const node = this.getNode(nodeid);
-    node.userData.traverseMesh(function (mesh) {
-        if (mesh.material.color && mesh.userData.oldColor) {
-            mesh.material.color.set(mesh.userData.oldColor);
-        }
+    node.traverse(function (mesh) {
+        if (mesh.material?.color && mesh.userData.sourceMaterial)
+            mesh.material.color.set(mesh.userData.sourceMaterial.color);
     });
 };
 NodeManager.prototype.centerNodes = function () {
@@ -864,10 +856,7 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
         nodeData.hp.set(nodeTypeData.health / 2);
         nodeData.state.reset();
         nodeData.lastHit.reset();
-        this.resetNodeColorTint(nodeid);
-        this.resetNodeEmissive(nodeid);
-        this.setNodeEmissive(nodeid, this._configData.friendlyColor);
-        this.setNodeColorTint(nodeid, this._configData.friendlyTint, 0.8);
+        node.userData._altMaterials.apply(node);
     }
     if (this.isAllNodesFriendly()) // check for win condition
         this._phaseCallback();
@@ -884,14 +873,32 @@ AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
         nodeData.hp.set(nodeTypeData.health);
         nodeData.state.reset();
         nodeData.lastHit.reset();
-        this.resetNodeColorTint(nodeid);
-        this.resetNodeEmissive(nodeid);
+        node.userData.materials.apply(node);
     }
+};
+AttackNodeManager.prototype._initAlternateMaterials = function (node) {
+    const table = node.userData.materials;
+    const altTable = table.clone();
+    const altTint = new Color(this._configData.friendlyTint);
+    Object.values(altTable.index).forEach(({material}) => {
+        material.emissive.set(this._configData.friendlyColor);
+        material.color.lerpColors(
+            material.color,
+            altTint,
+            0.8
+        );
+    });
+    node.userData._altMaterials = altTable;
 };
 AttackNodeManager.prototype.createNode = function (...args) {
     const nodeid = NodeManager.prototype.createNode.call(this, ...args);
     try {
         const node = this.getNode(nodeid);
+        { // save original colors, for swapping with alternate color (friendly / enemy)
+            this._initAlternateMaterials(node);
+
+        }
+
         const overlay = NodeSSOverlay(node);
         { // node specific overlays
             const storageType = this.isStorageNode(nodeid);
@@ -1256,8 +1263,8 @@ function AttackFactory(typeData, originid, nodeManager) {
                             const targetData = nodeManager.getNodeData(
                                 attack.target
                             );
-                            targetData.damage(attack.damage);
-                            typeData.effect(nodeManager, attackid);
+                            if (!targetData.damage(attack.damage))
+                                typeData.effect(nodeManager, attackid);
                             attack.update();
                             if (attack.active) {
                                 attack.visible = false;

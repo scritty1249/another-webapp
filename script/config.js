@@ -19,6 +19,12 @@ export const Configuration = {
     ATTACK_BASE_SECONDS_LIMIT: 120,
     FRIENDLY_NODE_COLOR: new Color(0xff0000),
     FRIENDLY_NODE_TINT: new Color(0xff0000),
+    BLOOM: {
+        STRENGTH: .2,
+        RADIUS: .42,
+        THRESHOLD: 5
+    },
+    AMBIENT_LIGHT_STRENGTH: 350, // basically, brightness
 };
 
 const DEFAULT_BACKGROUND = "cubes-lines";

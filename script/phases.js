@@ -622,12 +622,13 @@ PhaseManager.prototype.buildPhase = function (
                             nodeDraggedEmissive
                         );
 
-                    } catch {
+                    } catch (err) {
                         Logger.error(
                             "DragControls selected a bad node (dragstart): ",
                             event.object,
                             self._controls.drag.objects,
-                            self.Managers.Node.nodelist
+                            self.Managers.Node.nodelist,
+                            err
                         );
                     }
                 })
@@ -636,12 +637,13 @@ PhaseManager.prototype.buildPhase = function (
                     event.object.userData.dragged = false;
                     try {
                         nodeController.resetNodeEmissive(event.object.uuid);
-                    } catch {
+                    } catch (err) {
                         Logger.error(
                             "DragControls selected a bad node (dragend): ",
                             event.object,
                             self._controls.drag.objects,
-                            self.Managers.Node.nodelist
+                            self.Managers.Node.nodelist,
+                            err
                         );
                     }
                 });
