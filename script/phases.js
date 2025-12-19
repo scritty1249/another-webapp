@@ -102,6 +102,8 @@ PhaseManager.prototype.selectPhase = function (
             )
         );
     // setup new phase
+    const oldMinZoom = this._controls.camera.minDistance;
+    const oldMaxZoom = this._controls.camera.maxDistance;
     this._controls.camera.autoRotate = true;
 
     this._openLoadingAnimation();
@@ -116,6 +118,8 @@ PhaseManager.prototype.selectPhase = function (
                 Mouse: self.Managers.Mouse,
             });
 
+            this._controls.camera.minDistance = (this.Managers.World._mesh.userData.radius * 2) * 1.4;
+            this._controls.camera.maxDistance = this._controls.camera.minDistance * 1.7;
             // add targets
             for (const { geo, id, username } of targets) {
                 const country = self.Managers.World.markOnWorld(geo.lat, geo.long, id);
@@ -207,6 +211,8 @@ PhaseManager.prototype.selectPhase = function (
             this._unloadPhase = () => {
                 this._resetUpdateManagers();
                 this.Managers.Audio.stop();
+                this._controls.camera.minDistance = oldMinZoom;
+                this._controls.camera.maxDistance = oldMaxZoom;
                 this._controls.camera.autoRotate = false;
                 this.Managers.Listener.clear();
                 this.Managers.World.clear();
