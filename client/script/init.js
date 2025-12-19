@@ -199,7 +199,7 @@ function mainloop(MenuController) {
             };
 
             controls.camera.enablePan = false;
-            controls.camera.maxDistance = 25;
+            controls.camera.maxDistance = CONFIG.maxCameraDistance;
             controls.camera.enableDamping = true;
             controls.camera.autoRotateSpeed = 0.6;
             controls.camera.dampingFactor = 0.12;
@@ -783,6 +783,7 @@ function mainloop(MenuController) {
                     const delta = UTIL.clamp(clock.getDelta(), 0, 1000);
                     //requestIdleCallback(animate)
                     PhaseController.update(delta);
+                    AudioController.update(camera.position, controls.camera.maxDistance);
                     FPSCounter.update();
                     if (NodeController.lowPerformanceMode)
                         renderer.render(scene, camera);
