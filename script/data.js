@@ -159,7 +159,7 @@ export const DataStore = {
             slots: 5,
             regen: _baseHealthRegenPercentage // per tick
         },
-        botnet: {
+        barracks: {
             health: 135,
             slots: 3,
             regen: _baseHealthRegenPercentage // per tick
