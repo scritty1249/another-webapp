@@ -704,6 +704,7 @@ function mainloop(MenuController) {
                 THREEUTIL.loadGLTFShapes("./source/meshes/cryptostore.glb"),
                 THREEUTIL.loadGLTFShapes("./source/meshes/cashstore.glb"),
                 THREEUTIL.loadGLTFShapes("./source/meshes/botnet.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/barracks.glb"),
             ]);
             const sounds = Promise.all([
                 UTIL.loadAudio("./source/audio/pew.mp3", AudioController.ctx),
@@ -722,6 +723,7 @@ function mainloop(MenuController) {
                     cryptoStoreData,
                     cashStoreData,
                     botNetData,
+                    barracksData,
                     ..._
                 ] = modelData;
                 const [
@@ -749,6 +751,7 @@ function mainloop(MenuController) {
                     cashstore: () => MESH.Nodes.CashStore(cashStoreData),
                     cryptostore: () => MESH.Nodes.CryptoStore(cryptoStoreData),
                     botnet: () => MESH.Nodes.Botnet(botNetData),
+                    barracks: () => MESH.Nodes.Barracks(barracksData),
                 });
                 WorldController.addMeshData(MESH.SelectionGlobe(worldData, 4));
 
@@ -776,27 +779,27 @@ function mainloop(MenuController) {
                         );
                     }
                 });
-                if (DEBUG_MODE && urlParams.has("phase")) {
-                    const phase = urlParams.get("phase");
-                    MenuController._dispatch("swapphase", { phase: phase });
-                } else
-                    MenuController._dispatch("swapphase", { phase: "build" });
+                MenuController._dispatch("swapphase", { phase: "build" });
 
                 {
                     // [!] testing area
-                    if (DEBUG_MODE && urlParams.has("axes"))
-                        if (Number(urlParams.get("axes")))
-                            scene.add(
-                                new THREE.AxesHelper(
-                                    Number(urlParams.get("axes"))
-                                )
-                            );
-                        else
-                            scene.add(
-                                new THREE.AxesHelper(
-                                    controls.camera.maxDistance * 2
-                                )
-                            );
+                    if (DEBUG_MODE) {
+                        window.PhaseController = PhaseController;
+                        if (urlParams.has("axes"))
+                            if (Number(urlParams.get("axes")))
+                                scene.add(
+                                    new THREE.AxesHelper(
+                                        Number(urlParams.get("axes"))
+                                    )
+                                );
+                            else
+                                scene.add(
+                                    new THREE.AxesHelper(
+                                        controls.camera.maxDistance * 2
+                                    )
+                                );
+                    }
+                    
                 }
                 // render the stuff
                 function animate() {

@@ -159,6 +159,11 @@ export const DataStore = {
             slots: 5,
             regen: _baseHealthRegenPercentage // per tick
         },
+        botnet: {
+            health: 135,
+            slots: 3,
+            regen: _baseHealthRegenPercentage // per tick
+        },
     },
     BuildNodeOverlayData: {
         slots: {
@@ -257,7 +262,7 @@ export const DataStore = {
                 increase: 1 // this can be a decimal, but final value is floored after calculation
             },
             highlightSteps: 1,
-            name: "Cube",
+            name: "Sentinal",
             description: "Captures hostile Nodes within 1 step.",
             thumb: "./source/node-thumbs/cube.gif", // placeholder
         },
@@ -325,7 +330,7 @@ export const DataStore = {
                 increase: 1 // this can be a decimal, but final value is floored after calculation
             },
             freecount: 0,
-            name: "Credits Farm",
+            name: "Credit Farm",
             description:
                 "Farms for credits. Can be collected from to use for purchases.",
             thumb: "./source/node-thumbs/cryptofarm.gif",
@@ -380,10 +385,29 @@ export const DataStore = {
                 increase: .34 // this can be a decimal, but final value is floored after calculation
             },
             freecount: 1,
-            name: "Botnet Processing Farm",
+            name: "Processing Web",
             description:
-                "Uses a processing network to compile and upgrade Attacks.",
+                "Uses a botnet configured for compiling and upgrading Attacks.",
             thumb: "./source/node-thumbs/botnet.gif",
+        },
+        barracks: {
+            cost: {
+                type: "crypto",
+                amount: 50,
+            },
+            sell: {
+                type: "crypto",
+                amount: 20,
+            },
+            limit: {
+                base: 1,
+                increase: .75 // this can be a decimal, but final value is floored after calculation
+            },
+            freecount: 1,
+            name: "Computer Rack Tunnel",
+            description:
+                "Racks of unused computers left at an abondoned warehouse, remotely activated in secret to house your compiled Attacks. Any Attacks stored here are ready to deploy on other networks.",
+            thumb: "./source/node-thumbs/barracks.gif",
         },
     },
     SelectPhaseBackground: "_world",

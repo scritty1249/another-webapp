@@ -17,6 +17,8 @@ const stopContextMenu = (el) => {
     return el;
 }
 const backgroundPreviewPath = (bgName) => `./source/bg/${bgName}/py.png`;
+const BACKGROUND_TYPES = DEFAULT.WALLPAPER_TYPES;
+const NODE_TYPES = DEFAULT.NODE_TYPES;
 
 export function MenuManager (
     overlayElement
@@ -267,20 +269,7 @@ export function MenuManager (
                 self.element.wrapper.classList.add("settings", "changeBackground");
                 const central = stopContextMenu(document.createElement("div"));
                 central.classList.add("center", "absolutely-center", "scrollview", "pointer-events");
-                const backgrounds = [
-                    // laziness
-                    "bubbles",
-                    "bubbles-lines",
-                    "cubes",
-                    "cubes-lines",
-                    "lines",
-                    "bubbles-dark",
-                    "bubbles-lines-dark",
-                    "cubes-dark",
-                    "cubes-lines-dark",
-                    "lines-dark",
-                ];
-                const buttons = Array.from(backgrounds, bg => 
+                const buttons = Array.from(BACKGROUND_TYPES, bg => 
                     self.createElement.tileImg(backgroundPreviewPath(bg), {
                         click: () => self._dispatch("backgroundchange", {background: bg}),
                     }, true, true)
@@ -323,20 +312,14 @@ export function MenuManager (
                 self.element.wrapper.classList.add("addNode", "baseType");
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center", "scrollview");
-                const buttons = [ // placeholders
-                    self.createElement.button(90, "add-node", "Add placeholder", { // placeholder
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "placeholder", typeMenu: "baseType"}),
-                    }, 4),
-                    self.createElement.button(90, "add-node", "Add globe", { // globe
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "globe", typeMenu: "baseType"}),
-                    }, 4),
-                    self.createElement.button(90, "add-node", "Add botnet", {
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "botnet", typeMenu: "baseType"}),
-                    }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
-                    }, 4),
-                ];
+                const buttons = Array.from(NODE_TYPES.BASE, ({name, id}) =>
+                    self.createElement.button(90, 
+                        ...(!name || !id
+                            ? ["lock", undefined, {}]
+                            : ["add-node", name, {click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: id, typeMenu: "baseType"})}]
+                        ), 4
+                    )
+                );
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
                 self._dispatch("loadmenu", {history: ["addNode", "selectType"]});
@@ -346,20 +329,14 @@ export function MenuManager (
                 self.element.wrapper.classList.add("addNode", "defenseType");
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center", "scrollview");
-                const buttons = [ // placeholders
-                    self.createElement.button(90, "add-node", "Add cube", { // cube
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cube", typeMenu: "defenseType"}),
-                    }, 4),
-                    self.createElement.button(90, "add-node", "Add scanner", { // scanner
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "scanner", typeMenu: "defenseType"}),
-                    }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
-                    }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
-                    }, 4),
-                ];
+                const buttons = Array.from(NODE_TYPES.DEFENSE, ({name, id}) =>
+                    self.createElement.button(90, 
+                        ...(!name || !id
+                            ? ["lock", undefined, {}]
+                            : ["add-node", name, {click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: id, typeMenu: "defenseType"})}]
+                        ), 4
+                    )
+                );
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
                 self._dispatch("loadmenu", {history: ["addNode", "selectType"]});
@@ -369,29 +346,14 @@ export function MenuManager (
                 self.element.wrapper.classList.add("addNode", "econType");
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center", "scrollview");
-                const buttons = [
-                    self.createElement.button(90, "add-node", "Add cash node", { // cashfarm
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cashfarm", typeMenu: "econType"}),
-                    }, 4),
-                    self.createElement.button(90, "add-node", "Add credit node", { // cryptofarm
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cryptofarm", typeMenu: "econType"}),
-                    }, 4),
-                    self.createElement.button(90, "add-node", "Add cash storage", { // cashstore
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cashstore", typeMenu: "econType"}),
-                    }, 4),
-                    self.createElement.button(90, "add-node", "Add credit storage", { // cryptostore
-                        click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: "cryptostore", typeMenu: "econType"}),
-                    }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
-                    }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
-                    }, 4),
-                    self.createElement.button(90, "lock", undefined, {
-
-                    }, 4),
-                ];
+                const buttons = Array.from(NODE_TYPES.ECONOMY, ({name, id}) =>
+                    self.createElement.button(90, 
+                        ...(!name || !id
+                            ? ["lock", undefined, {}]
+                            : ["add-node", name, {click: () => self._dispatch("shopdisplay", {shop: "addnode", nodeType: id, typeMenu: "econType"})}]
+                        ), 4
+                    )
+                );
                 self._appendElement(central, ...buttons);
                 self._appendMenu(central);
                 self._dispatch("loadmenu", {history: ["addNode", "selectType"]});
