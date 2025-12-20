@@ -25,6 +25,15 @@ function setLoginSession (tokenObj, username = undefined, userid = undefined) {
     return tokenObj.token; // for chaining
 }
 
+function resetIfExpiredSession (response) {
+    if (response.error && response.error.code == 5) {
+        Logger.alert("Session expired, please log in again.");
+        wipeLastSavedSessionData();
+        window.location.reload();
+    }
+    return response;
+}
+
 export function setSessionData (gameData = undefined, barracksData = undefined, purchaseData = undefined, profileData = undefined) {
     if (gameData) {
         Storage.set(
@@ -163,7 +172,7 @@ export function getAttackTargets () {
     const sessionToken = CookieJar.get("session");
     return API.getAttackTargets(sessionToken)
         .then(resp => {
-            if (resp?.targets) {
+            if (resetIfExpiredSession(resp) && resp?.targets) {
                 return Array.from(resp.targets, data => {
                     return {
                         geo: data.geo ? JSON.parse(atob(data.geo)) : UTIL.DEFAULT_GEO,
@@ -187,8 +196,8 @@ export function getsave () {
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.getOwnBase(sessionToken).then(data => {
-        if (data) {
+    return API.getOwnBase(sessionToken).then(resp => {
+        if (resetIfExpiredSession(resp) && !resp.error) {
             const { game, barracks, purchases, profile } = data;
             return {
                 game: {
@@ -199,7 +208,7 @@ export function getsave () {
                 purchases: JSON.parse(purchases),
                 profile: JSON.parse(profile),
             };
-        }
+        } 
     });
 }
 
@@ -219,7 +228,7 @@ export function savegame (layoutObj, barracksData, purchaseData, profileData) {
         profile: profileData
     };
     return API.saveGame(sessionToken, payload)
-        .then(resp => Boolean(resp?.success));
+        .then(resp => Boolean(resetIfExpiredSession(resp)?.success));
 }
 
 export function sendAttackResult (targetid, resultObj) {
@@ -229,7 +238,7 @@ export function sendAttackResult (targetid, resultObj) {
     }
     const sessionToken = CookieJar.get("session");
     return API.sendAttackResult(sessionToken, targetid, JSON.stringify(resultObj))
-        .then(resp => Boolean(resp?.success));
+        .then(resp => Boolean(resetIfExpiredSession(resp)?.success));
 }
 
 export function getDefenseHistory (markAsProcessed = true) {
@@ -239,7 +248,7 @@ export function getDefenseHistory (markAsProcessed = true) {
     }
     const sessionToken = CookieJar.get("session");
     return API.getDefenseHistory(sessionToken, markAsProcessed)
-        .then(resp => resp?.history ? resp.history : []);
+        .then(resp => resetIfExpiredSession(resp)?.history ? resp.history : []);
 }
 
 export function updateLocation (location) {
@@ -249,5 +258,5 @@ export function updateLocation (location) {
     }
     const sessionToken = CookieJar.get("session");
     return API.updateLocation(sessionToken, btoa(JSON.stringify(location)))
-        .then(resp => Boolean(resp?.success));
+        .then(resp => Boolean(resetIfExpiredSession(resp)?.success));
 }
