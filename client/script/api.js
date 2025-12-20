@@ -44,7 +44,7 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
                     Logger.error(
                         `[API] | Server returned error ${data.error.code}${data.error?.detail ? ": "+ data.error.detail : ""}`
                     );
-                    if (data.error.code) // Made sure all the server-side error codes are falsey. Go me!
+                    if (!data.error.code) // Made sure all the server-side error codes are falsey. Go me!
                         Logger.alert(
                             `Internal Server Error. Please contact developer and try again later.`
                         );
