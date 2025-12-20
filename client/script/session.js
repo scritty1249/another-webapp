@@ -198,7 +198,7 @@ export function getsave () {
     const sessionToken = CookieJar.get("session");
     return API.getOwnBase(sessionToken).then(resp => {
         if (resetIfExpiredSession(resp) && !resp.error) {
-            const { game, barracks, purchases, profile } = data;
+            const { game, barracks, purchases, profile } = resp;
             return {
                 game: {
                     background: game.backdrop,
@@ -208,7 +208,7 @@ export function getsave () {
                 purchases: JSON.parse(purchases),
                 profile: JSON.parse(profile),
             };
-        } 
+        }
     });
 }
 
