@@ -289,32 +289,37 @@ function mainloop(MenuController) {
                             event.returnValue =
                                 "You have unsaved changes to your network. Are you sure you want to leave?";
 
-                        if ( // jesus fuck
-                            Storage.has("localLayout") &&
+                        const layoutUpdated = Storage.has("localLayout") &&
                             (!Storage.has("lastSavedLayout", true) ||
                                 !UTIL.layoutsEqual(
                                     Storage.get("lastSavedLayout", true),
                                     Storage.get("localLayout")
-                                )) &&
-                            Storage.has("localBarracks") &&
+                                ));
+                        const barracksUpdated = Storage.has("localBarracks") &&
                             (!Storage.has("lastSavedBarracks", true) ||
                                 !UTIL.shallowObjectsEqual(
                                     Storage.get("lastSavedBarracks", true),
                                     Storage.get("localBarracks")
-                                )) &&
-                            Storage.has("localPurchases") &&
+                                ));
+                        const purchasesUpdated = Storage.has("localPurchases") &&
                             (!Storage.has("lastSavedPurchases", true) ||
                                 !UTIL.shallowObjectsEqual(
                                     Storage.get("lastSavedPurchases", true),
                                     Storage.get("localPurchases")
-                                )) &&
-                            Storage.has("localProfileOptions") &&
+                                ));
+                        const profileUpdated = Storage.has("localProfileOptions") &&
                             (!Storage.has("lastSavedProfileOptions", true) ||
                                 !UTIL.shallowObjectsEqual(
                                     Storage.get("lastSavedProfileOptions", true),
                                     Storage.get("localProfileOptions")
-                                ))
+                                ));
+                        if (
+                            layoutUpdated ||
+                            barracksUpdated ||
+                            purchasesUpdated ||
+                            profileUpdated
                         ) {
+                            Logger.info("Saving game");
                             Session.savegame(
                                 Storage.get("localLayout"),
                                 Storage.get("localBarracks"),
@@ -333,6 +338,9 @@ function mainloop(MenuController) {
                         }
                     }
                 };
+                if (DEBUG_MODE) {
+                    window.saveGame = _autosaveHandler;
+                }
                 if (!(DEBUG_MODE && URL_PARAMS.has("nosave"))) {
                     window.addEventListener("pagehide", _autosaveHandler);
                     setTimeout(
