@@ -257,7 +257,7 @@ export function MenuManager (
                 );
                 self._appendElement(central, carousel);
                 self._appendMenu(central);
-                carousel.scrollLeft = 0;
+                carousel.dispatchEvent(new CustomEvent("update"));
                 self._dispatch("loadmenu", { history: [] });
             },
         },
@@ -711,6 +711,7 @@ export function MenuManager (
             };
             wrap.addEventListener("pointerup", _disableDragging);
             wrap.addEventListener("pointerleave", _disableDragging);
+            wrap.addEventListener("update", _updateEl);
             children.forEach(child => wrap.appendChild(child));
             return wrap;
         },
