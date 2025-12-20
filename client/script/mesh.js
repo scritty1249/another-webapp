@@ -471,6 +471,31 @@ function Tether(origin, target, color = 0xc0c0c0) {
     return tether;
 }
 const Nodes = {
+    Barracks: function (
+        sceneData,
+        animationOptions = { idle: true, randomize: true },
+    ) {
+        const cube = Node(sceneData.meshes, sceneData.animations);
+        // cube.scale.setScalar(0.8);
+        cube.userData.type = "barracks";
+        cube.userData.exportData.maxConnections = 4;
+        cube.userData.exportData.barrack = {
+        };
+        cube.userData.playbackRate = 0.45;
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                cube.userData.mixer.setTime(
+                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
+                );
+                cube.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                cube.userData.animations["idle"].play();
+            }
+        }
+
+        return cube;
+    },
     CashStore: function (
         sceneData,
         animationOptions = { idle: true, randomize: true },

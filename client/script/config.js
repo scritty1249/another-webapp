@@ -54,4 +54,38 @@ export const Default = {
     MATERIAL_PROP_OVERRIDES: {
         "override.emissiveIntensity": "emissiveIntensity"
     },
+    WALLPAPER_TYPES: [
+        // laziness
+        "bubbles",
+        "bubbles-lines",
+        "cubes",
+        "cubes-lines",
+        "lines",
+        "bubbles-dark",
+        "bubbles-lines-dark",
+        "cubes-dark",
+        "cubes-lines-dark",
+        "lines-dark",
+    ],
+    NODE_TYPES: {
+        ECONOMY: [
+            {name: "Cash farm", id: "cashfarm"},
+            {name: "Credit farm", id: "cryptofarm"},
+            {name: "Cash storage", id: "cashstore"},
+            {name: "Credits storage", id: "cryptostore"}
+        ],
+        DEFENSE: [
+            {name: "Sentinal", id: "cube"},
+            {name: "Scanner", id: "scanner"},
+            {name: undefined, id: undefined},
+            {name: undefined, id: undefined}
+        ],
+        BASE: [
+            {name: "Placeholder Node", id: "placeholder"},
+            {name: "Processing Web", id: "botnet"},
+            {name: "Access Port", id: "globe"},
+            {name: "Computer Rack", id: "barracks"},
+            {name: undefined, id: undefined}
+        ],
+    },
 };
