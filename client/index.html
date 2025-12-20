@@ -27,6 +27,7 @@
             window.Storage = new StorageManager();
             window.CONFIG = Configuration;
             window.DEFAULT = Default;
+            window.DEBUG_MODE = new URLSearchParams(window.location.search).has("debug"); // don't abuse this, I see you reading this- yes you...
         </script>
         <script type="module" src="./script/init.js"></script>
         <script src="./script/main.js"></script>

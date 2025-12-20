@@ -9,6 +9,8 @@ import { BuildNodeManager, AttackNodeManager } from "./nodes.js";
 import { Color } from "three";
 import * as UTIL from "./utils.js";
 
+import { DataStore } from "./data.js";
+
 const nodeDraggedEmissive = new Color(0xff8888);
 const tetherStepStartColor = new Color(0xff0000);
 const tetherStepEndColor = new Color(0x000000);
@@ -242,15 +244,17 @@ PhaseManager.prototype.attackPhase = function (
     const attackerData = {};
     const attackerTypeData = {};
     // remove unknown attacks
-    attackerData.attacks = attackData.attacks.filter((a) =>
-        attackTypes.hasOwnProperty(a.type)
-    );
-    attackerData.icons = attackData.icons;
+    attackerData.attacks = attackData
+    Object.keys(attackData).forEach((a) => {
+        if (!attackTypes.hasOwnProperty(a))
+            delete attackerData.attacks[a];
+    });
+    attackerData.icons = DataStore.AttackerData.icons; // [!]
     // Attacker attacks
-    attackerData.attacks.forEach((attack) => {
-        const typeData = attackTypes[attack.type];
-        attackerTypeData[attack.type] = {
-            manager: typeData.mesh(attack.amount),
+    Object.entries(attackerData.attacks).forEach(([type, amount]) => {
+        const typeData = attackTypes[type];
+        attackerTypeData[type] = {
+            manager: typeData.mesh(amount),
             damage: typeData.damage,
             logic: typeData.logic,
             cooldown: typeData.cooldown,
@@ -342,7 +346,7 @@ PhaseManager.prototype.attackPhase = function (
         },
     };
 
-    const transferFundsCallback = () => { // also switches phase to build
+    const changePhaseCallback = () => { // also switches phase to build
         if (self.phase == "attack") {
             const { cash, crypto } = bankController.stolen;
             const transfer = [];
@@ -363,11 +367,13 @@ PhaseManager.prototype.attackPhase = function (
                 phaseData.resultHandler(record);
                 self.Managers.Overlay._menuManager._dispatch("swapphase", {
                     phase: "build",
-                    metadata: { transfer: transfer },
+                    metadata: { transfer: transfer, barracks: attackerData.attacks},
+                    
                 });
             } else
                 self.Managers.Overlay._menuManager._dispatch("swapphase", {
                     phase: "build",
+                    metadata: { barracks: attackerData.attacks},
                 });
         } else {
             Logger.debug(
@@ -380,7 +386,7 @@ PhaseManager.prototype.attackPhase = function (
         bankController.theftPromise
             .then(_ => {
                 Logger.debug("[PhaseManager] | Finished waiting for theft.");
-                transferFundsCallback();
+                changePhaseCallback();
             });
     };
 
@@ -406,6 +412,12 @@ PhaseManager.prototype.attackPhase = function (
     this._openLoadingAnimation();
     return UTIL.layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController)
         .then(layoutLoaded => {
+            Object.entries(attackerData.attacks)
+                .forEach(([type, amount]) => {
+                    overlayController.updateAttackBarTile(type, amount);
+                });
+
+
             listenerController
                 .listener(self._rendererDom)
                 .add("clicked", function (event) {
@@ -426,16 +438,28 @@ PhaseManager.prototype.attackPhase = function (
             listenerController
                 .listener(overlayController.element.menuButton)
                 .add("click", function (event) {
-                    transferFundsCallback();
+                    changePhaseCallback();
                 });
             overlayController.startTimer(
-                metadata.timelimit, transferFundsCallback,
+                metadata.timelimit, changePhaseCallback,
                 5, () => {
                     self.Managers.Effects.vignette.flash(1000)
                         .then(() => self.Managers.Effects.vignette.flash(1000))
                         .then(() => self.Managers.Effects.vignette.flash(1000));
                 }
             );
+            overlayController._menuManager.when("addattack", (detail) => {
+                const {type, nodeid} = detail;
+                if (
+                    nodeController.addAttackToNode(type, nodeid)
+                ) {
+                    overlayController._updateFocusMenu();
+                    if (!(--attackerData.attacks[type]))
+                        overlayController.removeAttackBarTile(type);
+                    else
+                        overlayController.updateAttackBarTile(type, attackerData.attacks[type]);
+                } else overlayController.messagePopup("Cannot add Attack to Node.");
+            });
 
             this.Managers.Overlay = overlayController;
             this.Managers.Node = nodeController;
@@ -476,6 +500,14 @@ PhaseManager.prototype.buildPhase = function (
     this._controls.drag.enabled = true;
 
     const nodeController = new BuildNodeManager(
+        (attackType) => { // node compiled callback
+            const barracks = Storage.get("localBarracks");
+            if (!barracks[attackType])
+                barracks[attackType] = 1;
+            else
+                barracks[attackType]++;
+            Storage.set("localBarracks", barracks);
+        },
         nodeOverlayData,
         ...this._constructorArgs.Node
     );
@@ -483,32 +515,48 @@ PhaseManager.prototype.buildPhase = function (
         {
             // callbacks
             nodeInfo: (nodeid) => {
-                overlayController._menuManager.when(
-                    "loadmenu",
-                    (detail) => {
-                        const node =
-                            overlayController._nodeManager.getNode(nodeid);
-                        const nodeDetail = nodeDetails[node.userData.type];
-                        const el = detail.infoElement;
-                        el.text = [
-                            nodeDetail.name,
-                            "\n",
-                            nodeDetail.description,
-                            "Costs: " +
-                                (nodeDetail.cost
-                                    ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`
-                                    : "Free"),
-                            "Sell Value: " +
-                                (nodeDetail.sell
-                                    ? `${nodeDetail.sell.amount} ${nodeDetail.sell.type}`
-                                    : "None"),
-                        ].join("\n\n");
-                        el.align("left");
-                    },
-                    false,
-                    true
-                );
-                overlayController._menuManager.open(["nodeInfo"]);
+                if (DEBUG_MODE) {
+                    const node = nodeController.getNode(nodeid);
+                    Logger.info("[PhaseManager] | Node Info pressed:\n", node);
+                }
+                const nodeType = nodeController.getNodeType(nodeid);
+                // handle the nodes with their own menus
+                if (nodeType == "botnet") {
+                    const barracks = Storage.get("localBarracks");
+                    overlayController._menuManager.loadMenu.nodeMenus.botnet(nodeid, {
+                        icons: Object.entries(DataStore.AttackerData.icons)
+                            .filter(([key, value]) => !key.startsWith("_"))
+                            .map(([key, value]) => ({type: key, src: value, amount: barracks[key] ? barracks[key] : 0}))
+                    });
+                } else {
+                    // generic node pressed, just display node bio
+                    overlayController._menuManager.when(
+                        "loadmenu",
+                        (detail) => {
+                            const node =
+                                overlayController._nodeManager.getNode(nodeid);
+                            const nodeDetail = nodeDetails[node.userData.type];
+                            const el = detail.infoElement;
+                            el.text = [
+                                nodeDetail.name,
+                                "\n",
+                                nodeDetail.description,
+                                "Costs: " +
+                                    (nodeDetail.cost
+                                        ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`
+                                        : "Free"),
+                                "Sell Value: " +
+                                    (nodeDetail.sell
+                                        ? `${nodeDetail.sell.amount} ${nodeDetail.sell.type}`
+                                        : "None"),
+                            ].join("\n\n");
+                            el.align("left");
+                        },
+                        false,
+                        true
+                    );
+                    overlayController._menuManager.open(["nodeInfo"]);
+                }
             },
         },
         ...this._constructorArgs.Overlay
@@ -560,6 +608,9 @@ PhaseManager.prototype.buildPhase = function (
                         text.at(-1)
                         : text[0]);
                 overlayController.messagePopup(message);
+            }
+            if (metadata.barracks) {
+                Storage.set("localBarracks", metadata.barracks);
             }
             overlayController._menuManager.when("addnode", (detail) => {
                 const cost = nodeDetails[detail.nodeType]?.cost;
@@ -620,6 +671,28 @@ PhaseManager.prototype.buildPhase = function (
                     );
                 }
 
+            });
+            overlayController._menuManager.when("compileattack", (detail) => {
+                const {attackType, nodeid} = detail;
+                const cost = DataStore.AttackerData.attacks[attackType]?.cost;
+                const bankData = bankController.bank;
+                if (cost) {
+                    if (bankData[cost.type].amount - cost.amount < 0) {
+                        overlayController.messagePopup(
+                            `Cannot compile Attack: Insufficient currency.`,
+                            1500
+                        );
+                        return;
+                    } else {
+                        nodeController.removeCurrency(cost.type, cost.amount);
+                        overlayController.updateWallet(bankData);
+                    }
+                }
+                overlayController.messagePopup(
+                    `Started compiling Attack: ${attackType}.`,
+                    1000
+                );
+                nodeController.queueCompile(nodeid, attackType, 10);
             });
             // Add event listeners
             let rotateTimeout;
@@ -780,6 +853,26 @@ PhaseManager.prototype._closeLoadingAnimation = function () {
     const el = document.getElementById("loading-animation");
     if (el)
         el.remove();
+};
+PhaseManager.prototype._getReadyAttacks = function () {
+    const attacks = {};
+    // rare javascript win, right here people!
+    this.Managers.Node.nodelist
+        .filter((node) => 
+            node.userData.type == "barracks" &&
+            node.userData.exportData?.rack)
+        .map((node) => node.userData.exportData.rack.array)
+        .reduce((acc, curr) => acc.concat(curr))
+        .filter((attack) => attack?.isAttack)
+        .forEach(({id}) => {
+            if (!attacks[id])
+                attacks[id] = 1;
+            else
+                attacks[id]++;
+        });
+    return Array.from(Object.entries(attacks),
+        ([attackType, attackCount]) => ({type: attackType, amount: attackCount})
+    );
 };
 function AttackManagerWrapper() {
     this._attackManagers = [];

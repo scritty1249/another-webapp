@@ -43,7 +43,7 @@ function doGet(e) {
                 break;
             default:
                 response = Server.createErrorResponse(
-                    2,
+                    1,
                     "Unknown GET endpoint"
                 );
         }
@@ -52,7 +52,7 @@ function doGet(e) {
     } catch (err) {
         console.error(err);
         return Server.createErrorResponse(
-            4,
+            -1,
             err.message +
                 "\nDump:\n" +
                 JSON.stringify(e) +
@@ -100,7 +100,7 @@ function doPost(e) {
                 break;
             default:
                 response = Server.createErrorResponse(
-                    2,
+                    1,
                     "Unknown POST endpoint"
                 );
         }
@@ -109,7 +109,7 @@ function doPost(e) {
     } catch (err) {
         console.error(err);
         return Server.createErrorResponse(
-            4,
+            -1,
             err.message +
                 "\nDump:\n" +
                 JSON.stringify(e) +

@@ -80,8 +80,7 @@ window.addEventListener("resize", () => {
 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
 // url params
-const urlParams = new URLSearchParams(window.location.search);
-const DEBUG_MODE = urlParams.has("debug");
+const URL_PARAMS = new URLSearchParams(window.location.search);
 
 if (WebGL.isWebGL2Available()) {
     // Initiate function or other initializations here
@@ -89,7 +88,7 @@ if (WebGL.isWebGL2Available()) {
     // Login
     if (
         !Session.isLoggedIn() ||
-        (DEBUG_MODE && urlParams.has("login"))
+        (DEBUG_MODE && URL_PARAMS.has("login"))
     ) {
         MenuController.loginScreen();
         MenuController.when("login", ({ username, password, elements }) => {
@@ -290,32 +289,51 @@ function mainloop(MenuController) {
                             event.returnValue =
                                 "You have unsaved changes to your network. Are you sure you want to leave?";
 
-                        if (
+                        if ( // jesus fuck
                             Storage.has("localLayout") &&
                             (!Storage.has("lastSavedLayout", true) ||
                                 !UTIL.layoutsEqual(
                                     Storage.get("lastSavedLayout", true),
                                     Storage.get("localLayout")
+                                )) &&
+                            Storage.has("localBarracks") &&
+                            (!Storage.has("lastSavedBarracks", true) ||
+                                !UTIL.shallowObjectsEqual(
+                                    Storage.get("lastSavedBarracks", true),
+                                    Storage.get("localBarracks")
+                                )) &&
+                            Storage.has("localPurchases") &&
+                            (!Storage.has("lastSavedPurchases", true) ||
+                                !UTIL.shallowObjectsEqual(
+                                    Storage.get("lastSavedPurchases", true),
+                                    Storage.get("localPurchases")
+                                )) &&
+                            Storage.has("localProfileOptions") &&
+                            (!Storage.has("lastSavedProfileOptions", true) ||
+                                !UTIL.shallowObjectsEqual(
+                                    Storage.get("lastSavedProfileOptions", true),
+                                    Storage.get("localProfileOptions")
                                 ))
                         ) {
-                            Session.savegame(Storage.get("localLayout")).then(
+                            Session.savegame(
+                                Storage.get("localLayout"),
+                                Storage.get("localBarracks"),
+                                Storage.get("localPurchases"),
+                                Storage.get("localProfileOptions")
+                            ).then(
                                 (res) => {
                                     if (res) {
-                                        Logger.info("Saved layout.");
+                                        Logger.info("Saved game.");
                                     } else {
                                         Logger.warn("Failed to save.");
-                                        Storage.set(
-                                            "lastSavedLayout",
-                                            undefined,
-                                            true
-                                        );
+                                        Session.wipeLastSavedSessionData();
                                     }
                                 }
                             );
                         }
                     }
                 };
-                if (!(DEBUG_MODE && urlParams.has("nosave"))) {
+                if (!(DEBUG_MODE && URL_PARAMS.has("nosave"))) {
                     window.addEventListener("pagehide", _autosaveHandler);
                     setTimeout(
                         () => setInterval(_autosaveHandler, CONFIG.AUTOSAVE_INTERVAL),
@@ -369,15 +387,7 @@ function mainloop(MenuController) {
                                                         );
                                                         window.location.reload();
                                                     }
-                                                    Storage.set(
-                                                        "localLayout",
-                                                        res.game
-                                                    );
-                                                    Storage.set(
-                                                        "lastSavedLayout",
-                                                        res.game,
-                                                        true
-                                                    );
+                                                    Session.setSessionData(res.game, res.barracks, res.purchases, res.profile);
                                                     MenuController._dispatch(
                                                         "swapphase",
                                                         { phase: "build" }
@@ -486,7 +496,7 @@ function mainloop(MenuController) {
                                                         },
                                                     },
                                                     targetData.game,
-                                                    DataStore.AttackerData,
+                                                    Storage.get("localBarracks"),
                                                     DataStore.AttackTypeData(camera),
                                                     DataStore.AttackNodeTypeData,
                                                     DataStore.AttackNodeOverlayData,
@@ -785,11 +795,11 @@ function mainloop(MenuController) {
                     // [!] testing area
                     if (DEBUG_MODE) {
                         window.PhaseController = PhaseController;
-                        if (urlParams.has("axes"))
-                            if (Number(urlParams.get("axes")))
+                        if (URL_PARAMS.has("axes"))
+                            if (Number(URL_PARAMS.get("axes")))
                                 scene.add(
                                     new THREE.AxesHelper(
-                                        Number(urlParams.get("axes"))
+                                        Number(URL_PARAMS.get("axes"))
                                     )
                                 );
                             else

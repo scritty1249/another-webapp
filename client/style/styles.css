@@ -61,6 +61,30 @@ div.hexagon.alt {
     --height: var(--size);
     --polygon: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
 }
+div.carousel-scroll {
+    touch-action: none;
+    width: 100%;
+    gap: 10%;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center; 
+    flex-wrap: nowrap;
+    flex-grow: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+    mask: linear-gradient(to right, transparent 0%, black 5%, black 90%, transparent 100%);
+    -webkit-mask-composite: exclude;
+    mask-composite: exclude;
+    > :first-child {
+        margin-left: 50vw
+    }
+    > :last-child {
+        margin-right: 50vw;
+    }
+    > * {
+        transition-duration: 0.4s;
+    }
+}
 .absolutely-center {
     top: 50%;
     left: 50%;
@@ -511,6 +535,26 @@ div.hexagon.alt {
                     background-size: 100% 100% !important;
                     width: calc(var(--vw) * 85);
                     height: calc(var(--vh) * 60);
+                }
+            }
+        }
+        &.nodeMenus {
+            &.botnet {
+                > div {
+                    width: 80%;
+                    height: 80%;
+                    .carousel-scroll {
+                        height: 50%;
+                        > .tile {
+                            background-repeat: no-repeat;
+                            background-size: contain;
+                            --size: calc(var(--vw) * 15);
+                            min-width: var(--size);
+                            min-height: var(--size);
+                            width: var(--size);
+                            height: var(--size);
+                        }
+                    }
                 }
             }
         }

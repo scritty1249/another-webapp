@@ -4,7 +4,6 @@ const MAX_COOKIE_DAYS = 400; // Chrome limit
 const DB_CONN_TIMEOUT = 60000; // ms
 const TABLES = {
     users: "Account",
-    userinfo: "AccountInfo",
     gamedata: "Game",
     tokens: "LiveTokens",
     instances: "InstanceTokens",
@@ -75,6 +74,7 @@ function refreshServer() {
     try {
         const conn = new DatabaseConnection(SSID, DB_CONN_TIMEOUT);
         Server.clearLoginTokens(conn);
+        Server.clearProcessedAttacks(conn);
         conn.commit();
     } catch (err) {
         console.error(err);
@@ -92,7 +92,7 @@ const Handlers = {
         if (Server.userExists(conn, username)) {
             console.error("Error while processing new user request");
             console.info(`Account with username "${username}" already exists`);
-            return Server.createErrorResponse(0, "Account already exists");
+            return Server.createErrorResponse(4, "Account already exists");
         } else {
             return Server.createNewUser(conn, username, password, geo);
         }
@@ -103,11 +103,11 @@ const Handlers = {
             const [username, password] = atob(loginData?.[0]).split(":", 2);
             if (!Server.userExists(conn, username))
                 return Server.createErrorResponse(
-                    1,
+                    4,
                     `Username "${username}" does not exist`
                 );
             else if (!Server.checkPassword(conn, username, password))
-                return Server.createErrorResponse(1, "Wrong password entered");
+                return Server.createErrorResponse(4, "Wrong password entered");
             else {
                 const userid = Server.getUserId(conn, username);
                 return Server.createResponse({
@@ -115,16 +115,16 @@ const Handlers = {
                     id: userid,
                 });
             }
-        } catch {
+        } catch (err) {
             console.error("Error while processing login request");
             console.info("Dump:", params);
-            return Server.createErrorResponse(0, "Failed to login");
+            return Server.createErrorResponse(-1, `Failed to login:\n\t${err?.message}\n${JSON.stringify(err.stack)}`);
         }
     },
     getTargets: function (conn, params, cookies) {
         const limit = Number(params.limit[0]);
         if (!limit)
-            return Server.createErrorResponse(1, `Invalid limit ${limit}`);
+            return Server.createErrorResponse(3, `Invalid limit ${limit}`);
         if (
             cookies.session &&
             Server.verifyRefreshToken(conn, cookies.session)
@@ -136,7 +136,7 @@ const Handlers = {
             });
         }
         return Server.createErrorResponse(
-            0,
+            5,
             "Invalid or expired session token"
         );
     },
@@ -146,18 +146,11 @@ const Handlers = {
             Server.verifyRefreshToken(conn, cookies.session)
         ) {
             const token = Server.getToken(conn, cookies.session);
-            const gamedata = Server.entryToJson(
-                ...conn.lookupEntry(TABLES.gamedata, token.id)
-            );
-            return Server.createResponse({
-                game: {
-                    backdrop: gamedata.backdrop,
-                    layout: gamedata.layout,
-                },
-            });
+            const gamedata = Server.getGameData(conn, token.id);
+            return Server.createResponse(gamedata);
         }
         return Server.createErrorResponse(
-            0,
+            5,
             "Invalid or expired session token"
         );
     },
@@ -168,20 +161,23 @@ const Handlers = {
         ) {
             const token = Server.getToken(conn, cookies.session);
             if (
-                payload?.game &&
+                payload?.hasOwnProperty("game") &&
                 payload?.game.hasOwnProperty("backdrop") &&
-                payload?.game.hasOwnProperty("layout")
+                payload?.game.hasOwnProperty("layout") &&
+                payload?.hasOwnProperty("profile") &&
+                payload?.hasOwnProperty("purchases") &&
+                payload?.hasOwnProperty("barracks")
             ) {
                 Server.updateGameData(conn, token.id, payload); // [!] may be unsafe, verify and revise later
                 return Server.createSuccessResponse();
             }
             return Server.createErrorResponse(
-                1,
+                2,
                 "Invalid gamedata payload:\n" + JSON.stringify(payload)
             );
         }
         return Server.createErrorResponse(
-            0,
+            5,
             "Invalid or expired session token"
         );
     },
@@ -189,7 +185,7 @@ const Handlers = {
         return cookies.session &&
             Server.verifyRefreshToken(conn, cookies.session)
             ? Server.createResponse(Server.getToken(conn, cookies.session))
-            : Server.createErrorResponse(0, "Invalid or expired session token");
+            : Server.createErrorResponse(5, "Invalid or expired session token");
     },
     getDefenseHistory: function (conn, params, cookies) {
         if (
@@ -206,7 +202,7 @@ const Handlers = {
             return Server.createResponse({ history: history });
         }
         return Server.createErrorResponse(
-            0,
+            5,
             "Invalid or expired session token"
         );
     },
@@ -217,7 +213,7 @@ const Handlers = {
         ) {
             if (!payload?.result)
                 return Server.createErrorResponse(
-                    0,
+                    2,
                     "Invalid request: Missing attack result in payload"
                 );
             const attackData = JSON.parse(payload.result);
@@ -231,19 +227,19 @@ const Handlers = {
                 )
             )
                 return Server.createErrorResponse(
-                    0,
+                    2,
                     "Invalid request: Malformed attack result data"
                 );
             const targetid = params?.id?.[0];
             if (!targetid)
                 return Server.createErrorResponse(
-                    0,
+                    3,
                     "Invalid request: Missing target id in parameters"
                 );
             return Server.pushDefenseHistory(conn, targetid, attackData);
         }
         return Server.createErrorResponse(
-            0,
+            5,
             "Invalid or expired session token"
         );
     },
@@ -254,7 +250,7 @@ const Handlers = {
         ) {
             if (!geo)
                 return Server.createErrorResponse(
-                    0,
+                    2,
                     "Invalid request: Malformed geodata"
                 );
             const token = Server.getToken(conn, cookies.session);
@@ -262,7 +258,7 @@ const Handlers = {
             return Server.createSuccessResponse();
         }
         return Server.createErrorResponse(
-            0,
+            5,
             "Invalid or expired session token"
         );
     },
@@ -273,16 +269,34 @@ const Server = {
     createNewUser: function (conn, username, password, rawGeoData) {
         const passhash = this.hash(password);
         const userid = this.hash(btoa(username));
-        conn.insertEntry(TABLES.users, userid, username, passhash, rawGeoData);
+        conn.insertEntry(TABLES.users, userid, username, passhash, rawGeoData, "{}", "{}");
         conn.insertEntry(TABLES.gamedata, userid);
         conn.insertEntry(TABLES.attacklogs, userid, "[]", "[]");
         return this.createResponse({ token: this.createToken(conn, userid) });
+    },
+    getGameData: function (conn, userid) {
+        const gamedata = Server.entryToJson(...conn.lookupEntry(TABLES.gamedata, userid));
+        const purchasedata = conn.lookupEntryAt(TABLES.users, userid, 5);
+        const profiledata = conn.lookupEntryAt(TABLES.users, userid, 6);
+        return {
+            game: {
+                backdrop: gamedata.backdrop,
+                layout: gamedata.layout,
+            },
+            barracks: gamedata.barracks,
+            purchases: purchasedata,
+            profile: profiledata
+        };
     },
     updateGameData: function (conn, userid, gamedata) {
         conn._selectTable(TABLES.gamedata);
         const backdrop = gamedata.game.backdrop;
         const layout = JSON.stringify(gamedata.game.layout);
-        conn.updateEntry(TABLES.gamedata, userid, backdrop, layout);
+        const barracks = gamedata.barracks;
+        const profile = gamedata.profile;
+        const purchases = gamedata.purchases;
+        conn.updateEntry(TABLES.gamedata, userid, backdrop, layout, barracks);
+        conn.updateEntryFrom(TABLES.users, userid, 5, purchases, profile);
     },
     updateUserLocation: function (conn, userid, rawGeoData) {
         const geoDataColumn = 4; // not zero indexed
@@ -370,7 +384,7 @@ const Server = {
         );
         if (!historyStr)
             return this.createErrorResponse(
-                1,
+                4,
                 "Failed to record attack in target history: target history does not exist"
             );
         const history = JSON.parse(historyStr);
@@ -434,10 +448,20 @@ const Server = {
         if (result) conn.deleteEntry(table, tokenData.token);
         return result;
     },
+    clearProcessedAttacks: function (conn) {
+        // collect ids (laziness and paranoia about wrongly-indexed row updates)
+        const _blankrow = conn._findBlankRow() - 2;
+        const ids = conn._getColumnAt(1, _blankrow);
+        ids.forEach((id) => {
+            const attacklog = JSON.parse(conn.lookupEntryAt(TABLES.attacklogs, id, 2));
+            const updatedlog = attacklog.filter((a) => a?.processed);
+            conn.updateEntryAt(TABLES.attacklogs, id, 2, JSON.stringify(updatedlog));
+        });
+    },
     clearLoginTokens: function (conn) {
         // collect ids
         conn._selectTable(TABLES.users);
-        const _ubr = conn._findBlankRow() - 2;
+        const _ubr = conn._findBlankRow() - 2; // i dont even remember what this variable name stood for wtf LOL
         const validIds = new Set(conn._getColumnAt(1, _ubr));
         // collect rows
         conn._selectTable(TABLES.tokens);
@@ -603,7 +627,7 @@ DatabaseConnection.prototype.lookupEntry = function (tableName, id) {
 DatabaseConnection.prototype.lookupEntryAt = function (
     tableName,
     id,
-    columnNum
+    columnNum,
 ) {
     this._selectTable(tableName);
     return this.activeTable.getRange(this._findRow(id), columnNum).getValue();
@@ -619,10 +643,7 @@ DatabaseConnection.prototype.updateEntry = function (
     id,
     ...columns
 ) {
-    this._selectTable(tableName);
-    this.activeTable
-        .getRange(this._findRow(id), 2, 1, columns.length)
-        .setValues([columns]);
+    this.updateEntryFrom(tableName, id, 2, ...columns);
 };
 DatabaseConnection.prototype.updateEntryAt = function (
     tableName,
@@ -632,6 +653,17 @@ DatabaseConnection.prototype.updateEntryAt = function (
 ) {
     this._selectTable(tableName);
     this.activeTable.getRange(this._findRow(id), columnNum).setValue(value);
+};
+DatabaseConnection.prototype.updateEntryFrom = function (
+    tableName,
+    id,
+    columnNum,
+    ...columns
+) {
+    this._selectTable(tableName);
+    return this.activeTable
+        .getRange(this._findRow(id), columnNum, 1, columns.length)
+        .setValues([columns]);
 };
 DatabaseConnection.prototype.deleteEntry = function (tableName, id) {
     this._selectTable(tableName);

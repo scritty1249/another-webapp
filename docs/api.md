@@ -1,7 +1,26 @@
 # API Docs
 
 # Objects
-
+## ProfileData
+```json
+{
+    ...
+}
+```
+## PurchaseData
+```json
+{
+    "purchased-item-id": bool (always true),
+    ...
+}
+```
+## BarracksData
+```json
+{
+    "attack-type": unint (amount),
+    ...
+}
+```
 ## Token
 ```json
 {
@@ -43,6 +62,7 @@
     "detail": str (optional)
 }
 ```
+- See [Error Codes](#error-codes)
 ## GeoData
 As an obfuscated string:
 ```json
@@ -149,11 +169,16 @@ GET
 **Content**
 ```json
 {
-    "game": GameData
+    "game": GameData,
+    "barracks": BarracksData,
+    "purchases": PurchaseData,
+    "profile": ProfileData
 }
 ```
 - [GameData](#gamedata)
-- [Currency](#currency)
+- [BarracksData](#barracksdata)
+- [PurchaseData](#purchasedata)
+- [ProfileData](#profiledata)
 
 ## Get Targets *
 >/attack/select
@@ -198,10 +223,16 @@ POST
 **Content**
 ```json
 {
-    "game": GameData
+    "game": GameData,
+    "barracks": BarracksData,
+    "purchases": PurchaseData,
+    "profile": ProfileData
 }
 ```
 - [GameData](#gamedata)
+- [BarracksData](#barracksdata)
+- [PurchaseData](#purchasedata)
+- [ProfileData](#profiledata)
 
 ## Get Defense History *
 >/attack/history/defense
@@ -237,3 +268,15 @@ POST
 
 ## Note
 **\*** *Endpoint requires a `session` with a valid session token to be included in the request cookie*
+
+# Error Codes
+Server error codes
+| Error Code | Error Cause | Example |
+| :-- | :-- | :-- |
+| -1 | Internal Server Error | Server hit Exception |
+| 0 | Server unavailable | We hit the google sheets api rate limit |
+| 1 | Unknown endpoint | Developer didn't read the docs before making a request |
+| 2 | Bad request payload | Malformed or missing payload data |
+| 3 | Bad request parameters | Malformed or missing parameter data |
+| 4 | Action could not be performed | Attempting to create an account that already exists |
+| 5 | Invalid session token | The session token used for the request is expired or does not exist |

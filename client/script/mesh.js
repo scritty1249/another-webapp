@@ -479,7 +479,8 @@ const Nodes = {
         // cube.scale.setScalar(0.8);
         cube.userData.type = "barracks";
         cube.userData.exportData.maxConnections = 4;
-        cube.userData.exportData.barrack = {
+        cube.userData.exportData.rack = {
+            max: 50
         };
         cube.userData.playbackRate = 0.45;
         if (animationOptions) {
@@ -716,6 +717,25 @@ const Nodes = {
         cube.userData.exportData = {
             maxConnections: 3
         };
+
+        {
+            const attackTrainingProto = {
+                started: 0,
+                duration: 0,
+                type: undefined
+            };
+            cube.userData.exportData.training = {
+                active: {
+                    0: UTIL.deepCopy(attackTrainingProto),
+                    1: UTIL.deepCopy(attackTrainingProto),
+                    2: UTIL.deepCopy(attackTrainingProto),
+                    3: UTIL.deepCopy(attackTrainingProto),
+                },
+                queue: [],
+                max: 10
+            };
+        }
+
         if (animationOptions) {
             if (animationOptions.randomize) {
                 cube.userData.mixer.setTime(

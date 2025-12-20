@@ -18,11 +18,81 @@ function throwFalse (value, message="") {
         return value;
 }
 
-function setSession (tokenObj, username = undefined, userid = undefined) {
+function setLoginSession (tokenObj, username = undefined, userid = undefined) {
     CookieJar.bake("session", tokenObj.token, tokenObj.expires);
     if (username) CookieJar.bake("username", username, tokenObj.expires);
     if (userid) CookieJar.bake("userid", userid, tokenObj.expires);
     return tokenObj.token; // for chaining
+}
+
+export function setSessionData (gameData = undefined, barracksData = undefined, purchaseData = undefined, profileData = undefined) {
+    if (gameData) {
+        Storage.set(
+            "localLayout",
+            gameData
+        );
+        Storage.set(
+            "lastSavedLayout",
+            gameData,
+            true
+        );
+    }
+    if (barracksData) {
+        Storage.set(
+            "localBarracks",
+            barracksData
+        );
+        Storage.set(
+            "lastSavedBarracks",
+            barracksData,
+            true
+        );
+    }
+    if (purchaseData) {
+        Storage.set(
+            "localPurchases",
+            purchaseData
+        );
+        Storage.set(
+            "lastSavedPurchases",
+            purchaseData,
+            true
+        );
+    }
+    if (profileData) {
+        Storage.set(
+            "localProfileOptions",
+            profileData
+        );
+        Storage.set(
+            "lastSavedProfileOptions",
+            profileData,
+            true
+        );
+    }
+}
+
+export function wipeLastSavedSessionData() {
+    Storage.set(
+        "lastSavedLayout",
+        undefined,
+        true
+    );
+    Storage.set(
+        "lastSavedBarracks",
+        undefined,
+        true
+    );
+    Storage.set(
+        "lastSavedPurchases",
+        undefined,
+        true
+    );
+    Storage.set(
+        "lastSavedProfileOptions",
+        undefined,
+        true
+    );
 }
 
 export function clearSession () {
@@ -44,13 +114,19 @@ export function login (username, password) {
     return hash(password)
         .then(passhash =>
             API.login(username, passhash))
-        .then(({token: tokenObj, id}) => {
-            if (!tokenObj)
-                Logger.alert(`Wrong username or password!`);
-            else
-                return setSession(throwFalse(tokenObj), username, id);
+        .then(resp => {
+            if (resp.error)
+                if (resp.error?.code == 4)
+                    Logger.alert(`Failed to login: ${resp.error.detail}`);
+            return resp;
         })
-        .catch(err => false);
+        .then(({token, id}) => {
+            return setLoginSession(token, username, id);
+        })
+        .catch(err => {
+            Logger.warn(`[Session] | Something went wrong during login.`, err);
+            return false;
+        });
 }
 
 export function newlogin (username, password, gamedata) {
@@ -60,14 +136,22 @@ export function newlogin (username, password, gamedata) {
         ])
         .then(([passhash, location]) =>
             API.createAccount(username, passhash, btoa(JSON.stringify(location))))
+        .then((data) => {
+            if (data.error) {
+                if (data.error.code == 4)
+                    Logger.alert(`Failed to create new account. Username ${username} already exists.`);
+                return false;
+            }
+            return data?.token;
+        })
         .then(tokenObj => {
             if (!tokenObj)
                 Logger.alert(`Failed to create new account. Username ${username} already exists.`);
             else
-                return setSession(throwFalse(tokenObj));
+                return setLoginSession(throwFalse(tokenObj));
         })
         .then(sessionToken =>
-            API.saveGameAsync(sessionToken, gamedata.background, gamedata.layout))
+            API.saveGame(sessionToken, gamedata.background, gamedata.layout, {}, {}, {}))
         .catch(err => false);
 }
 
@@ -77,21 +161,24 @@ export function getAttackTargets () {
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.getAttackTargets(sessionToken).then(data => {
-        if (data) {
-            return Array.from(data, d => {
-                return {
-                    geo: d.geo ? JSON.parse(atob(d.geo)) : UTIL.DEFAULT_GEO,
-                    id: d.id,
-                    username: d.username,
-                    game: {
-                        background: d?.game.backdrop,
-                        layout: d?.game.layout ? JSON.parse(d.game.layout) : undefined
-                    }
-                };
-            });
-        }
-    });
+    return API.getAttackTargets(sessionToken)
+        .then(resp => {
+            if (resp?.targets) {
+                return Array.from(resp.targets, data => {
+                    return {
+                        geo: data.geo ? JSON.parse(atob(data.geo)) : UTIL.DEFAULT_GEO,
+                        id: data.id,
+                        username: data.username,
+                        game: {
+                            background: data?.game.backdrop,
+                            layout: data?.game.layout ? JSON.parse(data.game.layout) : undefined
+                        }
+                    };
+                });
+            } else {
+                Logger.warn(`[Session] | Failed to get attack targets. Got response:`, resp);
+            }
+        });
 }
 
 export function getsave () {
@@ -102,24 +189,37 @@ export function getsave () {
     const sessionToken = CookieJar.get("session");
     return API.getOwnBase(sessionToken).then(data => {
         if (data) {
-            const { game } = data; // [!] currency data not implemented yet
+            const { game, barracks, purchases, profile } = data;
             return {
                 game: {
                     background: game.backdrop,
-                    layout: JSON.parse(game.layout), // still not sure if i want to store layout data raw or obfuscated, when I decide we'll parse this server-side before sending to client...
-                }
+                    layout: JSON.parse(game.layout),
+                },
+                barracks: JSON.parse(barracks),
+                purchases: JSON.parse(purchases),
+                profile: JSON.parse(profile),
             };
         }
     });
 }
 
-export function savegame (layoutObj) { // [!] currency data not implemented yet
+export function savegame (layoutObj, barracksData, purchaseData, profileData) {
     if (!CookieJar.has("session")) {
         Logger.error("[Session] | Cannot load game data: No session token found!");
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.saveGameAsync(sessionToken, layoutObj.background, layoutObj.layout);
+    const payload = {
+        game: {
+            backdrop: layoutObj.background,
+            layout: layoutObj.layout
+        },
+        barracks: barracksData,
+        purchases: purchaseData,
+        profile: profileData
+    };
+    return API.saveGame(sessionToken, payload)
+        .then(resp => Boolean(resp?.success));
 }
 
 export function sendAttackResult (targetid, resultObj) {
@@ -128,7 +228,8 @@ export function sendAttackResult (targetid, resultObj) {
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.sendAttackResultAsync(sessionToken, targetid, JSON.stringify(resultObj));
+    return API.sendAttackResult(sessionToken, targetid, JSON.stringify(resultObj))
+        .then(resp => Boolean(resp?.success));
 }
 
 export function getDefenseHistory (markAsProcessed = true) {
@@ -138,7 +239,7 @@ export function getDefenseHistory (markAsProcessed = true) {
     }
     const sessionToken = CookieJar.get("session");
     return API.getDefenseHistory(sessionToken, markAsProcessed)
-        .then(data => data?.history ? data.history : []);
+        .then(resp => resp?.history ? resp.history : []);
 }
 
 export function updateLocation (location) {
@@ -147,5 +248,6 @@ export function updateLocation (location) {
         return Promise.resolve(undefined);
     }
     const sessionToken = CookieJar.get("session");
-    return API.updateLocationAsync(sessionToken, btoa(JSON.stringify(location)));
+    return API.updateLocation(sessionToken, btoa(JSON.stringify(location)))
+        .then(resp => Boolean(resp?.success));
 }
