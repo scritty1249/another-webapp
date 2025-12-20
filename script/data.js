@@ -24,20 +24,26 @@ export const DataStore = {
             _unknown: "./source/attacks/unknown-attack-icon.png",
             _empty: "./source/attacks/blank-attack-icon.png"
         },
-        attacks: [
-            {
-                type: "particle",
-                amount: 99,
+        attacks: {
+            particle: {
+                cost: {
+                    type: "crypto",
+                    amount: 1
+                }
             },
-            {
-                type: "pascualcannon",
-                amount: 99,
+            pascualcannon: {
+                cost: {
+                    type: "crypto",
+                    amount: 2
+                }
             },
-            {
-                type: "laser",
-                amount: 99,
-            },
-        ],
+            laser: {
+                cost: {
+                    type: "crypto",
+                    amount: 3
+                }
+            }
+        },
     },
     AttackTypeData: function (camera) {
         return {

@@ -237,6 +237,30 @@ export function MenuManager (
             self._appendMenu(central);
             self._dispatch("loadmenu", { history: [], infoElement: infoWindow, buttonElement: buttonEl });
         },
+        nodeMenus: { // called externally
+            botnet: function (nodeid, data) { // expects {icons: []}
+                self.state.open = true;
+                self.loadMenu.clear();
+                self.element.wrapper.classList.add("nodeMenus", "botnet");
+                const central = document.createElement("div");
+                const carousel = self.createElement.scrollCarousel(
+                    Array.from(data.icons, ({type, src, amount}) => {
+                        const img = stopContextMenu(document.createElement("div"));
+                        img.style.backgroundImage = `url("${src}")`;
+                        img.textContent = amount;
+                        img.classList.add("tile", "pointer-events");
+                        img.addEventListener("click", (e) => {
+                            self._dispatch("compileattack", {attackType: type, nodeid: nodeid})
+                        });
+                        return img;
+                    }, .5, 1.5)
+                );
+                self._appendElement(central, carousel);
+                self._appendMenu(central);
+                carousel.scrollLeft = 0;
+                self._dispatch("loadmenu", { history: [] });
+            },
+        },
         settings: {
             main: function () {
                 self.loadMenu.clear();
@@ -385,7 +409,6 @@ export function MenuManager (
                         }, 2)
                         : self.createElement.button(90, "lock", "unavailable", {}, 2);  // if cost string is undefined, node is unpurchasable
                 buyButton.classList.add("buy");
-                
                 self._appendElement(central, titleEl, previewTile, descriptionWindow, buyButton);
                 self._appendMenu(central);
                 central.scrollTo = 0;
@@ -629,6 +652,43 @@ export function MenuManager (
             wrapper.appendChild(img);
             Object.entries(events).forEach(([eventType, handler]) => wrapper.addEventListener(eventType, handler));
             return wrapper;
+        },
+        scrollCarousel: function (children = [], minScale = 0.5, maxScale = 2) {
+            const wrap = document.createElement("div");
+            wrap.classList.add("carousel-scroll", "pointer-events");
+            const _distanceFromCenter = (el) => {
+                const viewCenter = window.innerWidth / 2;
+                const rect = el.getBoundingClientRect();
+                const elCenter = rect.left + rect.width / 2;
+                const diff = elCenter - viewCenter;
+                const distance = Math.abs(diff);
+                return {dist: distance, el: el};
+            };
+            const _updateEl = () => {
+                const parsed = Array.from(wrap.children, _distanceFromCenter);
+                parsed.sort((a, b) => a.dist - b.dist);
+                const min = parsed[0].dist;
+                const max = parsed.at(-1).dist;
+                parsed.forEach(({dist, el}) => {
+                    const grow = (1 - ((dist - min) / (max - min)));
+                    const clamped = Math.max(Math.min(grow, maxScale / 2), minScale / 2);
+                    el.style.transform = `scale(${2 * clamped})`;
+                });
+            };
+            wrap.addEventListener("wheel", (e) => {
+                wrap.scrollLeft -= (e.wheelDeltaX + e.wheelDeltaY) / 2;
+                if (wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth)
+                    wrap.scrollLeft = 0;
+                else if (wrap.scrollLeft <= 0)
+                    wrap.scrollLeft = wrap.scrollWidth - wrap.clientWidth
+                _updateEl();
+                e.preventDefault();
+            }, { passive: false });
+            wrap.addEventListener("touchmove", (e) => {
+                e.preventDefault();
+            }, { passive: false });
+            children.forEach(child => wrap.appendChild(child));
+            return wrap;
         },
     };
     this.loginScreen = function () {

@@ -31,7 +31,7 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
         // [!] Google Apps Script does not expose the request body for GET requests. Use POST if sending a request body!
         data.body = JSON.stringify(body);
     }
-    Logger.debug(`[API] | ${method.toUpperCase()} Request to "${path}"\n\t${url}`);
+    Logger.debug(`[API] | ${method.toUpperCase()} Request to "${path}"\n${url}\n`, DEBUG_MODE ? (params, data) : "");
     try {
         return fetch(url, data)
             .then(resp => {
@@ -40,12 +40,16 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
                 else
                     return resp.json();
             }).then(data => {
-                if (data?.error)
+                if (data?.error) {
                     Logger.error(
                         `[API] | Server returned error ${data.error.code}${data.error?.detail ? ": "+ data.error.detail : ""}`
                     );
-                else
-                    return data;
+                    if (data.error.code) // Made sure all the server-side error codes are falsey. Go me!
+                        Logger.alert(
+                            `Internal Server Error. Please contact developer and try again later.`
+                        );
+                }
+                return data;
             });
     } catch (err) {
         Logger.throw("[API] | Failed to contact server. Error:\n" + err.message);
@@ -53,61 +57,37 @@ function sendRequest (path, params = {}, method = "GET", body = undefined, cooki
 }
 
 export function login (username, password) {
-    return sendRequest("/api/login", {login: btoa(username + ":" + password)})
-        .then(data => ({token: data?.token, id: data?.id }));
+    return sendRequest("/api/login", {login: btoa(username + ":" + password)});
 }
 
 export function createAccount (username, password, location) {
     return sendRequest("/api/newlogin", undefined, "POST", {username: username, password: password, geo: location})
-        .then(data => data?.token);
 }
 
 export function getAttackTargets (sessionToken) {
     return sendRequest("/attack/select", {limit: 999}, "GET", undefined, {session: sessionToken})
-        .then(data => data?.targets);
 }
 
 export function getOwnBase (sessionToken) {
     return sendRequest("/game/load", undefined, "GET", undefined, {session: sessionToken})
-        .then(data => data);
 }
 
 export function refreshSession (sessionToken) {
     return sendRequest("/api/refresh", undefined, "GET", undefined, {session: sessionToken})
-        .then(data => data?.token.expires);
 }
 
-export function saveGame (sessionToken, backdrop, layout) {
-    return sendRequest("/game/save", undefined, "POST", {
-        game: {
-            backdrop: backdrop,
-            layout: layout
-        }
-    }, {session: sessionToken})
-        .then(data => Boolean(data?.success));
+export function saveGame (sessionToken, payload) {
+    return sendRequest("/game/save", undefined, "POST", payload, {session: sessionToken}, true);
 }
 
-export function saveGameAsync (sessionToken, backdrop, layout) {
-    return sendRequest("/game/save", undefined, "POST", {
-        game: {
-            backdrop: backdrop,
-            layout: layout
-        }
-    }, {session: sessionToken}, true)
-        .then(data => Boolean(data?.success));
-}
-
-export function updateLocationAsync (sessionToken, location) {
+export function updateLocation (sessionToken, location) {
     return sendRequest("/game/save", undefined, "POST", {geo: location}, {session: sessionToken}, true)
-        .then(data => Boolean(data?.success));
 }
 
 export function getDefenseHistory (sessionToken, markAsProcessed) {
     return sendRequest("/attack/history/defense", {process: markAsProcessed}, "GET", undefined, {session: sessionToken})
-        .then(data => data);
 }
 
-export function sendAttackResultAsync (sessionToken, targetid, attackResult) {
+export function sendAttackResult (sessionToken, targetid, attackResult) {
     return sendRequest("/attack/result", {id: targetid}, "POST", {result: attackResult}, {session: sessionToken}, true)
-        .then(data => Boolean(data?.success));
 }

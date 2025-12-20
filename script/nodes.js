@@ -459,6 +459,9 @@ NodeManager.prototype.tetherNodes = function (originid, targetid) {
         return undefined;
     }
 };
+NodeManager.prototype.getNodeType = function (nodeid) {
+    return this.getNode(nodeid)?.userData.type;
+};
 NodeManager.prototype.removeTether = function (tetherid) {
     const [origin, target] = this._getNodesFromTether(this.tethers[tetherid]);
     if (origin?.userData?._neighborCount !== undefined)
@@ -526,12 +529,10 @@ NodeManager.prototype._updateTethers = function () {
 };
 NodeManager.prototype.getStoredCurrency = function (currencyType) {
     const nodes = this.getStorageNodes(currencyType);
-    const amount = nodes
-        .map((n) => n.userData.exportData.store.amount)
-        .reduce((acc, curr) => acc + curr, 0);
-    const total = nodes
-        .map((n) => n.userData.exportData.store.max)
-        .reduce((acc, curr) => acc + curr, 0);
+    const amount = UTIL.sum(nodes
+        .map((n) => n.userData.exportData.store.amount));
+    const total = UTIL.sum(nodes
+        .map((n) => n.userData.exportData.store.max));
     return {
         amount: amount ? amount : 0,
         max: total ? total : 0,
@@ -587,7 +588,7 @@ NodeManager.prototype.getStorageData = function (nodeid) {
     if (!this.isStorageNode(nodeid))
         Logger.throw(
             new Error(
-                `[NodeManager] | Failed to get currency data from node ${nodeid}: Not a storage node.`
+                `[NodeManager] | Failed to get currency storage data from node ${nodeid}: Not a storage node.`
             )
         );
     const node = this.getNode(nodeid);
@@ -1028,9 +1029,10 @@ AttackNodeManager.prototype.clear = function () {
     delete this._attacklist;
 };
 
-export function BuildNodeManager(nodeOverlayData, ...parentArgs) {
+export function BuildNodeManager(onAttackCompileCallback, nodeOverlayData, ...parentArgs) {
     NodeManager.call(this, ...parentArgs);
     this._nodeOverlayData = nodeOverlayData;
+    this._attackCompiledCallback = onAttackCompileCallback;
 }
 BuildNodeManager.prototype = Object.create(NodeManager.prototype);
 BuildNodeManager.prototype.constructor = BuildNodeManager;
@@ -1089,24 +1091,92 @@ BuildNodeManager.prototype.createNode = function (...args) {
         return nodeid;
     }
 };
+BuildNodeManager.prototype.getBarracksNodes = function () { // not be needed
+    return this.nodelist
+        .filter((n) => n.userData.type == "barracks")
+        .toSorted((a, b) =>
+            this.getBarracksSpace(b.uuid) - this.getBarracksSpace(a.uuid));
+};
+BuildNodeManager.prototype.getBotnetNodes = function () {
+    return this.nodelist
+        .filter((n) => n.userData.type == "botnet");
+};
+BuildNodeManager.prototype.getBarracksData = function (nodeid) {
+    const node = this.getNode(nodeid);
+    if (node?.userData?.type != "barracks")
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Failed to get barracks data from node ${nodeid}: Not a barracks node.`
+            )
+        );
+    return node.userData.exportData.rack;
+};
+BuildNodeManager.prototype.getBotnetData = function (nodeid) {
+    const node = this.getNode(nodeid);
+    if (node?.userData?.type != "botnet")
+        Logger.throw(
+            new Error(
+                `[BuildNodeManager] | Failed to get botnet data from node ${nodeid}: Not a botnet node.`
+            )
+        );
+    return node.userData.exportData.training;
+};
+BuildNodeManager.prototype.getBarracksCapacity = function () { // gets total capacity
+    return UTIL.sum(this.getBarracksNodes().map((n) => n.userData.exportData?.rack ? n.userData.exportData?.rack.max : 0));
+};
+BuildNodeManager.prototype.queueCompile = function (nodeid, attackType, compileDuration) { // train attack
+    const botnetData = this.getBotnetData(nodeid);
+    botnetData.queue.push({
+        type: attackType,
+        duration: compileDuration
+    });
+};
 BuildNodeManager.prototype._updateCurrencyNodes = function () {
     // doesn't go off of timedelta- more accurate / convienient just use current time
-    const nodes = this.nodelist.filter(n => n.userData.exportData?.currency);
     const now = UTIL.getNowUTCSeconds();
-    nodes.forEach((node) => {
-        const currencyData = node.userData.exportData.currency;
-        if (currencyData.amount != currencyData.max && currencyData.rate) {
-            const elapsedSeconds = Math.max(0, now - currencyData.lastUpdated);
-            const ratePerSecond = currencyData.rate / 60 / 60; // stored rate is per hour
-            const amountGenerated = Math.floor(elapsedSeconds * ratePerSecond); // avoid floating points for sanity
-            const newAmount = Math.min(
-                currencyData.max,
-                currencyData.amount + amountGenerated
-            );
-            if (newAmount != currencyData.amount) {
-                currencyData.amount = newAmount;
-                currencyData.lastUpdated = now;
+    this.nodelist
+        .filter(n => n.userData.exportData?.currency)
+        .forEach((node) => {
+            const currencyData = node.userData.exportData.currency;
+            if (currencyData.amount != currencyData.max && currencyData.rate) {
+                const elapsedSeconds = Math.max(0, now - currencyData.lastUpdated);
+                const ratePerSecond = currencyData.rate / 60 / 60; // stored rate is per hour
+                const amountGenerated = Math.floor(elapsedSeconds * ratePerSecond); // avoid floating points for sanity
+                const newAmount = Math.min(
+                    currencyData.max,
+                    currencyData.amount + amountGenerated
+                );
+                if (newAmount != currencyData.amount) {
+                    currencyData.amount = newAmount;
+                    currencyData.lastUpdated = now;
+                }
             }
+        });
+};
+BuildNodeManager.prototype._updateBotnetNodes = function () {
+    const now = UTIL.getNowUTCSeconds();
+    this.nodelist
+        .filter((n) => n.userData.type == "botnet")
+        .forEach((node) => this._updateBotetNode(node, now));
+};
+BuildNodeManager.prototype._updateBotetNode = function (node, now) {
+    const trainingData = node.userData.exportData.training;
+    Object.entries(trainingData.active).forEach(([idx, {type, started, duration}]) => {
+        if (type && started + duration > now) return;
+        if (type) {
+            Logger.info("[BuildNodeManager] | Finished compiling attack: ", type);
+            this._attackCompiledCallback(type);
+        }
+        const next = trainingData.queue.pop();
+        if (next) {
+            trainingData.active[idx].type = next.type;
+            trainingData.active[idx].duration = next.duration;
+            trainingData.active[idx].started = now;
+            Logger.info("[BuildNodeManager] | Started compiling: ", next);
+        } else {
+            trainingData.active[idx].type = undefined;
+            trainingData.active[idx].duration = 0;
+            trainingData.active[idx].started = 0;
         }
     });
 };
@@ -1132,7 +1202,6 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
 };
 BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
     const nodes = this.getStorageNodes(currencyType);
-    const currencyData = this.getStoredCurrency(currencyType);
     let nodeIdx = 0;
     let remaining = amount;
     while (remaining && nodeIdx < nodes.length) {
@@ -1209,6 +1278,7 @@ BuildNodeManager.prototype.removeNode = function (nodeid) {
 BuildNodeManager.prototype.update = function (timedelta) {
     NodeManager.prototype.update.call(this, timedelta);
     this._updateCurrencyNodes();
+    this._updateBotnetNodes();
     this._updateTethers();
 };
 BuildNodeManager.prototype.clear = function () {

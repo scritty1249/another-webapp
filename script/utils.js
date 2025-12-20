@@ -99,6 +99,12 @@ export function average(...values) {
     return values.reduce((a, b) => a + b) / values.length;
 }
 
+export function sum(...values) {
+    return values.length == 1 && Array.isArray(values)
+        ? values[0].reduce((acc, curr) => acc + curr, 0)
+        : values.reduce((acc, curr) => acc + curr, 0);
+}
+
 export function deepCopy(obj) {
     // ONLY FOR NORMAL JS OBJECTS. threejs objects have a dedicated stringify method!
     return JSON.parse(JSON.stringify(obj));
@@ -196,7 +202,22 @@ export function layoutsEqual(thisLayout, thatLayout) {
         );
     } catch {
         // if a layout is missing an expected property, it means it's not a Layout. which likely means its NOT equal to whatever we're trying to compare anyways.
-        Logger.info("failed to compare layouts");
+        Logger.info("Failed to compare Layouts");
+        return false;
+    }
+}
+export function shallowObjectsEqual(thisObj, thatObj) {
+    if (Boolean(thisObj) != Boolean(thatObj)) return false; // one of the objects is falsey, likely undefined
+    try {
+        const thisKeys = new Set(Object.keys(thisObj));
+        const thatKeys = new Set(Object.keys(thatObj));
+        return (
+            thisKeys.size == thatKeys.size &&
+            thisKeys.symmetricDifference(thatKeys).size == 0 &&
+            [...thisKeys].every(type => thisKeys[type] == thatKeys[type])
+        );
+    } catch {
+        Logger.info("Failed to compare Objects:", thisObj, thatObj);
         return false;
     }
 }

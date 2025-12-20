@@ -588,8 +588,6 @@ BuildOverlayManager.prototype._createFocusMenuElement = function () {
         () => {
             // info button
             if (!this.state.stopFocusing) {
-                const node = this._nodeManager.getNode(this.focusedNodeId);
-                Logger.info(node);
                 this._nodeMenuCallbacks.nodeInfo(this.focusedNodeId);
             }
         },
@@ -748,24 +746,17 @@ AttackOverlayManager.prototype._getAttackIcon = function (attackType) {
 AttackOverlayManager.prototype._initOverlay = function () {
     OverlayManager.prototype._initOverlay.call(this);
     // create attack bar menu
-    const attackTiles = Array.from(this._attackManager.attacks, (attack) => {
+    const attackTiles = Array.from(Object.keys(this._attackManager.attacks), (attackType) => {
         const tile = AttackFocusMenu.createTileElement(
-            attack.type,
-            this._getAttackIcon(attack.type)
+            attackType,
+            this._getAttackIcon(attackType)
         );
         tile.addEventListener("click", (event) => {
             if (
                 this.state.focusedNode &&
                 this._nodeManager.getNodeData(this.focusedNodeId)?.isFriendly
             ) {
-                if (
-                    this._nodeManager.addAttackToNode(
-                        attack.type,
-                        this.focusedNodeId
-                    )
-                )
-                    this._updateFocusMenu();
-                else this.messagePopup("Cannot add Attack to Node.");
+                this._menuManager._dispatch("addattack", {type: attackType, nodeid: this.focusedNodeId});
             }
         });
         return tile;
@@ -778,6 +769,16 @@ AttackOverlayManager.prototype._initOverlay = function () {
     // create timer seperately to keep track of it
     this.element._timer = AttackHud.createTimer();
     this.element.hud.appendChild(this.element._timer);
+};
+AttackOverlayManager.prototype.removeAttackBarTile = function (attackType) {
+    const tileEl = this.element.hud.querySelector(`:scope [data-attack-type="${attackType}"]`);
+    if (tileEl)
+        tileEl.remove();
+};
+AttackOverlayManager.prototype.updateAttackBarTile = function (attackType, amount) {
+    const tileEl = this.element.hud.querySelector(`:scope [data-attack-type="${attackType}"]`);
+    if (tileEl)
+        tileEl.textContent = amount;
 };
 AttackOverlayManager.prototype._updateFocusMenu = function () {
     if (this.state.focusedNode) {
