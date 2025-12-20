@@ -201,6 +201,11 @@ function traverseMaterials(mesh) {
     const table = new MaterialTable();
     newMesh.traverse(function (child) {
         if (child.material?.isMaterial && child.material?.name && !child.userData.hide) {
+            const userData = Object.keys(child.userData);
+            Object.entries(DEFAULT.MATERIAL_PROP_OVERRIDES).forEach(([prop, overrideProp]) => {
+                if (userData.includes(prop))
+                    child.material[overrideProp] = child.userData[prop];
+            });
             table.add(child.material, child.name);
             child.material = table.get(child.material.name);
             child.userData.sourceMaterial = child.material.clone();
