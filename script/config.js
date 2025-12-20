@@ -22,8 +22,8 @@ export const Configuration = {
     FRIENDLY_NODE_COLOR: new Color(0xff0000),
     FRIENDLY_NODE_TINT: new Color(0xff0000),
     BLOOM: {
-        STRENGTH: .2,
-        RADIUS: .42,
+        STRENGTH: .08,
+        RADIUS: .2,
         THRESHOLD: 5
     },
     AMBIENT_LIGHT_STRENGTH: 300, // basically, brightness
@@ -50,5 +50,8 @@ export const Default = {
             crypto: 0
         },
         attackers: []
+    },
+    MATERIAL_PROP_OVERRIDES: {
+        "override.emissiveIntensity": "emissiveIntensity"
     },
 };

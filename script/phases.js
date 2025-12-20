@@ -701,7 +701,7 @@ PhaseManager.prototype.buildPhase = function (
                                         .forEach((t) => t.material.color.set(tetherStepEndColor));
                                     nodeController.traverseTethers(clickedNodeId, function (tether, depth, sourceid) {
                                         if (!tether.userData._depthTouched || tether.userData._depthTouched < depth) {
-                                            tether.material.color.lerpColors(tetherStepEndColor, tetherStepStartColor, depth / maxSteps);
+                                            tether.material.color.lerpColors(tetherStepEndColor, tetherStepStartColor, (depth / maxSteps)**2);
                                             tether.userData._depthTouched = depth;
                                         }
                                     }, maxSteps);
