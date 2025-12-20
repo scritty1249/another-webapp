@@ -295,8 +295,8 @@ const Server = {
         const barracks = gamedata.barracks;
         const profile = gamedata.profile;
         const purchases = gamedata.purchases;
-        conn.updateEntry(TABLES.gamedata, userid, backdrop, layout, barracks);
-        conn.updateEntryFrom(TABLES.users, userid, 5, purchases, profile);
+        conn.updateEntry(TABLES.gamedata, userid, backdrop, layout, JSON.stringify(barracks));
+        conn.updateEntryFrom(TABLES.users, userid, 5, JSON.stringify(purchases), JSON.stringify(profile));
     },
     updateUserLocation: function (conn, userid, rawGeoData) {
         const geoDataColumn = 4; // not zero indexed
