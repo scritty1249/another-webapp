@@ -684,9 +684,9 @@ export function MenuManager (
                 _updateEl();
                 e.preventDefault();
             }, { passive: false });
-            wrap.addEventListener("touchmove", (e) => {
-                e.preventDefault();
-            }, { passive: false });
+            // wrap.addEventListener("touchmove", (e) => {
+            //     e.preventDefault();
+            // }, { passive: false });
             children.forEach(child => wrap.appendChild(child));
             return wrap;
         },
