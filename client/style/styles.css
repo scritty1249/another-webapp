@@ -544,6 +544,7 @@ div.carousel-scroll {
                     width: 80%;
                     height: 80%;
                     .carousel-scroll {
+                        touch-action: none;
                         height: 50%;
                         > .tile {
                             background-repeat: no-repeat;

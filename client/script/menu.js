@@ -675,6 +675,11 @@ export function MenuManager (
                     el.style.transform = `scale(${2 * clamped})`;
                 });
             };
+            let dragging = false;
+            const pos = {
+                x: undefined,
+                y: undefined,
+            };
             wrap.addEventListener("wheel", (e) => {
                 wrap.scrollLeft -= (e.wheelDeltaX + e.wheelDeltaY) / 2;
                 if (wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth)
@@ -684,9 +689,28 @@ export function MenuManager (
                 _updateEl();
                 e.preventDefault();
             }, { passive: false });
-            // wrap.addEventListener("touchmove", (e) => {
-            //     e.preventDefault();
-            // }, { passive: false });
+            wrap.addEventListener("pointerdown", (e) => {
+                dragging = true;
+                pos.x = e.clientX;
+                pos.y = e.clientY;
+            });
+            wrap.addEventListener("pointermove", (e) => {
+                if (!dragging) return;
+                if (pos.x == undefined) {
+                    pos.x = e.clientX;
+                    pos.y = e.clientY;
+                    return;
+                }
+                wrap.scrollLeft += ((e.clientX - pos.x) - (e.clientY - pos.y)) / 5;
+                _updateEl();
+            });
+            const _disableDragging = (e) => {
+                dragging = false;
+                pos.x = undefined;
+                pos.y = undefined;
+            };
+            wrap.addEventListener("pointerup", _disableDragging);
+            wrap.addEventListener("pointerleave", _disableDragging);
             children.forEach(child => wrap.appendChild(child));
             return wrap;
         },

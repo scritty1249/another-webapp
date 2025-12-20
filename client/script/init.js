@@ -798,7 +798,6 @@ function mainloop(MenuController) {
                     }
                 });
                 MenuController._dispatch("swapphase", { phase: "build" });
-
                 {
                     // [!] testing area
                     if (DEBUG_MODE) {
