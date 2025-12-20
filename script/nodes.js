@@ -1091,7 +1091,7 @@ BuildNodeManager.prototype.createNode = function (...args) {
         return nodeid;
     }
 };
-BuildNodeManager.prototype.getBarracksNodes = function () { // not be needed
+BuildNodeManager.prototype.getBarracksNodes = function () { // might not be needed
     return this.nodelist
         .filter((n) => n.userData.type == "barracks")
         .toSorted((a, b) =>
