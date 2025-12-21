@@ -118,7 +118,7 @@ const BuildFocusMenu = {
 const AttackFocusMenu = {
     createMenuElement: function (...elements) {
         const wrapper = document.createElement("div");
-        wrapper.classList.add("attack-focus-menu", "reveal");
+        wrapper.classList.add("attack-focus-menu", "tile-grid", "reveal");
         elements.forEach((el, i) => {
             el.style.setProperty("--index", i);
             wrapper.appendChild(el);
@@ -595,8 +595,15 @@ BuildOverlayManager.prototype._createFocusMenuElement = function () {
             // remove button
             if (!this.state.stopFocusing) {
                 const nodeid = this.focusedNodeId;
-                this.unfocusNode();
-                this._nodeManager.removeNode(nodeid);
+                if (this._nodeManager.nodelist.length == 1) {
+                    this.messagePopup("Cannot delete last node!", 2000);
+                } else if (this._nodeManager.getNodeType(nodeid) == "core") {
+                    this.messagePopup("Cannot delete the Core!", 2000);
+                } else {
+                    this.unfocusNode();
+                    Logger.debug(`[BuildOverlayManager] | Deleted Node (${nodeid}) from focus menu`);
+                    this._nodeManager.removeNode(nodeid);
+                }
             }
         }
     );

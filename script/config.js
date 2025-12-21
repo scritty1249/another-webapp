@@ -36,7 +36,7 @@ export const Default = {
         background: DEFAULT_BACKGROUND,
         layout: {
             neighbors: [],
-            nodes: [{ uuid: "0", type: "globe", position: [0, 0, 0], _data: {} }],
+            nodes: [{ uuid: "0", type: "core", position: [0, 0, 0], _data: {level: 0} }],
         },
     },
     GEO: {

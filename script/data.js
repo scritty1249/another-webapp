@@ -29,19 +29,28 @@ export const DataStore = {
                 cost: {
                     type: "crypto",
                     amount: 1
-                }
+                },
+                name: "Worms",
+                description:
+                    "Malicious attack, nasty stuff. When injected, it seeks out a nearby Node with the lowest health, and applies sustained pressure until that Node is taken.",
             },
             pascualcannon: {
                 cost: {
                     type: "crypto",
-                    amount: 2
-                }
+                    amount: 4
+                },
+                name: "[Name TBD] Special Beam Cannon",
+                description:
+                    "Devastating attack that stuns any target hit. Requires all slots on a Node to be empty before injecting.",
             },
             laser: {
                 cost: {
                     type: "crypto",
-                    amount: 3
-                }
+                    amount: 2
+                },
+                name: "[Name TBD] Brute Force v1",
+                description:
+                    "Applies single target, sustained stress to any nearby Node upon injection.",
             }
         },
     },
@@ -50,7 +59,7 @@ export const DataStore = {
             particle: {
                 mesh: AttackManagerFactory.Particle,
                 sfx: "pew",
-                damage: 8,
+                damage: 15,
                 cooldown: 650, // ms
                 logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
                 effect: (nodeManager, attackid) => {},
@@ -78,7 +87,7 @@ export const DataStore = {
             pascualcannon: {
                 mesh: (a) => AttackManagerFactory.PascualCannon(camera, a),
                 sfx: undefined,
-                damage: 10,
+                damage: 50,
                 cooldown: 1000, // ms
                 logic: AttackLogic.BasicLogicFactory,
                 effect: (nodeManager, attackid) => {
@@ -170,6 +179,11 @@ export const DataStore = {
             slots: 3,
             regen: _baseHealthRegenPercentage // per tick
         },
+        core: {
+            health: 350,
+            slots: 7,
+            regen: _baseHealthRegenPercentage // per tick
+        },
     },
     BuildNodeOverlayData: {
         slots: {
@@ -227,6 +241,16 @@ export const DataStore = {
             geometry: _currencyOverlayData.geometry,
             material: SSMaterialType.Mask(
                 "./source/node-overlay/currency/crypto-bar.png",
+                _currencyOverlayData.alphaMap,
+                _currencyOverlayData.mapSize,
+                _currencyOverlayData.alphaMapSize
+            ),
+        },
+        core: {
+            offset: _currencyOverlayData.offset,
+            geometry: _currencyOverlayData.geometry,
+            material: SSMaterialType.Mask(
+                "./source/node-overlay/currency/core-bar.png",
                 _currencyOverlayData.alphaMap,
                 _currencyOverlayData.mapSize,
                 _currencyOverlayData.alphaMapSize
@@ -414,6 +438,19 @@ export const DataStore = {
             description:
                 "Racks of unused computers left at an abondoned warehouse, remotely activated in secret to house your compiled Attacks. Any Attacks stored here are ready to deploy on other networks.",
             thumb: "./source/node-thumbs/barracks.gif",
+        },
+        core: {
+            cost: undefined,
+            sell: undefined,
+            limit: {
+                base: 1,
+                increase: 0
+            },
+            freecount: 1,
+            name: "Core",
+            description:
+                "\"NTS: Write Core bio.\"\n\nCore veeeeeery important...",
+            thumb: "./source/node-thumbs/core.gif",
         },
     },
     SelectPhaseBackground: "_world",

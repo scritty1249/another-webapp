@@ -71,6 +71,9 @@ PhaseManager.prototype = {
         Node: undefined,
         Overlay: undefined,
     },
+    get playerLevel () {
+        return this.Managers.Node?.getCoreData()?.level;
+    },
 };
 
 PhaseManager.prototype._resetUpdateManagers = function () {
@@ -522,12 +525,57 @@ PhaseManager.prototype.buildPhase = function (
                 const nodeType = nodeController.getNodeType(nodeid);
                 // handle the nodes with their own menus
                 if (nodeType == "botnet") {
-                    const barracks = Storage.get("localBarracks");
+                    overlayController._menuManager.when(
+                        "loadmenu", function (detail) {
+                            const updateMenu = detail?.update;
+                            const _handler = () => {
+                                const _nodeData = nodeController.getBotnetData(nodeid);
+                                updateMenu(_nodeData.active, _nodeData.queue);
+                            };
+                            const _interval = setInterval(_handler, 200);
+                            _handler();
+                            overlayController._menuManager.when("clear", function () {
+                                clearInterval(_interval);
+                            }, false, true);
+                        }, false, true
+                    );
                     overlayController._menuManager.loadMenu.nodeMenus.botnet(nodeid, {
-                        icons: Object.entries(DataStore.AttackerData.icons)
-                            .filter(([key, value]) => !key.startsWith("_"))
-                            .map(([key, value]) => ({type: key, src: value, amount: barracks[key] ? barracks[key] : 0}))
+                        icons: DataStore.AttackerData.icons,
+                        attackDetails: DataStore.AttackerData.attacks,
+                        nodeData: nodeController.getBotnetData(nodeid),
+                        removeAttackCallback: (nid, idx, isActive) => {
+                            if (isActive)
+                                nodeController.removeCompilingAttack(nid, idx);
+                            else
+                                nodeController.removeQueuedAttack(nid, idx);
+                        },
                     });
+                } else if (nodeType == "barracks") {
+                    overlayController._menuManager.when(
+                        "loadmenu", function (detail) {
+                            const {updateCarousel, updateMenu} = detail;
+                            const _handler = () => updateMenu(Storage.get("localBarracks"));
+                            const _menuInterval = setInterval(_handler, 1000);
+                            _handler();
+                            const _carouselInterval = setInterval(updateCarousel, 200);
+                            updateCarousel();
+                            overlayController._menuManager.when("clear", function () {
+                                clearInterval(_menuInterval);
+                                clearInterval(_carouselInterval);
+                            }, false, true);
+                        }, false, true
+                    );
+                    overlayController._menuManager.loadMenu.nodeMenus.barracks({
+                        icons: DataStore.AttackerData.icons,
+                        attackDetails: DataStore.AttackerData.attacks,
+                        removeAttackCallback: (type) => {
+                            const barracks = Storage.get("localBarracks");
+                            if (!barracks[type]) return
+                            barracks[type]--;
+                            Storage.set("localBarracks", barracks);
+                        },
+                    });
+
                 } else {
                     // generic node pressed, just display node bio
                     overlayController._menuManager.when(
@@ -655,7 +703,7 @@ PhaseManager.prototype.buildPhase = function (
                         name: nodeDetail.name,
                         thumb: nodeDetail.thumb,
                     };
-                    if (nodeCount >= Math.floor(nodeDetail.limit.base + (nodeDetail.limit.increase * 1))) { // [!] Process player level here, when implemented
+                    if (nodeCount >= Math.floor(nodeDetail.limit.base + (nodeDetail.limit.increase * self.playerLevel))) {
                         nodeDetailMenuInfo.cost = undefined;
                     } else if (
                         (nodeDetail.freecount && nodeCount < nodeDetail.freecount) ||
@@ -688,10 +736,6 @@ PhaseManager.prototype.buildPhase = function (
                         overlayController.updateWallet(bankData);
                     }
                 }
-                overlayController.messagePopup(
-                    `Started compiling Attack: ${attackType}.`,
-                    1000
-                );
                 nodeController.queueCompile(nodeid, attackType, 10);
             });
             // Add event listeners
