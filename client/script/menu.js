@@ -238,27 +238,124 @@ export function MenuManager (
             self._dispatch("loadmenu", { history: [], infoElement: infoWindow, buttonElement: buttonEl });
         },
         nodeMenus: { // called externally
-            botnet: function (nodeid, data) { // expects {icons: []}
+            botnet: function (nodeid, data) { // expects {icons: {}, attackDetails: {}, nodeData: botnetData, removeAttackCallback: (nodeid, index, isCompiling)()}
                 self.state.open = true;
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("nodeMenus", "botnet");
                 const central = document.createElement("div");
+                const compilingBar = document.createElement("div");
                 const carousel = self.createElement.scrollCarousel(
-                    Array.from(data.icons, ({type, src, amount}) => {
+                    Array.from(Object.entries(data.icons).filter(([[key]]) => !key.startsWith("_")), ([type, src]) => {
                         const img = stopContextMenu(document.createElement("div"));
                         img.style.backgroundImage = `url("${src}")`;
-                        img.textContent = amount;
+                        img.dataset.attackType = type;
                         img.classList.add("tile", "pointer-events");
-                        img.addEventListener("click", (e) => {
-                            self._dispatch("compileattack", {attackType: type, nodeid: nodeid})
-                        });
                         return img;
-                    }, .5, 1.5)
+                    }), 2
                 );
-                self._appendElement(central, carousel);
+                const _getFocusedType = () => carousel.children
+                    [Number(carousel.dataset.focusedElementIdx)]
+                        .dataset.attackType;
+                const infoWindow = self.createElement.statusTextBox(false, false);
+                infoWindow.element.classList.add("description");
+                infoWindow.align("left");
+                const compileButton = self.createElement.button(90, undefined, "Compile", {
+                        click: () => self._dispatch("compileattack", { nodeid: nodeid, attackType: _getFocusedType() }),
+                    }, 2);
+                compileButton.classList.add("compile");
+                { // create elements for compiler menu based on given nodeData
+                    compilingBar.classList.add("pointer-events", "tile-grid", "horizontal", "fade-edges-horizontal", "compiling-bar");
+
+                    const slots = Object.keys(data.nodeData.active).length;
+                    const capacity = data.nodeData.max;
+                    for (let i = 0; i < capacity + slots; i++) {
+                        const tileEl = stopContextMenu(document.createElement("div"));
+                        tileEl.style.backgroundImage = `url("${data.icons._empty}")`;
+                        tileEl.classList.add("tile", "pointer-events");
+                        if (i >= slots) {
+                            tileEl.classList.add("queued");
+                            tileEl.addEventListener("click", function () {
+                                 data.removeAttackCallback(nodeid, i - slots, false);
+                            });
+                        } else {
+                            tileEl.addEventListener("click", function () {
+                                 data.removeAttackCallback(nodeid, String(i), true);
+                            });
+                        }
+                        compilingBar.appendChild(tileEl);
+                    }
+                }
+                const updateCallback = (activeSlots, enqueued) => {
+                    const now = UTIL.getNowUTCSeconds();
+                    const focusedType = _getFocusedType();
+                    const entriesArr = Object.entries(activeSlots);
+                    infoWindow.text = `\t${data?.attackDetails[focusedType].name}\n${data?.attackDetails[focusedType].description}\n\nCosts: ${data?.attackDetails[focusedType].cost.amount} ${data?.attackDetails[focusedType].cost.type}`;
+                    entriesArr.forEach(([idx, slot]) => {
+                        const el = compilingBar.children[Number(idx)];
+                        if (!slot?.type) {
+                            el.style.backgroundImage = `url("${data.icons._empty}")`;
+                            el.textContent = "";
+                            return;
+                        }
+                        const remaining =  (slot.started + slot.duration) - now;
+                        el.style.backgroundImage = `url("${data.icons[slot.type]}")`;
+                        el.textContent = `${Math.floor(remaining / 60)}`.padStart(2, "0") + ":" + `${Math.floor(remaining % 60)}`.padStart(2, "0");
+                    });
+                    for (let i = 0; i < data.nodeData.max; i++) {
+                        const el = compilingBar.children[i + entriesArr.length];
+                        el.style.backgroundImage = `url("${(i > enqueued.length - 1
+                                ? data.icons._empty
+                                : data.icons[enqueued[i]?.type]
+                            )}")`;
+                    }
+                };
+                self._appendElement(central, compilingBar, carousel, infoWindow.element, compileButton);
                 self._appendMenu(central);
                 carousel.dispatchEvent(new CustomEvent("update"));
-                self._dispatch("loadmenu", { history: [] });
+                self._dispatch("loadmenu", { history: [], update: updateCallback });
+            },
+            barracks: function (data) {  // expects {icons: {}, attackDetails: {}, removeAttackCallback: (attackType)()}
+                self.state.open = true;
+                self.loadMenu.clear();
+                self.element.wrapper.classList.add("nodeMenus", "barracks");
+                const central = document.createElement("div");
+                const carousel = self.createElement.scrollCarousel(
+                    Array.from(Object.entries(data.icons).filter(([[key]]) => !key.startsWith("_")), ([type, src]) => {
+                        const img = stopContextMenu(document.createElement("div"));
+                        img.style.backgroundImage = `url("${src}")`;
+                        img.dataset.attackType = type;
+                        img.dataset.attackCount = 0;
+                        img.classList.add("tile");
+                        img.addEventListener("click", function () {
+                            if (!barracks) return; // barracks data uninitialized, nothing to do
+                            if (img.dataset.attackCount && Number(img.dataset.attackCount)) {
+                                img.dataset.attackCount = --Number(img.dataset.attackCount);
+                                data.removeAttackCallback(type);
+                            }
+                        });
+                        return img;
+                    }), 2
+                );
+                const _getFocusedData = () => carousel.children
+                    [Number(carousel.dataset.focusedElementIdx)]
+                        .dataset;
+                const infoWindow = self.createElement.statusTextBox(false, false);
+                infoWindow.element.classList.add("description");
+                infoWindow.align("left");
+                const updateCallback = (barracksData) => {
+                    [...carousel.children].forEach((tileEl) => {
+                        const bd = barracksData[tileEl.dataset?.attackType];
+                        tileEl.dataset.attackCount = (bd) ? bd : 0;
+                    });
+                };
+                const carouselCallback = () => {
+                    const {attackType, attackCount} = _getFocusedData();
+                    infoWindow.text = `\t${data?.attackDetails[attackType].name}\n${data?.attackDetails[attackType].description}\n\nStored: ${attackCount}`;
+                };
+                self._appendElement(central, carousel, infoWindow.element);
+                self._appendMenu(central);
+                carousel.dispatchEvent(new CustomEvent("update"));
+                self._dispatch("loadmenu", { history: [], updateCarousel: carouselCallback, updateMenu: updateCallback });
             },
         },
         settings: {
@@ -292,7 +389,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("settings", "changeBackground");
                 const central = stopContextMenu(document.createElement("div"));
-                central.classList.add("center", "absolutely-center", "scrollview", "pointer-events");
+                central.classList.add("center", "absolutely-center", "scrollview", "fade-edges-vertical", "pointer-events");
                 const buttons = Array.from(BACKGROUND_TYPES, bg => 
                     self.createElement.tileImg(backgroundPreviewPath(bg), {
                         click: () => self._dispatch("backgroundchange", {background: bg}),
@@ -335,7 +432,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "baseType");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center", "scrollview");
+                central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
                 const buttons = Array.from(NODE_TYPES.BASE, ({name, id}) =>
                     self.createElement.button(90, 
                         ...(!name || !id
@@ -352,7 +449,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "defenseType");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center", "scrollview");
+                central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
                 const buttons = Array.from(NODE_TYPES.DEFENSE, ({name, id}) =>
                     self.createElement.button(90, 
                         ...(!name || !id
@@ -369,7 +466,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "econType");
                 const central = document.createElement("div");
-                central.classList.add("center", "absolutely-center", "scrollview");
+                central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
                 const buttons = Array.from(NODE_TYPES.ECONOMY, ({name, id}) =>
                     self.createElement.button(90, 
                         ...(!name || !id
@@ -389,7 +486,7 @@ export function MenuManager (
                 self.loadMenu.clear();
                 self.element.wrapper.classList.add("addNode", "nodeDetail");
                 const central = stopContextMenu(document.createElement("div"));
-                central.classList.add("center", "absolutely-center", "scrollview");
+                central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
                 const titleEl = self.createElement.textBox(details.name, false, false, false);
                 titleEl.classList.add("title");
                 const descriptionWindow = self.createElement.textBox(details.description, true, false);
@@ -653,9 +750,9 @@ export function MenuManager (
             Object.entries(events).forEach(([eventType, handler]) => wrapper.addEventListener(eventType, handler));
             return wrapper;
         },
-        scrollCarousel: function (children = [], minScale = 0.5, maxScale = 2) {
+        scrollCarousel: function (children = [], curve = 1, minScale = 0.5, maxScale = 1) {
             const wrap = document.createElement("div");
-            wrap.classList.add("carousel-scroll", "pointer-events");
+            wrap.classList.add("carousel-scroll", "fade-edges", "pointer-events");
             const _distanceFromCenter = (el) => {
                 const viewCenter = window.innerWidth / 2;
                 const rect = el.getBoundingClientRect();
@@ -664,6 +761,7 @@ export function MenuManager (
                 const distance = Math.abs(diff);
                 return {dist: distance, el: el};
             };
+            const _curved = (c) => 1 - Math.sqrt(1 - c**2);
             const _updateEl = () => {
                 const parsed = Array.from(wrap.children, _distanceFromCenter);
                 parsed.sort((a, b) => a.dist - b.dist);
@@ -672,20 +770,30 @@ export function MenuManager (
                 parsed.forEach(({dist, el}) => {
                     const grow = (1 - ((dist - min) / (max - min)));
                     const clamped = Math.max(Math.min(grow, maxScale / 2), minScale / 2);
-                    el.style.transform = `scale(${2 * clamped})`;
+                    
+                    el.style.transform = `scale(${2 * clamped}) translateY(${100 * (_curved(1 - grow) * curve)}%)`;
                 });
+                wrap.dataset.focusedElementIdx = parsed.at(0)?.el.dataset?.carouselIndex;
             };
             let dragging = false;
             const pos = {
                 x: undefined,
                 y: undefined,
             };
-            wrap.addEventListener("wheel", (e) => {
-                wrap.scrollLeft -= (e.wheelDeltaX + e.wheelDeltaY) / 2;
+            const _disableDragging = (e) => {
+                dragging = false;
+                pos.x = undefined;
+                pos.y = undefined;
+            };
+            const _loopCarousel = () => { // call AFTER applying calculated scroll and BEFORE applying scale updates
                 if (wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth)
                     wrap.scrollLeft = 0;
                 else if (wrap.scrollLeft <= 0)
-                    wrap.scrollLeft = wrap.scrollWidth - wrap.clientWidth
+                    wrap.scrollLeft = wrap.scrollWidth - wrap.clientWidth;
+            };
+            wrap.addEventListener("wheel", (e) => {
+                wrap.scrollLeft -= (e.wheelDeltaX + e.wheelDeltaY) / 2;
+                _loopCarousel();
                 _updateEl();
                 e.preventDefault();
             }, { passive: false });
@@ -702,17 +810,16 @@ export function MenuManager (
                     return;
                 }
                 wrap.scrollLeft += ((e.clientX - pos.x) - (e.clientY - pos.y)) / 5;
+                _loopCarousel();
                 _updateEl();
             });
-            const _disableDragging = (e) => {
-                dragging = false;
-                pos.x = undefined;
-                pos.y = undefined;
-            };
             wrap.addEventListener("pointerup", _disableDragging);
             wrap.addEventListener("pointerleave", _disableDragging);
             wrap.addEventListener("update", _updateEl);
-            children.forEach(child => wrap.appendChild(child));
+            children.forEach((child, idx) => {
+                child.dataset.carouselIndex = idx;
+                wrap.appendChild(child);
+            });
             return wrap;
         },
     };

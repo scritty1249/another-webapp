@@ -247,6 +247,12 @@ NodeManager.prototype.resetNodeColorTint = function (nodeid) {
             mesh.material.color.set(mesh.userData.sourceMaterial.color);
     });
 };
+NodeManager.prototype.getCore = function () {
+    return this.nodelist.filter(n => n.userData.type == "core")?.[0];
+};
+NodeManager.prototype.getCoreData = function () {
+    return this.getCore()?.userData.exportData?.master;
+}
 NodeManager.prototype.centerNodes = function () {
     // get mean node location
     const mean = new Vector3();
@@ -311,7 +317,14 @@ NodeManager.prototype.traverseTethers = function (nodeid, callback, depth, ignor
             callback(this._getTetherFromNodes(nodeid, n.uuid), depth, nodeid);
             this.traverseTethers(n.uuid, callback, depth - 1, [...ignorenodes, nodeid])
         });
-}
+};
+NodeManager.prototype.traverseNodes = function (nodeid, callback, depth, ignorenodes = []) { // similar to traverseTethers, but will actually callback on edges.
+    if (!depth) return;
+    callback(nodeid, depth);
+    this.getNeighbors(nodeid)
+        .filter((n) => !ignorenodes.includes(n.uuid))
+        .forEach((n) => this.traverseNodes(n.uuid, callback, depth - 1, [...ignorenodes, nodeid]));
+};
 NodeManager.prototype.getNodes = function (...nodeids) {
     return nodeids.map((nodeid) => this.getNode(nodeid));
 };
@@ -623,18 +636,20 @@ NodeManager.prototype.getOverlayByTarget = function (targetid) {
 };
 NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
     const foundNodes = new Set();
-    const _collectNodes = (_, __, id) => {
+    const _collectNodes = (id) => {
         foundNodes.add(id);
     };
     const _nodes = new Set(this.nodelist.map(n => n.uuid));
     this.nodelist
         .filter((n) => n.userData.type == "globe")
-        .forEach((n) => this.traverseTethers(n.uuid, _collectNodes, maxGlobeDistance + 1));
-    const isValid = foundNodes.size == _nodes.size;
+        .forEach((n) => this.traverseNodes(n.uuid, _collectNodes, maxGlobeDistance + 1));
+    const isValid = foundNodes.size == _nodes.size && this.getCore();
     if (!isValid) {
-        Logger.info("[NodeManager] | Layout invalid");
-        Logger.info("[NodeManager] | Found extra nodes:", foundNodes.difference(_nodes));
-        Logger.info("[NodeManager] | Didn't find nodes:", _nodes.difference(foundNodes));
+        Logger.info("[NodeManager] | Layout invalid!",
+            "\n\tFound Core: ", this.getCore(),
+            "\n\tFound extra nodes:", foundNodes.difference(_nodes),
+            "\n\tDidn't find nodes:", _nodes.difference(foundNodes)
+        );
     }
     return isValid;
 };
@@ -902,6 +917,7 @@ AttackNodeManager.prototype.createNode = function (...args) {
         const overlay = NodeSSOverlay(node);
         { // node specific overlays
             const storageType = this.isStorageNode(nodeid);
+            const nodeType = this.getNodeType(nodeid);
             if (storageType) {
                 const oMoneyStorageMesh = SSMaskMesh(
                     this._nodeOverlayData[storageType].geometry,
@@ -913,6 +929,17 @@ AttackNodeManager.prototype.createNode = function (...args) {
                     this._nodeOverlayData[storageType].offset
                 );
                 node.userData.exportData.store.max = node.userData.exportData.store.amount;
+            } else if (nodeType == "core") {
+                const oCoreDownload = SSMaskMesh(
+                    this._nodeOverlayData[nodeType].geometry,
+                    this._nodeOverlayData[nodeType].material.clone()
+                );
+                overlay.userData.addChild(
+                    "bar",
+                    oCoreDownload,
+                    this._nodeOverlayData[nodeType].offset
+                );
+                node.userData.exportData.master.download.amount = node.userData.exportData.master.download.max;
             }
         }
         const oHealthMesh = SSProgressMesh(
@@ -977,6 +1004,11 @@ AttackNodeManager.prototype._updateOverlays = function () {
         if (this.isStorageNode(node.uuid)) {
             const heldPercent = node.userData.exportData.store.amount /
                     node.userData.exportData.store.max;
+            overlay.userData.children.bar.userData.maskOffset.x = 1 - heldPercent;
+            overlay.userData.children.bar.visible = heldPercent != 0 && nodeData.isFriendly;
+        } else if (this.getNodeType(node.uuid) == "core") {
+            const heldPercent = node.userData.exportData.master.download.amount /
+                    node.userData.exportData.master.download.max;
             overlay.userData.children.bar.userData.maskOffset.x = 1 - heldPercent;
             overlay.userData.children.bar.visible = heldPercent != 0 && nodeData.isFriendly;
         }
@@ -1082,11 +1114,12 @@ BuildNodeManager.prototype.createNode = function (...args) {
             this._nodeOverlayData.slots.offset
         );
         this.overlay[overlay.uuid] = overlay;
-    } catch {
+    } catch (err) {
         Logger.error(
             `[BuildNodeManager] | Failed to create overlay for currency node ${nodeid}: Missing node overlay data from `,
             this._nodeOverlayData
         );
+        Logger.warn(err);
     } finally {
         return nodeid;
     }
@@ -1110,6 +1143,14 @@ BuildNodeManager.prototype.getBarracksData = function (nodeid) {
             )
         );
     return node.userData.exportData.rack;
+};
+BuildNodeManager.prototype.removeCompilingAttack = function (nodeid, slotKey) {
+    const botnetData = this.getBotnetData(nodeid);
+    botnetData.active[slotKey].type = undefined; // lazy, dont "need" to reset all of it...
+};
+BuildNodeManager.prototype.removeQueuedAttack = function (nodeid, queueIdx) {
+    const botnetData = this.getBotnetData(nodeid);
+    botnetData.queue.splice(queueIdx, 1);
 };
 BuildNodeManager.prototype.getBotnetData = function (nodeid) {
     const node = this.getNode(nodeid);

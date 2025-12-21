@@ -723,6 +723,7 @@ function mainloop(MenuController) {
                 THREEUTIL.loadGLTFShapes("./source/meshes/cashstore.glb"),
                 THREEUTIL.loadGLTFShapes("./source/meshes/botnet.glb"),
                 THREEUTIL.loadGLTFShapes("./source/meshes/barracks.glb"),
+                THREEUTIL.loadGLTFShapes("./source/meshes/core.glb"),
             ]);
             const sounds = Promise.all([
                 UTIL.loadAudio("./source/audio/pew.mp3", AudioController.ctx),
@@ -742,6 +743,7 @@ function mainloop(MenuController) {
                     cashStoreData,
                     botNetData,
                     barracksData,
+                    coreData,
                     ..._
                 ] = modelData;
                 const [
@@ -770,6 +772,7 @@ function mainloop(MenuController) {
                     cryptostore: () => MESH.Nodes.CryptoStore(cryptoStoreData),
                     botnet: () => MESH.Nodes.Botnet(botNetData),
                     barracks: () => MESH.Nodes.Barracks(barracksData),
+                    core: () => MESH.Nodes.Core(coreData),
                 });
                 WorldController.addMeshData(MESH.SelectionGlobe(worldData, 4));
 

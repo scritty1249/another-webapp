@@ -561,7 +561,6 @@ const Nodes = {
     ) {
         const farm = Node(sceneData.meshes, sceneData.animations);
         farm.userData.type = "cashfarm";
-        farm.scale.setScalar(0.7);
         farm.userData.exportData.maxConnections = 3;
         farm.userData.exportData.currency = {
             type: "cash",
@@ -730,9 +729,10 @@ const Nodes = {
                     1: UTIL.deepCopy(attackTrainingProto),
                     2: UTIL.deepCopy(attackTrainingProto),
                     3: UTIL.deepCopy(attackTrainingProto),
+                    4: UTIL.deepCopy(attackTrainingProto),
                 },
                 queue: [],
-                max: 10
+                max: 12
             };
         }
 
@@ -749,6 +749,38 @@ const Nodes = {
         }
 
         return cube;
+    },
+    Core: function (
+        sceneData,
+        animationOptions = { idle: true, randomize: true }
+    ) {
+        const core = Node(sceneData.meshes, sceneData.animations);
+        core.scale.setScalar(1.5);
+        core.userData.type = "core";
+        core.userData.exportData = {
+            maxConnections: 7,
+            master: {
+                level: 0,
+                logs: {},
+                download: {
+                    amount: 600, // overrided with max value in NodeManager
+                    max: 600
+                },
+            },
+        };
+        if (animationOptions) {
+            if (animationOptions.randomize) {
+                core.userData.mixer.setTime(
+                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
+                );
+                core.rotation.y = UTIL.random(0, Math.PI * 2);
+            }
+            if (animationOptions.idle) {
+                core.userData.animations["idle"].play();
+            }
+        }
+
+        return core;
     },
 };
 

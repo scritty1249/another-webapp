@@ -64,7 +64,7 @@ div.hexagon.alt {
 div.carousel-scroll {
     touch-action: none;
     width: 100%;
-    gap: 10%;
+    gap: 5%;
     display: flex;
     justify-content: space-evenly;
     align-items: center; 
@@ -72,11 +72,8 @@ div.carousel-scroll {
     flex-grow: 0;
     flex-shrink: 0;
     overflow: hidden;
-    mask: linear-gradient(to right, transparent 0%, black 5%, black 90%, transparent 100%);
-    -webkit-mask-composite: exclude;
-    mask-composite: exclude;
     > :first-child {
-        margin-left: 50vw
+        margin-left: 50vw;
     }
     > :last-child {
         margin-right: 50vw;
@@ -84,6 +81,30 @@ div.carousel-scroll {
     > * {
         transition-duration: 0.4s;
     }
+}
+.fade-edges {
+    --maskStartHorizontal: 5%;
+    --maskStopHorizontal: 90%;
+    --maskStartVertical: 5%;
+    --maskStopVertical: 90%;
+    mask: linear-gradient(to right, transparent calc(var(--maskStartHorizontal) - 5%), black var(--maskStartHorizontal), black var(--maskStopHorizontal), transparent calc(var(--maskStopHorizontal) + 5%)),
+        linear-gradient(to top, transparent calc(var(--maskStartVertical) - 5%), black var(--maskStartVertical), black var(--maskStopVertical), transparent calc(var(--maskStopVertical) + 5%));
+    -webkit-mask-composite: intersect;
+    mask-composite: intersect;
+}
+.fade-edges-horizontal {
+    --maskStart: 5%;
+    --maskStop: 90%;
+    mask: linear-gradient(to right, transparent calc(var(--maskStart) - 5%), black var(--maskStart), black var(--maskStop), transparent calc(var(--maskStop) + 5%));
+    -webkit-mask-composite: exclude;
+    mask-composite: exclude;
+}
+.fade-edges-vertical {
+    --maskStart: 5%;
+    --maskStop: 90%;
+    mask: linear-gradient(to top, transparent calc(var(--maskStart) - 5%), black var(--maskStart), black var(--maskStop), transparent calc(var(--maskStop) + 5%));
+    -webkit-mask-composite: exclude;
+    mask-composite: exclude;
 }
 .absolutely-center {
     top: 50%;
@@ -132,6 +153,55 @@ div.carousel-scroll {
 }
 .button {
     background-size: contain;
+}
+.tile-grid:not(.horizontal) {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    grid-auto-flow: row dense;
+    gap: calc(var(--unit) / 10);
+    place-items: center;
+    scrollbar-width: none;
+    > *:nth-child(5n - 4),
+    > *:nth-child(5n - 3) {
+        grid-column: span 3;
+    }
+    > *:nth-child(5n - 4) {
+        justify-self: right;
+    }
+    > *:nth-child(5n - 3) {
+        justify-self: left;
+    }
+
+    > *:nth-child(5n - 2),
+    > *:nth-child(5n - 1),
+    > *:nth-child(5n) {
+        grid-column: span 2;
+    }
+}
+.tile-grid.horizontal {
+    display: grid;
+    grid-template-rows: repeat(6, 1fr);
+    grid-auto-flow: column dense;
+    /* grid-auto-columns: 1fr; */
+    gap: calc(var(--unit) / 10);
+    place-items: center;
+    scrollbar-width: none;
+    > *:nth-child(5n - 4),
+    > *:nth-child(5n - 3) {
+        grid-row: span 3;
+    }
+    > *:nth-child(5n - 4) {
+        align-self: end;
+    }
+    > *:nth-child(5n - 3) {
+        align-self: start;
+    }
+
+    > *:nth-child(5n - 2),
+    > *:nth-child(5n - 1),
+    > *:nth-child(5n) {
+        grid-row: span 2;
+    }
 }
 .hide-scroll,
 #overlay .scrollview {
@@ -260,9 +330,6 @@ div.carousel-scroll {
         height: calc(var(--vh) * 80);
         width: calc(var(--vw) * 90);
         padding: 10% 0;
-        mask: linear-gradient(to top, transparent 0%, black 5%, black 90%, transparent 100%);
-        -webkit-mask-composite: exclude;
-        mask-composite: exclude;
     }
 
     > .nodeMenu {
@@ -423,28 +490,6 @@ div.carousel-scroll {
         position: absolute;
         top: calc(var(--unit) / 2);
         right: calc(var(--unit) / 2);
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        grid-auto-flow: dense;
-        gap: calc(var(--unit) / 10);
-        place-items: center;
-        scrollbar-width: none;
-        > *:nth-child(5n - 4),
-        > *:nth-child(5n - 3) {
-            grid-column: span 3;
-        }
-        > *:nth-child(5n - 4) {
-            justify-self: right;
-        }
-        > *:nth-child(5n - 3) {
-            justify-self: left;
-        }
-
-        > *:nth-child(5n - 2),
-        > *:nth-child(5n - 1),
-        > *:nth-child(5n) {
-            grid-column: span 2;
-        }
         
         &.reveal > * {
             --index: 0; /* used for offsetting animations */
@@ -541,20 +586,89 @@ div.carousel-scroll {
         &.nodeMenus {
             &.botnet {
                 > div {
-                    width: 80%;
+                    display: grid;
+                    grid-template-rows: 2.5fr 3fr 2fr 1fr; 
+                    min-width: 80%;
                     height: 80%;
+                    > * {
+                        place-self: center;
+                    }
+                    .compiling-bar {
+                        grid-row: 1;
+                        overflow-x: scroll;
+                        padding: 0 20%;
+                        > .tile {
+                            --size: min(calc(var(--vh) * 10), calc(var(--vw) * 10));
+                            width: var(--size);
+                            height: var(--size);
+                            background-repeat: no-repeat;
+                            background-size: contain;
+                            &.queued {
+                                opacity: 0.6;
+                            }
+                        }
+                    }
                     .carousel-scroll {
+                        grid-row: 2;
                         touch-action: none;
-                        height: 50%;
+                        width: 100%;
+                        padding: 10%;
+                        margin-bottom: -5%;
                         > .tile {
                             background-repeat: no-repeat;
                             background-size: contain;
-                            --size: calc(var(--vw) * 15);
+                            --size: max(calc(var(--vw) * 15), calc(var(--vh) * 10));
                             min-width: var(--size);
                             min-height: var(--size);
                             width: var(--size);
                             height: var(--size);
                         }
+                    }
+                    .description {
+                        grid-row: 3;
+                        width: 100%;
+                        height: 100%;
+                        > textarea {
+                            padding: 0;
+                        }
+                    }
+                    .compile.button {
+                        grid-row: 4;
+                        --length: 1 !important;
+                        text {
+                            --scale: 2 !important;
+                        }
+                    }
+                }
+            }
+            &.barracks {
+                > div {
+                    display: grid;
+                    grid-template-rows: 1fr 1fr; 
+                    min-width: 80%;
+                    height: 80%;
+                    > * {
+                        place-self: center;
+                    }
+                    .carousel-scroll {
+                        grid-row: 1;
+                        touch-action: none;
+                        width: 100%;
+                        padding: 10%;
+                        > .tile {
+                            background-repeat: no-repeat;
+                            background-size: contain;
+                            --size: max(calc(var(--vw) * 15), calc(var(--vh) * 10));
+                            min-width: var(--size);
+                            min-height: var(--size);
+                            width: var(--size);
+                            height: var(--size);
+                        }
+                    }
+                    .description {
+                        grid-row: 2;
+                        width: 100%;
+                        height: 100%;
                     }
                 }
             }
