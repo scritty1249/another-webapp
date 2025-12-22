@@ -329,7 +329,7 @@ export function MenuManager (
                         img.addEventListener("click", function () {
                             if (!barracks) return; // barracks data uninitialized, nothing to do
                             if (img.dataset.attackCount && Number(img.dataset.attackCount)) {
-                                img.dataset.attackCount = --Number(img.dataset.attackCount);
+                                img.dataset.attackCount = Number(img.dataset.attackCount) - 1;
                                 data.removeAttackCallback(type);
                             }
                         });
