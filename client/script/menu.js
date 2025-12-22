@@ -690,7 +690,7 @@ export function MenuManager (
                 _display: el.style.display,
                 element: el,
                 set text (value) {
-                    this.element.firstChild.value = value;
+                    this.element.firstChild.value = value.replace("\n", "\r\n");
                 },
                 get text () {
                     return this.element.firstChild.value;
