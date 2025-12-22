@@ -208,6 +208,7 @@ export function layoutsEqual(thisLayout, thatLayout) {
 }
 
 export function isLayoutAttackable(layoutObj) { // actually returns number of attacker entry points. 0 entry points is unattackable.
+    if (!layoutObj.layout.neighbors.length) return 0;
     const globeNodes = layoutObj.layout.nodes
         .filter(({type}) => type == "globe");
     const globeIds = globeNodes.map(({uuid}) => uuid);
@@ -306,7 +307,7 @@ export function layoutToJsonObj(scene, nodeManager) {
                 node.userData?.exportData ? node.userData.exportData : {}
             )
         );
-        newIds[node.uuid] = i;
+        newIds[node.uuid] = `${i}`;
     });
     nodeManager.tetherlist.forEach((tether) =>
         data.layout.neighbors.push([

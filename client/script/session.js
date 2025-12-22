@@ -82,26 +82,10 @@ export function setSessionData (gameData = undefined, barracksData = undefined, 
 }
 
 export function wipeLastSavedSessionData() {
-    Storage.set(
-        "lastSavedLayout",
-        undefined,
-        true
-    );
-    Storage.set(
-        "lastSavedBarracks",
-        undefined,
-        true
-    );
-    Storage.set(
-        "lastSavedPurchases",
-        undefined,
-        true
-    );
-    Storage.set(
-        "lastSavedProfileOptions",
-        undefined,
-        true
-    );
+    Storage.remove("lastSavedLayout", true);
+    Storage.remove("lastSavedBarracks", true);
+    Storage.remove("lastSavedPurchases", true);
+    Storage.remove("lastSavedProfileOptions", true);
 }
 
 export function clearSession () {
