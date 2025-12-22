@@ -248,11 +248,14 @@ NodeManager.prototype.resetNodeColorTint = function (nodeid) {
     });
 };
 NodeManager.prototype.getCore = function () {
-    return this.nodelist.filter(n => n.userData.type == "core")?.[0];
+    return this.getTypeNodes("core")?.[0];
 };
 NodeManager.prototype.getCoreData = function () {
     return this.getCore()?.userData.exportData?.master;
-}
+};
+NodeManager.prototype.getTypeNodes = function (type) {
+    return this.nodelist.filter(n => n.userData.type == type);
+};
 NodeManager.prototype.centerNodes = function () {
     // get mean node location
     const mean = new Vector3();
@@ -635,13 +638,16 @@ NodeManager.prototype.getOverlayByTarget = function (targetid) {
     return overlay;
 };
 NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
+    if (
+        this.nodelist.length == 1 &&
+        this.getCore()
+    ) return true;
     const foundNodes = new Set();
     const _collectNodes = (id) => {
         foundNodes.add(id);
     };
     const _nodes = new Set(this.nodelist.map(n => n.uuid));
-    this.nodelist
-        .filter((n) => n.userData.type == "globe")
+    this.getTypeNodes("globe")
         .forEach((n) => this.traverseNodes(n.uuid, _collectNodes, maxGlobeDistance + 1));
     const isValid = foundNodes.size == _nodes.size && this.getCore();
     if (!isValid) {
@@ -1125,14 +1131,9 @@ BuildNodeManager.prototype.createNode = function (...args) {
     }
 };
 BuildNodeManager.prototype.getBarracksNodes = function () { // might not be needed
-    return this.nodelist
-        .filter((n) => n.userData.type == "barracks")
+    return this.getTypeNodes("barracks")
         .toSorted((a, b) =>
             this.getBarracksSpace(b.uuid) - this.getBarracksSpace(a.uuid));
-};
-BuildNodeManager.prototype.getBotnetNodes = function () {
-    return this.nodelist
-        .filter((n) => n.userData.type == "botnet");
 };
 BuildNodeManager.prototype.getBarracksData = function (nodeid) {
     const node = this.getNode(nodeid);
@@ -1196,8 +1197,7 @@ BuildNodeManager.prototype._updateCurrencyNodes = function () {
 };
 BuildNodeManager.prototype._updateBotnetNodes = function () {
     const now = UTIL.getNowUTCSeconds();
-    this.nodelist
-        .filter((n) => n.userData.type == "botnet")
+    this.getTypeNodes("botnet")
         .forEach((node) => this._updateBotetNode(node, now));
 };
 BuildNodeManager.prototype._updateBotetNode = function (node, now) {

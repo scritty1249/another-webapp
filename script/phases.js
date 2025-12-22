@@ -696,7 +696,7 @@ PhaseManager.prototype.buildPhase = function (
                 if (shopType == "addnode") {
                     const nodeType = detail?.nodeType;
                     const nodeDetail = nodeDetails[nodeType];
-                    const nodeCount = nodeController.nodelist.filter(n => n.userData.type == nodeType).length;
+                    const nodeCount = nodeController.getTypeNodes(nodeType).length;
                     const nodeDetailMenuInfo = { // expects {_type, description, cost(str), name, thumb}
                         _type: nodeType,
                         description: nodeDetail.description,
@@ -897,26 +897,6 @@ PhaseManager.prototype._closeLoadingAnimation = function () {
     const el = document.getElementById("loading-animation");
     if (el)
         el.remove();
-};
-PhaseManager.prototype._getReadyAttacks = function () {
-    const attacks = {};
-    // rare javascript win, right here people!
-    this.Managers.Node.nodelist
-        .filter((node) => 
-            node.userData.type == "barracks" &&
-            node.userData.exportData?.rack)
-        .map((node) => node.userData.exportData.rack.array)
-        .reduce((acc, curr) => acc.concat(curr))
-        .filter((attack) => attack?.isAttack)
-        .forEach(({id}) => {
-            if (!attacks[id])
-                attacks[id] = 1;
-            else
-                attacks[id]++;
-        });
-    return Array.from(Object.entries(attacks),
-        ([attackType, attackCount]) => ({type: attackType, amount: attackCount})
-    );
 };
 function AttackManagerWrapper() {
     this._attackManagers = [];

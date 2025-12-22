@@ -535,6 +535,19 @@ function mainloop(MenuController) {
                                         false,
                                         true
                                     );
+                                } else if (
+                                    PhaseController.Managers.Node.getTypeNodes("globe").length <= 0
+                                ) {
+                                    MenuController.when(
+                                        "loadmenu",
+                                        (_) => {
+                                            Logger.warn("Select phase refused: Player does not have a connected Access Port Node.");
+                                            MenuController.close();
+                                            PhaseController.Managers.Overlay.messagePopup("An Access Port Node is required to connect to the global web!", 3000);
+                                        },
+                                        false,
+                                        true
+                                    );
                                 } else {
                                     MenuController.when(
                                         "loadmenu",
@@ -586,44 +599,58 @@ function mainloop(MenuController) {
                                                 detail.statusElement.text =
                                                     "Loading global net";
                                                 if (!Storage.has("currentTargets"))
-                                                    Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT));
-                                                PhaseController.selectPhase(
-                                                    Storage.get("currentTargets"),
-                                                    CONFIG.CURRENCY_THEFT_RATIO,
-                                                    {
-                                                        Refresh: () => {
-                                                            Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT))
-                                                            MenuController._dispatch(
-                                                                "swapphase",
-                                                                {
-                                                                    phase: "select",
-                                                                    refresh: true
-                                                                }
-                                                            );
+                                                    Storage.set(
+                                                        "currentTargets",
+                                                        UTIL.getRandomItems(
+                                                            Storage.get("targets", true)
+                                                                .filter(({game}) => UTIL.isLayoutAttackable(game)),
+                                                            CONFIG.WORLD_TARGET_COUNT
+                                                        )
+                                                    );
+                                                // edge case
+                                                if (Storage.get("currentTargets").length == 0) {
+                                                    Logger.warn("Select phase refused: No other attackable players in the game!");
+                                                    MenuController.close();
+                                                    PhaseController.Managers.Overlay.messagePopup("Lonely error: There are no other attackable players in the game. :(", 2000);
+                                                } else {
+                                                    PhaseController.selectPhase(
+                                                        Storage.get("currentTargets"),
+                                                        CONFIG.CURRENCY_THEFT_RATIO,
+                                                        {
+                                                            Refresh: () => {
+                                                                Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT))
+                                                                MenuController._dispatch(
+                                                                    "swapphase",
+                                                                    {
+                                                                        phase: "select",
+                                                                        refresh: true
+                                                                    }
+                                                                );
+                                                            },
+                                                            Attack: (userid) => {
+                                                                MenuController._dispatch(
+                                                                    "swapphase",
+                                                                    {
+                                                                        phase: "attack",
+                                                                        targetid:
+                                                                            userid,
+                                                                    }
+                                                                );
+                                                            },
+                                                            Build: () => {
+                                                                MenuController._dispatch(
+                                                                    "swapphase",
+                                                                    {
+                                                                        phase: "build",
+                                                                    }
+                                                                );
+                                                            },
                                                         },
-                                                        Attack: (userid) => {
-                                                            MenuController._dispatch(
-                                                                "swapphase",
-                                                                {
-                                                                    phase: "attack",
-                                                                    targetid:
-                                                                        userid,
-                                                                }
-                                                            );
-                                                        },
-                                                        Build: () => {
-                                                            MenuController._dispatch(
-                                                                "swapphase",
-                                                                {
-                                                                    phase: "build",
-                                                                }
-                                                            );
-                                                        },
-                                                    },
-                                                    {
-                                                        background: DataStore.SelectPhaseBackground
-                                                    }
-                                                ).then(() => MenuController.close());
+                                                        {
+                                                            background: DataStore.SelectPhaseBackground
+                                                        }
+                                                    ).then(() => MenuController.close());
+                                                }
                                             }
                                         },
                                         false,
