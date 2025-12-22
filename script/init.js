@@ -610,6 +610,8 @@ function mainloop(MenuController) {
                                                 // edge case
                                                 if (Storage.get("currentTargets").length == 0) {
                                                     Logger.warn("Select phase refused: No other attackable players in the game!");
+                                                    Storage.remove("currentTargets");
+                                                    Storage.remove("targets", true);
                                                     MenuController.close();
                                                     PhaseController.Managers.Overlay.messagePopup("Lonely error: There are no other attackable players in the game. :(", 2000);
                                                 } else {
