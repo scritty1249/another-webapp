@@ -17,6 +17,7 @@ const tetherStepEndColor = new Color(0x000000);
 
 export function PhaseManager(
     scene,
+    camera,
     rendererDom,
     tickspeed,
     controls,
@@ -30,10 +31,13 @@ export function PhaseManager(
         Mouse: this.Managers.Mouse,
         Audio: this.Managers.Audio,
         Effects: this.Managers.Effects,
+        Menu: this.Managers.Menu,
     } = Managers);
+    this._camera = camera;
     this._scene = scene;
     this._controls = controls;
     this._rendererDom = rendererDom;
+    this._attackTypes = DataStore.AttackTypeData(camera);
     this.tick.delta = 0;
     this.tick.interval = tickspeed;
     this.Managers.Attacks = new AttackManagerWrapper();
@@ -47,9 +51,11 @@ export function PhaseManager(
 }
 
 PhaseManager.prototype = {
+    _camera: undefined,
     _scene: undefined,
     _rendererDom: undefined,
     _controls: undefined,
+    _attackTypes: undefined,
     _unloadPhase: undefined,
     phase: undefined,
     tick: {
@@ -66,13 +72,14 @@ PhaseManager.prototype = {
         Attacks: undefined,
         Audio: undefined,
         Effects: undefined,
+        Menu: undefined,
     },
     _constructorArgs: {
         Node: undefined,
         Overlay: undefined,
     },
     get playerLevel () {
-        return this.Managers.Node?.getCoreData()?.level;
+        return this.Managers.Node?.getCore()?.userData.exportData?.level;
     },
 };
 
@@ -93,28 +100,19 @@ PhaseManager.prototype._validateKeys = function (object, expectedNames = []) {
 };
 
 PhaseManager.prototype.selectPhase = function (
-    targets,
-    currencyRatio,
-    callbacks,
     metadata = {},
 ) {
     const self = this;
     Logger.info("[PhaseManager] | Loading Select phase");
     this._unloadPhase();
 
-    if (!this._validateKeys(callbacks, ["Attack", "Build"]))
-        Logger.throw(
-            new Error(
-                "[PhaseManager] | Error initalizing Select Phase. Missing a callback in given arguments."
-            )
-        );
     // setup new phase
     const oldMinZoom = this._controls.camera.minDistance;
     const oldMaxZoom = this._controls.camera.maxDistance;
     this._controls.camera.autoRotate = true;
 
     this._openLoadingAnimation();
-    return UTIL.loadBackgroundTexture(metadata?.background, this._scene)
+    return UTIL.loadBackgroundTexture(DataStore.SelectPhaseBackground, this._scene)
         .then(layoutLoaded => {
             const overlayController = new SelectOverlayManager(
                 ...this._constructorArgs.Overlay
@@ -128,6 +126,7 @@ PhaseManager.prototype.selectPhase = function (
             this._controls.camera.minDistance = (this.Managers.World._mesh.userData.radius * 2) * 1.4;
             this._controls.camera.maxDistance = this._controls.camera.minDistance * 1.7;
             // add targets
+            const targets = Storage.get("currentTargets");
             for (const { geo, id, username } of targets) {
                 const country = self.Managers.World.markOnWorld(geo.lat, geo.long, id);
                 Logger.info("Added marker to " + country);
@@ -157,12 +156,19 @@ PhaseManager.prototype.selectPhase = function (
                 .add("click", function (event) {
                     Logger.info("[PhaseManager] | Fetching new world targets.");
                     self.Managers.World.unfocusCountry(false);
-                    callbacks.Refresh();
+                    Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT))
+                    self.Managers.Menu._dispatch(
+                        "swapphase",
+                        {
+                            phase: "select",
+                            refresh: true
+                        }
+                    );
                 });
             listenerController
                 .listener(overlayController.element.menuButton)
                 .add("click", function (event) {
-                    overlayController._menuManager._dispatch("swapphase", {
+                    self.Managers.Menu._dispatch("swapphase", {
                         phase: "build",
                     });
                 });
@@ -192,14 +198,21 @@ PhaseManager.prototype.selectPhase = function (
                                         ),
                                         ([currencyType, currencyAmount]) =>
                                             `${currencyType}: ${Math.floor(
-                                                currencyRatio * currencyAmount
+                                                CONFIG.CURRENCY_THEFT_RATIO * currencyAmount
                                             )}`
                                     ).join("\n"),
                                 ].join("\n\n")
                                 : "-- No Data Found --";
                             detail.infoElement.align("left");
                             detail.buttonElement.addEventListener("click", () => {
-                                callbacks.Attack(target.id);
+                                self.Managers.Menu._dispatch(
+                                    "swapphase",
+                                    {
+                                        phase: "attack",
+                                        targetid:
+                                            target.id,
+                                    }
+                                );
                             });
                         },
                         false,
@@ -232,12 +245,10 @@ PhaseManager.prototype.selectPhase = function (
 };
 
 PhaseManager.prototype.attackPhase = function (
-    phaseData,
+    overlayData,
+    attackResultCallback,
     layout,
     attackData,
-    attackTypes,
-    nodeTypes,
-    nodeOverlayData,
     metadata = {}
 ) {
     const self = this;
@@ -247,15 +258,15 @@ PhaseManager.prototype.attackPhase = function (
     const attackerData = {};
     const attackerTypeData = {};
     // remove unknown attacks
-    attackerData.attacks = attackData
+    attackerData.attacks = Object.assign({}, attackData);
     Object.keys(attackData).forEach((a) => {
-        if (!attackTypes.hasOwnProperty(a))
+        if (!self._attackTypes.hasOwnProperty(a))
             delete attackerData.attacks[a];
     });
     attackerData.icons = DataStore.AttackerData.icons; // [!]
     // Attacker attacks
     Object.entries(attackerData.attacks).forEach(([type, amount]) => {
-        const typeData = attackTypes[type];
+        const typeData = self._attackTypes[type];
         attackerTypeData[type] = {
             manager: typeData.mesh(amount),
             damage: typeData.damage,
@@ -272,7 +283,7 @@ PhaseManager.prototype.attackPhase = function (
         const cubeCount = layout.layout.nodes
             .map((n) => n.type)
             .filter((t) => t == "cube").length; // need to parse the layout object
-        const typeData = attackTypes[_attackType];
+        const typeData = self._attackTypes[_attackType];
         attackerTypeData[_attackType] = {
             manager: typeData.mesh(cubeCount),
             damage: typeData.damage,
@@ -303,8 +314,9 @@ PhaseManager.prototype.attackPhase = function (
             cash: 0,
             crypto: 0,
         },
+        coreDownload: 0,
         tick: 0,
-        interval: metadata.theftRate,
+        interval: CONFIG.CURRENCY_THEFT_TICKSPEED,
         get capturedStores() {
             return [
                 ...nodeController.getStorageNodes("cash"),
@@ -313,31 +325,40 @@ PhaseManager.prototype.attackPhase = function (
         },
         get theftPromise () {
             const me = this;
+            const coreDownload = nodeController.getCoreData()?.download.max;
             return (async () => {
                 while (
                     self.phase == "attack" &&
-                    me.capturedStores.some(n => n.userData.exportData.store.amount > 0)
+                    (
+                        me.capturedStores.some(n => n.userData.exportData.store.amount > 0) ||
+                        coreDownload > me.coreDownload
+                    )
                 )
                     await new Promise(resolve => setTimeout(resolve, self.tick.interval));
                 return;
             })();
         },
+        download: function (core) {
+            if (core.userData.exportData?.data?.download.amount <= 0) return;
+            core.userData.exportData.data.download.amount--;
+            this.coreDownload++;
+        },
         steal: function (node) {
             // [!] fix redundancy here
-            if (node.userData.exportData?.store)
+            if (node.userData.isStorageNode)
                 if (
-                    node.userData.exportData.store.amount &&
-                    node.userData.exportData.store.amount == node.userData.exportData.store.max
+                    node.userData.exportData.data.amount &&
+                    node.userData.exportData.data.amount == node.userData.exportData.data.max
                 )
                     this.notEmpty.add(node.uuid);
-                else if (!this.emptied.has(node.uuid) && this.notEmpty.has(node.uuid) && node.userData.exportData.store.amount <= 0) {
+                else if (!this.emptied.has(node.uuid) && this.notEmpty.has(node.uuid) && node.userData.exportData.data.amount <= 0) {
                     this.emptied.add(node.uuid);
-                    self.Managers.Audio.play(metadata.sfx?.["emptied-store"], node);
+                    self.Managers.Audio.play(DataStore.AttackSfx["emptied-store"], node);
                     return;
                 }
-            if (node.userData.exportData?.store?.amount <= 0) return;
-            node.userData.exportData.store.amount--;
-            this.stolen[node.userData.exportData.store.type]++;
+            if (node.userData.exportData?.data?.amount <= 0) return;
+            node.userData.exportData.data.amount--;
+            this.stolen[node.userData.exportData.data.type]++;
         },
         update: function () {
             if (this.tick < this.interval) {
@@ -345,6 +366,9 @@ PhaseManager.prototype.attackPhase = function (
                 return;
             }
             this.tick = 0;
+            const core = nodeController.getCore();
+            if (self.Managers.Node.getNodeData(core.uuid)?.isFriendly)
+                this.download(core);
             this.capturedStores.forEach(n => this.steal(n));
         },
     };
@@ -356,18 +380,18 @@ PhaseManager.prototype.attackPhase = function (
             const record = []; // this one isn't offset by any ratios, and will be sent to the database.
             if (cash) {
                 transfer.push({
-                    cash: Math.floor(phaseData.currencyRatio * cash),
+                    cash: Math.floor(CONFIG.CURRENCY_THEFT_RATIO * cash),
                 });
                 record.push({ cash: cash });
             }
             if (crypto) {
                 transfer.push({
-                    crypto: Math.floor(phaseData.currencyRatio * crypto),
+                    crypto: Math.floor(CONFIG.CURRENCY_THEFT_RATIO * crypto),
                 });
                 record.push({ crypto: crypto });
             }
             if (cash || crypto) {
-                phaseData.resultHandler(record);
+                attackResultCallback(record);
                 self.Managers.Overlay._menuManager._dispatch("swapphase", {
                     phase: "build",
                     metadata: { transfer: transfer, barracks: attackerData.attacks},
@@ -395,19 +419,15 @@ PhaseManager.prototype.attackPhase = function (
 
     const nodeController = new AttackNodeManager(
         nodeVictoryCallback,
-        nodeTypes,
         attackerTypeData,
-        nodeOverlayData,
-        metadata.nodeConfig,
         ...this._constructorArgs.Node
     );
     const overlayController = new AttackOverlayManager(
-        phaseData.overlayData,
+        overlayData,
         attackerData,
         ...this._constructorArgs.Overlay
     );
     const listenerController = new ListenerManager();
-
     overlayController.init(this._controls, {
         Mouse: self.Managers.Mouse,
         Node: nodeController,
@@ -444,14 +464,14 @@ PhaseManager.prototype.attackPhase = function (
                     changePhaseCallback();
                 });
             overlayController.startTimer(
-                metadata.timelimit, changePhaseCallback,
+                CONFIG.ATTACK_BASE_SECONDS_LIMIT, changePhaseCallback,
                 5, () => {
                     self.Managers.Effects.vignette.flash(1000)
                         .then(() => self.Managers.Effects.vignette.flash(1000))
                         .then(() => self.Managers.Effects.vignette.flash(1000));
                 }
             );
-            overlayController._menuManager.when("addattack", (detail) => {
+            self.Managers.Menu.when("addattack", (detail) => {
                 const {type, nodeid} = detail;
                 if (
                     nodeController.addAttackToNode(type, nodeid)
@@ -492,8 +512,6 @@ PhaseManager.prototype.attackPhase = function (
 
 PhaseManager.prototype.buildPhase = function (
     layout,
-    nodeOverlayData,
-    nodeDetails,
     metadata = {}
 ) {
     const self = this;
@@ -511,7 +529,6 @@ PhaseManager.prototype.buildPhase = function (
                 barracks[attackType]++;
             Storage.set("localBarracks", barracks);
         },
-        nodeOverlayData,
         ...this._constructorArgs.Node
     );
     const overlayController = new BuildOverlayManager(
@@ -525,7 +542,7 @@ PhaseManager.prototype.buildPhase = function (
                 const nodeType = nodeController.getNodeType(nodeid);
                 // handle the nodes with their own menus
                 if (nodeType == "botnet") {
-                    overlayController._menuManager.when(
+                    self.Managers.Menu.when(
                         "loadmenu", function (detail) {
                             const updateMenu = detail?.update;
                             const _handler = () => {
@@ -534,12 +551,12 @@ PhaseManager.prototype.buildPhase = function (
                             };
                             const _interval = setInterval(_handler, 200);
                             _handler();
-                            overlayController._menuManager.when("clear", function () {
+                            self.Managers.Menu.when("clear", function () {
                                 clearInterval(_interval);
                             }, false, true);
                         }, false, true
                     );
-                    overlayController._menuManager.loadMenu.nodeMenus.botnet(nodeid, {
+                    self.Managers.Menu.loadMenu.nodeMenus.botnet(nodeid, {
                         icons: DataStore.AttackerData.icons,
                         attackDetails: DataStore.AttackerData.attacks,
                         nodeData: nodeController.getBotnetData(nodeid),
@@ -551,7 +568,7 @@ PhaseManager.prototype.buildPhase = function (
                         },
                     });
                 } else if (nodeType == "barracks") {
-                    overlayController._menuManager.when(
+                    self.Managers.Menu.when(
                         "loadmenu", function (detail) {
                             const {updateCarousel, updateMenu} = detail;
                             const _handler = () => updateMenu(Storage.get("localBarracks"));
@@ -559,13 +576,13 @@ PhaseManager.prototype.buildPhase = function (
                             _handler();
                             const _carouselInterval = setInterval(updateCarousel, 200);
                             updateCarousel();
-                            overlayController._menuManager.when("clear", function () {
+                            self.Managers.Menu.when("clear", function () {
                                 clearInterval(_menuInterval);
                                 clearInterval(_carouselInterval);
                             }, false, true);
                         }, false, true
                     );
-                    overlayController._menuManager.loadMenu.nodeMenus.barracks({
+                    self.Managers.Menu.loadMenu.nodeMenus.barracks({
                         icons: DataStore.AttackerData.icons,
                         attackDetails: DataStore.AttackerData.attacks,
                         removeAttackCallback: (type) => {
@@ -578,24 +595,31 @@ PhaseManager.prototype.buildPhase = function (
 
                 } else {
                     // generic node pressed, just display node bio
-                    overlayController._menuManager.when(
+                    self.Managers.Menu.when(
                         "loadmenu",
                         (detail) => {
                             const node =
                                 overlayController._nodeManager.getNode(nodeid);
-                            const nodeDetail = nodeDetails[node.userData.type];
+                            const nodeTypeData = CONFIG.NODES[node.userData.type];
                             const el = detail.infoElement;
                             el.text = [
-                                nodeDetail.name,
+                                nodeTypeData.name,
                                 "\n",
-                                nodeDetail.description,
+                                nodeTypeData.build.description,
+                                "\n",
+                                node.userData.isCurrencyNode
+                                    ? `Collection rate: ${node.userData.exportData.data.rate}/hour`
+                                    : "",
+                                node.userData.isStorageNode || node.userData.isCurrencyNode
+                                    ? `Stored: ${node.userData.exportData.data.amount}/${node.userData.exportData.data.max} ${node.userData.exportData.data.type}`
+                                    : "",
                                 "Costs: " +
-                                    (nodeDetail.cost
-                                        ? `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`
+                                    (nodeTypeData.build.buy
+                                        ? `${nodeTypeData.build.buy.amount} ${nodeTypeData.build.buy.type}`
                                         : "Free"),
                                 "Sell Value: " +
-                                    (nodeDetail.sell
-                                        ? `${nodeDetail.sell.amount} ${nodeDetail.sell.type}`
+                                    (nodeTypeData.build.buy
+                                        ? `${Math.floor(nodeTypeData.build.buy.amount * CONFIG.NODE_REFUND_RATIO)} ${nodeTypeData.build.buy.type}`
                                         : "None"),
                             ].join("\n\n");
                             el.align("left");
@@ -603,7 +627,7 @@ PhaseManager.prototype.buildPhase = function (
                         false,
                         true
                     );
-                    overlayController._menuManager.open(["nodeInfo"]);
+                    self.Managers.Menu.open(["nodeInfo"]);
                 }
             },
         },
@@ -660,15 +684,15 @@ PhaseManager.prototype.buildPhase = function (
             if (metadata.barracks) {
                 Storage.set("localBarracks", metadata.barracks);
             }
-            overlayController._menuManager.when("addnode", (detail) => {
-                const cost = nodeDetails[detail.nodeType]?.cost;
+            self.Managers.Menu.when("addnode", (detail) => {
+                const cost = CONFIG.NODES[detail.nodeType]?.build.buy;
                 const bankData = bankController.bank;
                 if (!detail?.free && cost) {
                     if (bankData[cost.type].amount - cost.amount < 0) {
                         overlayController.messagePopup(
                             `Cannot create new Node: Insufficient currency.`
                         );
-                        overlayController._menuManager.close();
+                        self.Managers.Menu.close();
                         return;
                     } else {
                         nodeController.removeCurrency(cost.type, cost.amount);
@@ -679,48 +703,58 @@ PhaseManager.prototype.buildPhase = function (
                     detail.nodeType,
                     Array.from({ length: 3 }, (_) => UTIL.random(0.001, 0.002))
                 ); // generate random offset so repulsion forces can take effect
-                overlayController._menuManager.close();
+                self.Managers.Menu.close();
             });
-            overlayController._menuManager.when("backgroundchange", (detail) => {
+            self.Managers.Menu.when("backgroundchange", (detail) => {
                 const bg = detail?.background;
                 if (bg)
                     UTIL.loadBackgroundTexture(bg, self._scene)
                         .then(() => {
-                            overlayController._menuManager.close();
+                            self.Managers.Menu.close();
                         });
             });
 
             // shop menu
-            overlayController._menuManager.when("shopdisplay", (detail) => {
+            self.Managers.Menu.when("shopdisplay", (detail) => {
                 const shopType = detail?.shop;
                 if (shopType == "addnode") {
                     const nodeType = detail?.nodeType;
-                    const nodeDetail = nodeDetails[nodeType];
+                    const nodeTypeData = CONFIG.NODES[nodeType];
+                    const nodeIcon = DataStore.BuilderData.icons[nodeType];
                     const nodeCount = nodeController.getTypeNodes(nodeType).length;
                     const nodeDetailMenuInfo = { // expects {_type, description, cost(str), name, thumb}
                         _type: nodeType,
-                        description: nodeDetail.description,
-                        name: nodeDetail.name,
-                        thumb: nodeDetail.thumb,
+                        description: nodeTypeData.build.description,
+                        name: nodeTypeData.name,
+                        thumb: nodeIcon,
                     };
-                    if (nodeCount >= Math.floor(nodeDetail.limit.base + (nodeDetail.limit.increase * self.playerLevel))) {
+                    if (
+                        nodeCount >= Math.floor(
+                            nodeTypeData.build.limit.base + (
+                                nodeTypeData.build.limit.increase * (
+                                    self.playerLevel - nodeTypeData.unlock
+                                )
+                            )
+                        ) ||
+                        self.playerLevel < nodeTypeData.unlock
+                    ) {
                         nodeDetailMenuInfo.cost = undefined;
                     } else if (
-                        (nodeDetail.freecount && nodeCount < nodeDetail.freecount) ||
-                        !nodeDetail.cost
+                        (nodeTypeData.build.freeCount && nodeCount < nodeTypeData.build.freeCount) ||
+                        !nodeTypeData.build.buy
                     ) {
                         nodeDetailMenuInfo.free = true;
                     } else {
-                        nodeDetailMenuInfo.cost = `${nodeDetail.cost.amount} ${nodeDetail.cost.type}`;
+                        nodeDetailMenuInfo.cost = `${nodeTypeData.build.buy.amount} ${nodeTypeData.build.buy.type}`;
                     }
-                    overlayController._menuManager.loadMenu.addNode.nodeDetail(
+                    self.Managers.Menu.loadMenu.addNode.nodeDetail(
                         nodeDetailMenuInfo,
                         detail?.typeMenu
                     );
                 }
 
             });
-            overlayController._menuManager.when("compileattack", (detail) => {
+            self.Managers.Menu.when("compileattack", (detail) => {
                 const {attackType, nodeid} = detail;
                 const cost = DataStore.AttackerData.attacks[attackType]?.cost;
                 const bankData = bankController.bank;
@@ -812,8 +846,8 @@ PhaseManager.prototype.buildPhase = function (
                             overlayController.focusNode(clickedNodeId);
                             self.Managers.Audio.play("click-focus", node);
                             {
-                                if (nodeDetails[node.userData.type]?.highlightSteps) {
-                                    const maxSteps = nodeDetails[node.userData.type].highlightSteps;
+                                const maxSteps = CONFIG.NODES[node.userData.type]?.build.highlightSteps;
+                                if (maxSteps) {
                                     nodeController.tetherlist
                                         .forEach((t) => t.material.color.set(tetherStepEndColor));
                                     nodeController.traverseTethers(clickedNodeId, function (tether, depth, sourceid) {
@@ -833,7 +867,7 @@ PhaseManager.prototype.buildPhase = function (
             listenerController
                 .listener(overlayController.element.menuButton)
                 .add("click", function (event) {
-                    overlayController._menuManager.open();
+                    self.Managers.Menu.open();
                 });
 
             this.Managers.Node = nodeController;

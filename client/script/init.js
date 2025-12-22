@@ -249,6 +249,7 @@ function mainloop(MenuController) {
 
             const PhaseController = new PhaseManager(
                 scene,
+                camera,
                 renderer.domElement,
                 CONFIG.TICKSPEED,
                 controls,
@@ -260,6 +261,7 @@ function mainloop(MenuController) {
                     Mouse: MouseController,
                     Audio: AudioController,
                     Effects: effects,
+                    Menu: MenuController,
                 }
             );
 
@@ -281,8 +283,8 @@ function mainloop(MenuController) {
                                 Storage.get("localLayout")
                             )
                         ) {
-                            Logger.log("saved changed layout");
                             Storage.set("localLayout", currLayout);
+                            Logger.log("Saved changed layout");
                         }
                     } else if (event?.returnValue !== undefined)
                         event.returnValue =
@@ -376,8 +378,6 @@ function mainloop(MenuController) {
                                                 "Loading profile";
                                             PhaseController.buildPhase(
                                                 Storage.get("localLayout"),
-                                                DataStore.BuildNodeOverlayData,
-                                                DataStore.NodeDetailedInfo,
                                                 dt?.metadata ? dt.metadata : {}
                                             ).then(() => {
                                                 MenuController.close();
@@ -455,39 +455,23 @@ function mainloop(MenuController) {
                                             if (targetData) {
                                                 detail.statusElement.text = `Tracing Target: ${targetData.username}`;
                                                 PhaseController.attackPhase(
-                                                    {
-                                                        currencyRatio: CONFIG.CURRENCY_THEFT_RATIO,
-                                                        overlayData: {
-                                                            username:
-                                                                targetData.username,
-                                                        },
-                                                        resultHandler: (rewards) => {
-                                                            const attackResultPayload = {
-                                                                username: CookieJar.get("username"),
-                                                                timestamp: UTIL.getNowUTCSeconds(),
-                                                                id: CookieJar.get("userid"),
-                                                                processed: false,
-                                                                losses: rewards
-                                                            };
-                                                            Session.sendAttackResult(targetData.id, attackResultPayload)
-                                                                .then(res => {if (res) Logger.info("Successfully sent attack result data.")});
-                                                        },
+                                                    { // overlay data
+                                                        username:
+                                                            targetData.username,
+                                                    },
+                                                    (rewards) => { // Attack result callback
+                                                        const attackResultPayload = {
+                                                            username: CookieJar.get("username"),
+                                                            timestamp: UTIL.getNowUTCSeconds(),
+                                                            id: CookieJar.get("userid"),
+                                                            processed: false,
+                                                            losses: rewards
+                                                        };
+                                                        Session.sendAttackResult(targetData.id, attackResultPayload)
+                                                            .then(res => {if (res) Logger.info("Successfully sent attack result data.")});
                                                     },
                                                     targetData.game,
                                                     Storage.get("localBarracks"),
-                                                    DataStore.AttackTypeData(camera),
-                                                    DataStore.AttackNodeTypeData,
-                                                    DataStore.AttackNodeOverlayData,
-                                                    {
-                                                        sfx: DataStore.AttackSfx,
-                                                        timelimit: CONFIG.ATTACK_BASE_SECONDS_LIMIT,
-                                                        theftRate: CONFIG.CURRENCY_THEFT_TICKSPEED,
-                                                        nodeConfig: {
-                                                            regenDelay: CONFIG.ATTACK_NODE_REGEN_DELAY,
-                                                            friendlyColor: CONFIG.FRIENDLY_NODE_COLOR,
-                                                            friendlyTint: CONFIG.FRIENDLY_NODE_TINT,
-                                                        },
-                                                    }
                                                 ).then(() => MenuController.close());
                                                 MenuController.close();
                                             } else {
@@ -615,43 +599,8 @@ function mainloop(MenuController) {
                                                     MenuController.close();
                                                     PhaseController.Managers.Overlay.messagePopup("Lonely error: There are no other attackable players in the game. :(", 2000);
                                                 } else {
-                                                    PhaseController.selectPhase(
-                                                        Storage.get("currentTargets"),
-                                                        CONFIG.CURRENCY_THEFT_RATIO,
-                                                        {
-                                                            Refresh: () => {
-                                                                Storage.set("currentTargets", UTIL.getRandomItems(Storage.get("targets", true), CONFIG.WORLD_TARGET_COUNT))
-                                                                MenuController._dispatch(
-                                                                    "swapphase",
-                                                                    {
-                                                                        phase: "select",
-                                                                        refresh: true
-                                                                    }
-                                                                );
-                                                            },
-                                                            Attack: (userid) => {
-                                                                MenuController._dispatch(
-                                                                    "swapphase",
-                                                                    {
-                                                                        phase: "attack",
-                                                                        targetid:
-                                                                            userid,
-                                                                    }
-                                                                );
-                                                            },
-                                                            Build: () => {
-                                                                MenuController._dispatch(
-                                                                    "swapphase",
-                                                                    {
-                                                                        phase: "build",
-                                                                    }
-                                                                );
-                                                            },
-                                                        },
-                                                        {
-                                                            background: DataStore.SelectPhaseBackground
-                                                        }
-                                                    ).then(() => MenuController.close());
+                                                    PhaseController.selectPhase()
+                                                        .then(() => MenuController.close());
                                                 }
                                             }
                                         },

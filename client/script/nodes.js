@@ -7,6 +7,7 @@ import {
     SSMaskMesh,
     SSNodeSlotsMesh,
 } from "./spritesheet.js";
+import { DataStore } from "./data.js";
 
 export function NodeManager(
     scene,
@@ -184,7 +185,6 @@ NodeManager.prototype = {
     _nodelist: [],
     _tethers: {},
     _tetherlist: [],
-    _nodeOverlayData: undefined,
     overlay: undefined,
     overlaylist: undefined,
     _overlay: undefined,
@@ -251,7 +251,7 @@ NodeManager.prototype.getCore = function () {
     return this.getTypeNodes("core")?.[0];
 };
 NodeManager.prototype.getCoreData = function () {
-    return this.getCore()?.userData.exportData?.master;
+    return this.getCore()?.userData.exportData?.data;
 };
 NodeManager.prototype.getTypeNodes = function (type) {
     return this.nodelist.filter(n => n.userData.type == type);
@@ -357,10 +357,7 @@ NodeManager.prototype.createNode = function (
 ) {
     const newNode = this._getMesh(nodeType);
     if (newNode.userData.exportData)
-        newNode.userData.exportData = {
-            ...newNode.userData.exportData,
-            ...exportData,
-        };
+        Object.assign(newNode.userData.exportData, exportData);
     else newNode.userData.exportData = exportData;
     newNode.userData._neighborCount = 0;
     if (position.x) newNode.position.set(position.x, position.y, position.z);
@@ -432,7 +429,6 @@ NodeManager.prototype.clear = function () {
     nodes.forEach((n) => delete this.nodes[n.uuid]);
     const overlays = [...this.overlaylist];
     overlays.forEach((o) => delete this.overlay[o.uuid]);
-    delete this._nodeOverlayData;
     Logger.debug(
         `[NodeManager] | Cleared ${nodes.length} nodes and ${tethers.length} tethers`
     );
@@ -455,12 +451,12 @@ NodeManager.prototype._tetherNodes = function (origin, target) {
 NodeManager.prototype.tetherNodes = function (originid, targetid) {
     const [origin, target] = this.getNodes(originid, targetid);
     if (
-        (origin.userData.exportData?.maxConnections === undefined ||
+        (origin.userData.exportData?.dataConnections === undefined ||
             this.getNeighbors(originid).length <
-                origin.userData.exportData.maxConnections) &&
-        (target.userData.exportData?.maxConnections === undefined ||
+                origin.userData.exportData?.dataConnections) &&
+        (target.userData.exportData?.dataConnections === undefined ||
             this.getNeighbors(targetid).length <
-                target.userData.exportData.maxConnections)
+                target.userData.exportData?.dataConnections)
     ) {
         const tether = this._tetherNodes(origin, target);
         if (origin?.userData?._neighborCount !== undefined)
@@ -546,9 +542,9 @@ NodeManager.prototype._updateTethers = function () {
 NodeManager.prototype.getStoredCurrency = function (currencyType) {
     const nodes = this.getStorageNodes(currencyType);
     const amount = UTIL.sum(nodes
-        .map((n) => n.userData.exportData.store.amount));
+        .map((n) => n.userData.exportData?.data.amount));
     const total = UTIL.sum(nodes
-        .map((n) => n.userData.exportData.store.max));
+        .map((n) => n.userData.exportData?.data.max));
     return {
         amount: amount ? amount : 0,
         max: total ? total : 0,
@@ -556,38 +552,40 @@ NodeManager.prototype.getStoredCurrency = function (currencyType) {
 };
 NodeManager.prototype.isCurrencyNode = function (nodeid) {
     const node = this.getNode(nodeid);
-    if (node?.userData.exportData?.currency !== undefined)
-        return node.userData.exportData.currency.type;
+    if (node?.userData.isCurrencyNode)
+        return node.userData.exportData?.data.type;
     return undefined;
 };
 NodeManager.prototype.isStorageNode = function (nodeid) {
     const node = this.getNode(nodeid);
-    if (node?.userData.exportData?.store !== undefined)
-        return node.userData.exportData.store.type;
+    if (node?.userData.isStorageNode)
+        return node.userData.exportData?.data.type;
     return undefined;
 };
 NodeManager.prototype.getStorageNodes = function (currencyType) { // returns sorted from most to least empty
     if (!currencyType) return [];
     return this.nodelist.filter(
-        (n) => n.userData.exportData?.store?.type == currencyType
+        (n) => n.userData.isStorageNode &&
+            n.userData.exportData?.data?.type == currencyType
     ).toSorted(
         (a, b) =>
-            (b.userData.exportData.store.max -
-                b.userData.exportData.store.amount) -
-            (a.userData.exportData.store.max -
-                a.userData.exportData.store.amount)
+            (b.userData.exportData?.data.max -
+                b.userData.exportData?.data.amount) -
+            (a.userData.exportData?.data.max -
+                a.userData.exportData?.data.amount)
     );
 };
 NodeManager.prototype.getCurrencyNodes = function (currencyType) { // returns sorted from most to least empty
     if (!currencyType) return [];
     return this.nodelist.filter(
-        (n) => n.userData.exportData?.currency?.type == currencyType
+        (n) => n.userData.isCurrencyNode &&
+            n.userData.exportData?.data?.type == currencyType
     ).toSorted(
         (a, b) =>
-            (b.userData.exportData.currency.max -
-                b.userData.exportData.currency.amount) -
-            (a.userData.exportData.currency.max -
-                a.userData.exportData.currency.amount)
+            (b.userData.exportData?.data.max -
+                b.userData.exportData?.data.amount) -
+            (a.userData.exportData?.data.max -
+                a.userData.exportData?.data.amount)
     );
 };
 NodeManager.prototype.getCurrencyData = function (nodeid) {
@@ -598,7 +596,7 @@ NodeManager.prototype.getCurrencyData = function (nodeid) {
             )
         );
     const node = this.getNode(nodeid);
-    return node.userData.exportData.currency;
+    return node.userData.exportData?.data;
 };
 NodeManager.prototype.getStorageData = function (nodeid) {
     if (!this.isStorageNode(nodeid))
@@ -608,7 +606,7 @@ NodeManager.prototype.getStorageData = function (nodeid) {
             )
         );
     const node = this.getNode(nodeid);
-    return node.userData.exportData.store;
+    return node.userData.exportData?.data;
 };
 NodeManager.prototype._updateOverlays = function () {
     this.overlaylist.forEach((overlay) => {
@@ -662,17 +660,11 @@ NodeManager.prototype.validateLayout = function (maxGlobeDistance) {
 
 export function AttackNodeManager(
     phaseCallback,
-    nodeTypeData = {},
     attackTypeData = {},
-    nodeOverlayData = {},
-    configData = {},
     ...parentArgs
 ) {
     NodeManager.call(this, ...parentArgs);
-    this._configData = configData;
     this._phaseCallback = phaseCallback;
-    this._nodeOverlayData = nodeOverlayData;
-    this._nodeTypeData = nodeTypeData;
     this._attackTypeData = attackTypeData;
     this._nodedata = {};
     this._attacks = {};
@@ -785,7 +777,6 @@ AttackNodeManager.prototype._proxyHandlers = {
         },
     },
 };
-AttackNodeManager.prototype._nodeTypeData = undefined;
 AttackNodeManager.prototype._attackTypeData = undefined;
 
 AttackNodeManager.prototype._nodedata = undefined;
@@ -846,15 +837,6 @@ AttackNodeManager.prototype.getNodeData = function (nodeid) {
     }
     return nodeData;
 };
-AttackNodeManager.prototype._getNodeTypeData = function (nodeType) {
-    if (!this._nodeTypeData.hasOwnProperty(nodeType))
-        Logger.throw(
-            new Error(
-                `[AttackNodeManager] | Could not retrieve node data for type "${nodeType}"`
-            )
-        );
-    return this._nodeTypeData[nodeType];
-};
 AttackNodeManager.prototype._getAttackTypeData = function (attackType) {
     if (!this._attackTypeData.hasOwnProperty(attackType))
         Logger.throw(
@@ -870,11 +852,15 @@ AttackNodeManager.prototype.isAllNodesFriendly = function () {
 AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
     const node = this.getNode(nodeid);
     const nodeData = this.getNodeData(nodeid);
-    const nodeTypeData = this._getNodeTypeData(node.userData.type);
+    const nodeTypeData = CONFIG.NODES[node.userData.type].attack;
     nodeData.slots.clear();
     if (node.userData.type != "globe") {
         nodeData.friendly = true;
-        nodeData.hp.set(nodeTypeData.health / 2);
+        nodeData.hp.set(
+            nodeTypeData.health.base + Math.floor(
+                nodeTypeData.health.increase * node.userData.exportData.level
+            )
+        / 2);
         nodeData.state.reset();
         nodeData.lastHit.reset();
         node.userData._altMaterials.apply(node);
@@ -885,13 +871,17 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
 AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
     const node = this.getNode(nodeid);
     const nodeData = this.getNodeData(nodeid);
-    const nodeTypeData = this._getNodeTypeData(node.userData.type);
+    const nodeTypeData = CONFIG.NODES[node.userData.type];
     nodeData.slots.clear();
     if (node.userData.type == "cube")
         this.addAttackToNode("cubedefense", node.uuid);
     if (node.userData.type != "globe") {
         nodeData.friendly = false;
-        nodeData.hp.set(nodeTypeData.health);
+        nodeData.hp.set(
+            nodeTypeData.health.base + Math.floor(
+                nodeTypeData.health.increase * node.userData.exportData.level
+            )
+        );
         nodeData.state.reset();
         nodeData.lastHit.reset();
         node.userData.materials.apply(node);
@@ -900,9 +890,9 @@ AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
 AttackNodeManager.prototype._initAlternateMaterials = function (node) {
     const table = node.userData.materials;
     const altTable = table.clone();
-    const altTint = new Color(this._configData.friendlyTint);
+    const altTint = new Color(CONFIG.FRIENDLY_NODE_TINT);
     Object.values(altTable.index).forEach(({material}) => {
-        material.emissive.set(this._configData.friendlyColor);
+        material.emissive.set(CONFIG.FRIENDLY_NODE_COLOR);
         material.color.lerpColors(
             material.color,
             altTint,
@@ -913,55 +903,55 @@ AttackNodeManager.prototype._initAlternateMaterials = function (node) {
 };
 AttackNodeManager.prototype.createNode = function (...args) {
     const nodeid = NodeManager.prototype.createNode.call(this, ...args);
+    const OverlayData = DataStore.NodeOverlay.Attack;
     try {
         const node = this.getNode(nodeid);
         { // save original colors, for swapping with alternate color (friendly / enemy)
             this._initAlternateMaterials(node);
 
         }
-
         const overlay = NodeSSOverlay(node);
         { // node specific overlays
             const storageType = this.isStorageNode(nodeid);
             const nodeType = this.getNodeType(nodeid);
             if (storageType) {
                 const oMoneyStorageMesh = SSMaskMesh(
-                    this._nodeOverlayData[storageType].geometry,
-                    this._nodeOverlayData[storageType].material.clone()
+                    OverlayData[storageType].geometry,
+                    OverlayData[storageType].material.clone()
                 );
                 overlay.userData.addChild(
                     "bar",
                     oMoneyStorageMesh,
-                    this._nodeOverlayData[storageType].offset
+                    OverlayData[storageType].offset
                 );
-                node.userData.exportData.store.max = node.userData.exportData.store.amount;
+                node.userData.exportData.data.max = node.userData.exportData?.data.amount;
             } else if (nodeType == "core") {
                 const oCoreDownload = SSMaskMesh(
-                    this._nodeOverlayData[nodeType].geometry,
-                    this._nodeOverlayData[nodeType].material.clone()
+                    OverlayData[nodeType].geometry,
+                    OverlayData[nodeType].material.clone()
                 );
                 overlay.userData.addChild(
                     "bar",
                     oCoreDownload,
-                    this._nodeOverlayData[nodeType].offset
+                    OverlayData[nodeType].offset
                 );
-                node.userData.exportData.master.download.amount = node.userData.exportData.master.download.max;
+                node.userData.exportData.data.download.amount = node.userData.exportData?.data.download.max;
             }
         }
         const oHealthMesh = SSProgressMesh(
-            this._nodeOverlayData.health.geometry,
-            this._nodeOverlayData.health.material.clone()
+            OverlayData.health.geometry,
+            OverlayData.health.material.clone()
         );
         overlay.userData.addChild(
             "health",
             oHealthMesh,
-            this._nodeOverlayData.health.offset
+            OverlayData.health.offset
         );
         this.overlay[overlay.uuid] = overlay;
     } catch (err) {
         Logger.error(
             `[AttackNodeManager] | Failed to create overlay for node ${nodeid}: Missing node overlay data from `,
-            this._nodeOverlayData
+            OverlayData
         );
         Logger.debug(err);
     } finally {
@@ -1008,13 +998,13 @@ AttackNodeManager.prototype._updateOverlays = function () {
         overlay.userData.children.health.userData.progress = healthPercent;
         overlay.userData.children.health.visible = healthPercent != 1;
         if (this.isStorageNode(node.uuid)) {
-            const heldPercent = node.userData.exportData.store.amount /
-                    node.userData.exportData.store.max;
+            const heldPercent = node.userData.exportData?.data.amount /
+                    node.userData.exportData?.data.max;
             overlay.userData.children.bar.userData.maskOffset.x = 1 - heldPercent;
             overlay.userData.children.bar.visible = heldPercent != 0 && nodeData.isFriendly;
         } else if (this.getNodeType(node.uuid) == "core") {
-            const heldPercent = node.userData.exportData.master.download.amount /
-                    node.userData.exportData.master.download.max;
+            const heldPercent = node.userData.exportData?.data.download.amount /
+                    node.userData.exportData?.data.download.max;
             overlay.userData.children.bar.userData.maskOffset.x = 1 - heldPercent;
             overlay.userData.children.bar.visible = heldPercent != 0 && nodeData.isFriendly;
         }
@@ -1036,11 +1026,11 @@ AttackNodeManager.prototype._updateAnimations = function (timedelta) {
 AttackNodeManager.prototype._updateNodeData = function () { // should be handled seperately, per tick.
     this.nodelist.forEach((node) => {
         const nodeData = this.getNodeData(node.uuid);
-        const typeData = this._getNodeTypeData(node.userData.type);
+        const typeData = CONFIG.NODES[node.userData.type].attack;
         // apply regen
         if (
             nodeData.hp.health < nodeData.hp.maxHealth &&
-            nodeData.timeSinceLastHit > this._configData.regenDelay
+            nodeData.timeSinceLastHit > CONFIG.ATTACK_NODE_REGEN_DELAY
         )
             nodeData.hp.applyHeal(nodeData.hp.maxHealth * typeData.regen);
     });
@@ -1058,7 +1048,6 @@ AttackNodeManager.prototype.update = function (timedelta) {
 AttackNodeManager.prototype.clear = function () {
     NodeManager.prototype.clear.call(this);
     this.attacklist.forEach((a) => delete this.attacks[a.uuid]);
-    delete this._nodeTypeData;
     delete this._attackTypeData;
     delete this._nodedata;
     delete this.attacks;
@@ -1067,9 +1056,8 @@ AttackNodeManager.prototype.clear = function () {
     delete this._attacklist;
 };
 
-export function BuildNodeManager(onAttackCompileCallback, nodeOverlayData, ...parentArgs) {
+export function BuildNodeManager(onAttackCompileCallback, ...parentArgs) {
     NodeManager.call(this, ...parentArgs);
-    this._nodeOverlayData = nodeOverlayData;
     this._attackCompiledCallback = onAttackCompileCallback;
 }
 BuildNodeManager.prototype = Object.create(NodeManager.prototype);
@@ -1079,6 +1067,7 @@ BuildNodeManager.prototype._proxyHandlers = {
 };
 BuildNodeManager.prototype.createNode = function (...args) {
     const nodeid = NodeManager.prototype.createNode.call(this, ...args);
+    const OverlayData = DataStore.NodeOverlay.Build;
     try {
         const node = this.getNode(nodeid);
         const overlay = NodeSSOverlay(node);
@@ -1087,43 +1076,43 @@ BuildNodeManager.prototype.createNode = function (...args) {
             const storageType = this.isStorageNode(nodeid);
             if (currencyType) {
                 const oMoneyBarMesh = SSMaskMesh(
-                    this._nodeOverlayData[currencyType].geometry,
-                    this._nodeOverlayData[currencyType].material.clone()
+                    OverlayData[currencyType].geometry,
+                    OverlayData[currencyType].material.clone()
                 );
                 overlay.userData.addChild(
                     "bar",
                     oMoneyBarMesh,
-                    this._nodeOverlayData[currencyType].offset
+                    OverlayData[currencyType].offset
                 );
             } else if (storageType) {
                 const oMoneyStorageMesh = SSMaskMesh(
-                    this._nodeOverlayData[storageType].geometry,
-                    this._nodeOverlayData[storageType].material.clone()
+                    OverlayData[storageType].geometry,
+                    OverlayData[storageType].material.clone()
                 );
                 overlay.userData.addChild(
                     "bar",
                     oMoneyStorageMesh,
-                    this._nodeOverlayData[storageType].offset
+                    OverlayData[storageType].offset
                 );
             }
         }
         const oSlotsMesh = SSNodeSlotsMesh(
-            this._nodeOverlayData.slots.geometry,
-            this._nodeOverlayData.slots.material.clone(),
-            this._nodeOverlayData.slots.tiles
+            OverlayData.slots.geometry,
+            OverlayData.slots.material.clone(),
+            OverlayData.slots.tiles
         );
         if (node.userData.exportData?.maxConnections)
-            oSlotsMesh.userData.slots = node.userData.exportData.maxConnections;
+            oSlotsMesh.userData.slots = node.userData.exportData?.maxConnections;
         overlay.userData.addChild(
             "slots",
             oSlotsMesh,
-            this._nodeOverlayData.slots.offset
+            OverlayData.slots.offset
         );
         this.overlay[overlay.uuid] = overlay;
     } catch (err) {
         Logger.error(
             `[BuildNodeManager] | Failed to create overlay for currency node ${nodeid}: Missing node overlay data from `,
-            this._nodeOverlayData
+            OverlayData
         );
         Logger.warn(err);
     } finally {
@@ -1143,7 +1132,7 @@ BuildNodeManager.prototype.getBarracksData = function (nodeid) {
                 `[BuildNodeManager] | Failed to get barracks data from node ${nodeid}: Not a barracks node.`
             )
         );
-    return node.userData.exportData.rack;
+    return node.userData.exportData?.data;
 };
 BuildNodeManager.prototype.removeCompilingAttack = function (nodeid, slotKey) {
     const botnetData = this.getBotnetData(nodeid);
@@ -1161,10 +1150,10 @@ BuildNodeManager.prototype.getBotnetData = function (nodeid) {
                 `[BuildNodeManager] | Failed to get botnet data from node ${nodeid}: Not a botnet node.`
             )
         );
-    return node.userData.exportData.training;
+    return node.userData.exportData?.data;
 };
 BuildNodeManager.prototype.getBarracksCapacity = function () { // gets total capacity
-    return UTIL.sum(this.getBarracksNodes().map((n) => n.userData.exportData?.rack ? n.userData.exportData?.rack.max : 0));
+    return UTIL.sum(this.getBarracksNodes().map((n) => n.userData.exportData?.data ? n.userData.exportData?.data.max : 0));
 };
 BuildNodeManager.prototype.queueCompile = function (nodeid, attackType, compileDuration) { // train attack
     const botnetData = this.getBotnetData(nodeid);
@@ -1177,9 +1166,9 @@ BuildNodeManager.prototype._updateCurrencyNodes = function () {
     // doesn't go off of timedelta- more accurate / convienient just use current time
     const now = UTIL.getNowUTCSeconds();
     this.nodelist
-        .filter(n => n.userData.exportData?.currency)
+        .filter(n => n.userData.exportData?.data)
         .forEach((node) => {
-            const currencyData = node.userData.exportData.currency;
+            const currencyData = node.userData.exportData?.data;
             if (currencyData.amount != currencyData.max && currencyData.rate) {
                 const elapsedSeconds = Math.max(0, now - currencyData.lastUpdated);
                 const ratePerSecond = currencyData.rate / 60 / 60; // stored rate is per hour
@@ -1201,7 +1190,7 @@ BuildNodeManager.prototype._updateBotnetNodes = function () {
         .forEach((node) => this._updateBotetNode(node, now));
 };
 BuildNodeManager.prototype._updateBotetNode = function (node, now) {
-    const trainingData = node.userData.exportData.training;
+    const trainingData = node.userData.exportData?.data;
     Object.entries(trainingData.active).forEach(([idx, {type, started, duration}]) => {
         if (type && started + duration > now) return;
         if (type) {
@@ -1229,7 +1218,7 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
                 `[BuildNodeManager] | Cannot collect from node ${nodeid} (${node.userData.type}): Not a currency Node.`
             )
         );
-    const currencyData = node.userData.exportData.currency;
+    const currencyData = node.userData.exportData?.data;
     const storageData = this.getStoredCurrency(currencyData.type);
     if (storageData.max <= storageData.amount) return false;
     const amount = currencyData.amount;
@@ -1246,11 +1235,11 @@ BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
     let nodeIdx = 0;
     let remaining = amount;
     while (remaining && nodeIdx < nodes.length) {
-        if (nodes[nodeIdx].userData.exportData.store.amount >= nodes[nodeIdx].userData.exportData.store.max) {
+        if (nodes[nodeIdx].userData.exportData?.data.amount >= nodes[nodeIdx].userData.exportData?.data.max) {
             nodeIdx++;
             continue;
         }
-        nodes[nodeIdx].userData.exportData.store.amount++;
+        nodes[nodeIdx].userData.exportData.data.amount++;
         remaining--;
     }
     return remaining;
@@ -1267,8 +1256,8 @@ BuildNodeManager.prototype.removeCurrency = function (currencyType, amount) {
     let nodeIdx = 0;
     let remaining = amount;
     while (remaining && nodeIdx < nodes.length) {
-        if (nodes[nodeIdx].userData.exportData.store.amount <= 0) nodeIdx++;
-        nodes[nodeIdx].userData.exportData.store.amount--;
+        if (nodes[nodeIdx].userData.exportData?.data.amount <= 0) nodeIdx++;
+        nodes[nodeIdx].userData.exportData.data.amount--;
         remaining--;
     }
     if (remaining) Logger.info(`[BuildNodeManager] | Lost ${remaining} execess ${currencyType} after attempting to add ${amount} ${currencyType}.`);
@@ -1283,13 +1272,13 @@ BuildNodeManager.prototype._updateOverlays = function () {
         if (this.isCurrencyNode(node.uuid))
             overlay.userData.children.bar.userData.maskOffset.x =
                 1 -
-                node.userData.exportData.currency.amount /
-                    node.userData.exportData.currency.max;
+                node.userData.exportData?.data.amount /
+                    node.userData.exportData?.data.max;
         else if (this.isStorageNode(node.uuid))
             overlay.userData.children.bar.userData.maskOffset.x =
                 1 -
-                node.userData.exportData.store.amount /
-                    node.userData.exportData.store.max;
+                node.userData.exportData?.data.amount /
+                    node.userData.exportData?.data.max;
     });
 };
 BuildNodeManager.prototype.untetherNodes = function (originid, targetid) {
@@ -1420,7 +1409,8 @@ function AttackFactory(typeData, originid, nodeManager) {
 
 function NodeDataFactory(nodeid, manager) {
     const node = manager.getNode(nodeid);
-    const typeData = manager._getNodeTypeData(node.userData.type);
+    const nodeLevel = node?.userData.exportData?.level;
+    const typeData = CONFIG.NODES[node.userData.type].attack;
     const obj = Object.create({
         state: {
             disabled: StatusEffectFactory(),
@@ -1493,8 +1483,10 @@ function NodeDataFactory(nodeid, manager) {
         },
         uuid: nodeid,
         friendly: node.userData.type == "globe",
-        hp: NodeHealthFactory(typeData?.health),
-        _numSlots: typeData?.slots,
+        hp: NodeHealthFactory(
+            Math.floor(typeData.health.base + (typeData.health.increase * nodeLevel))
+        ),
+        _numSlots: Math.floor(typeData.slots.base + (typeData.slots.increase * nodeLevel)),
         get numSlots() {
             return this._numSlots;
         },
@@ -1508,7 +1500,7 @@ function NodeDataFactory(nodeid, manager) {
         get attackers() {
             return this.slots.filter((a) => a.uuid != undefined);
         },
-        slots: Array.from({ length: typeData?.slots }, () => {
+        slots: Array.from({ length: Math.floor(typeData.slots.base + (typeData.slots.increase * nodeLevel)) }, () => {
             return { uuid: undefined, type: undefined };
         }),
     });

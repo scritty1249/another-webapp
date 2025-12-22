@@ -218,7 +218,7 @@ function traverseMaterials(mesh) {
         materials: table,
     };
 }
-function Node(meshes, animations) {
+function Node(nodeType, meshes, animations) {
     const wrapper = new Group();
     const materialIndexes = [];
     for (const m of meshes) {
@@ -282,6 +282,26 @@ function Node(meshes, animations) {
     Object.entries(animations).forEach(([name, animationData]) =>
         wrapper.userData.addAnimation(name, animationData)
     );
+    const NodeConfig = CONFIG.NODES[nodeType];
+    if (NodeConfig) {
+        try {
+            wrapper.userData.exportData = {
+                level: 0,
+                maxConnections: NodeConfig.build.connections.base
+            };
+            wrapper.userData.exportData.data = Object.assign({}, NodeConfig.data);
+            wrapper.userData.type = NodeConfig.id;
+            NodeConfig.settings.init(wrapper.userData.exportData);
+            wrapper.userData.upgradeData = () => NodeConfig.settings.upgrade(wrapper.userData.exportData);
+        } catch (err) {
+            Logger.error(`Something went wrong while trying to initialize configuration data for node type "${nodeType}".\nNode Config: `, NodeConfig, "\nDump: ", err);
+        }
+    } else {
+        Logger.warn(
+            `Failed to find configuration data while creating mesh for Node type "${nodeType}".`,
+            `UUID: ${wrapper.uuid}`
+        );
+    }
     return wrapper;
 }
 
@@ -475,13 +495,8 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const cube = Node(sceneData.meshes, sceneData.animations);
-        // cube.scale.setScalar(0.8);
-        cube.userData.type = "barracks";
-        cube.userData.exportData.maxConnections = 4;
-        cube.userData.exportData.rack = {
-            max: 50
-        };
+        const cube = Node("barracks", sceneData.meshes, sceneData.animations);
+
         cube.userData.playbackRate = 0.45;
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -501,17 +516,11 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const store = Node(sceneData.meshes, sceneData.animations);
+        const store = Node("cashstore", sceneData.meshes, sceneData.animations);
+        store.userData.isStorageNode = true;
+
         store.userData.child("stack").scale.setScalar(0.65);
         store.scale.setScalar(0.8);
-        store.userData.type = "cashstore";
-        store.userData.exportData.maxConnections = 3;
-        store.userData.exportData.store = {
-            type: "cash",
-            amount: 0,
-            max: 1050
-        };
-
         if (animationOptions) {
             if (animationOptions.randomize) {
                 store.userData.mixer.setTime(
@@ -530,16 +539,11 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const store = Node(sceneData.meshes, sceneData.animations);
+        const store = Node("cryptostore", sceneData.meshes, sceneData.animations);
+        store.userData.isStorageNode = true;
+
         store.userData.child("stack").scale.setScalar(0.65);
         store.scale.setScalar(0.8);
-        store.userData.type = "cryptostore";
-        store.userData.exportData.maxConnections = 3;
-        store.userData.exportData.store = {
-            type: "crypto",
-            amount: 0,
-            max: 55
-        };
 
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -559,16 +563,8 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const farm = Node(sceneData.meshes, sceneData.animations);
-        farm.userData.type = "cashfarm";
-        farm.userData.exportData.maxConnections = 3;
-        farm.userData.exportData.currency = {
-            type: "cash",
-            amount: 0,
-            max: 350,
-            rate: 100, // per hour
-            lastUpdated: UTIL.getNowUTCSeconds(),
-        };
+        const farm = Node("cashfarm", sceneData.meshes, sceneData.animations);
+        farm.userData.isCurrencyNode = true;
 
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -588,17 +584,10 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true },
     ) {
-        const farm = Node(sceneData.meshes, sceneData.animations);
+        const farm = Node("cryptofarm", sceneData.meshes, sceneData.animations);
+        farm.userData.isCurrencyNode = true;
+
         farm.scale.setScalar(0.7);
-        farm.userData.type = "cryptofarm";
-        farm.userData.exportData.maxConnections = 3;
-        farm.userData.exportData.currency = {
-            type: "crypto",
-            amount: 0,
-            max: 35,
-            rate: 15, // per hour
-            lastUpdated: UTIL.getNowUTCSeconds(),
-        };
 
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -618,11 +607,8 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const cube = Node(sceneData.meshes, sceneData.animations);
-        cube.userData.type = "cube";
-        cube.userData.exportData = {
-            maxConnections: 4
-        };
+        const cube = Node("cube", sceneData.meshes, sceneData.animations);
+
         if (animationOptions) {
             if (animationOptions.randomize) {
                 cube.userData.mixer.setTime(
@@ -640,11 +626,8 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const globe = Node(sceneData.meshes, sceneData.animations);
-        globe.userData.type = "globe";
-        globe.userData.exportData = {
-            maxConnections: 1
-        };
+        const globe = Node("globe", sceneData.meshes, sceneData.animations);
+
         globe.scale.setScalar(0.65);
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -663,11 +646,8 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const scanner = Node(sceneData.meshes, sceneData.animations);
-        scanner.userData.type = "scanner";
-        scanner.userData.exportData = {
-            maxConnections: 3
-        };
+        const scanner = Node("scanner", sceneData.meshes, sceneData.animations);
+
         scanner.scale.setScalar(0.7);
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -686,11 +666,8 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const cube = Node(sceneData.meshes, sceneData.animations);
-        cube.userData.type = "placeholder";
-        cube.userData.exportData = {
-            maxConnections: 5
-        };
+        const cube = Node("placeholder", sceneData.meshes, sceneData.animations);
+
         cube.scale.setScalar(0.45);
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -709,32 +686,10 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const cube = Node(sceneData.meshes, sceneData.animations);
+        const cube = Node("botnet", sceneData.meshes, sceneData.animations);
+
         cube.userData.playbackRate = 0.25;
         cube.scale.setScalar(0.65);
-        cube.userData.type = "botnet";
-        cube.userData.exportData = {
-            maxConnections: 3
-        };
-
-        {
-            const attackTrainingProto = {
-                started: 0,
-                duration: 0,
-                type: undefined
-            };
-            cube.userData.exportData.training = {
-                active: {
-                    0: UTIL.deepCopy(attackTrainingProto),
-                    1: UTIL.deepCopy(attackTrainingProto),
-                    2: UTIL.deepCopy(attackTrainingProto),
-                    3: UTIL.deepCopy(attackTrainingProto),
-                    4: UTIL.deepCopy(attackTrainingProto),
-                },
-                queue: [],
-                max: 12
-            };
-        }
 
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -754,20 +709,10 @@ const Nodes = {
         sceneData,
         animationOptions = { idle: true, randomize: true }
     ) {
-        const core = Node(sceneData.meshes, sceneData.animations);
+        const core = Node("core", sceneData.meshes, sceneData.animations);
+        core.userData.isCore = true;
         core.scale.setScalar(1.5);
-        core.userData.type = "core";
-        core.userData.exportData = {
-            maxConnections: 7,
-            master: {
-                level: 0,
-                logs: {},
-                download: {
-                    amount: 600, // overrided with max value in NodeManager
-                    max: 600
-                },
-            },
-        };
+
         if (animationOptions) {
             if (animationOptions.randomize) {
                 core.userData.mixer.setTime(

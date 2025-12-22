@@ -453,7 +453,7 @@ export function MenuManager (
                 self.element.wrapper.classList.add("addNode", "defenseType");
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
-                const buttons = Array.from(NODE_TYPES.DEFENSE, ({name, id}) =>
+                const buttons = Array.from(NODE_TYPES.DEF, ({name, id}) =>
                     self.createElement.button(90, 
                         ...(!name || !id
                             ? ["lock", undefined, {}]
@@ -470,7 +470,7 @@ export function MenuManager (
                 self.element.wrapper.classList.add("addNode", "econType");
                 const central = document.createElement("div");
                 central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
-                const buttons = Array.from(NODE_TYPES.ECONOMY, ({name, id}) =>
+                const buttons = Array.from(NODE_TYPES.ECON, ({name, id}) =>
                     self.createElement.button(90, 
                         ...(!name || !id
                             ? ["lock", undefined, {}]

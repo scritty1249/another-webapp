@@ -13,7 +13,8 @@ const _currencyOverlayData = {
     alphaMapSize: new Vector2(600, 100),
 };
 
-const _baseHealthRegenPercentage = .02 * .05; // laziness, regens 10% health every X ticks
+const _thumbnailPath = "./source/node-thumbs/";
+
 
 export const DataStore = {
     AttackerData: {
@@ -53,6 +54,9 @@ export const DataStore = {
                     "Applies single target, sustained stress to any nearby Node upon injection.",
             }
         },
+    },
+    BuilderData: {
+        icons: {}
     },
     AttackTypeData: function (camera) {
         return {
@@ -128,330 +132,84 @@ export const DataStore = {
             },
         };
     },
-    AttackNodeTypeData: {
-        placeholder: {
-            health: 50,
-            slots: 4,
-            regen: _baseHealthRegenPercentage // per tick
+    NodeOverlay: {
+        Build: {
+            slots: {
+                tiles: 7,
+                offset: new Vector3(-0.9, -0.95, 0),
+                geometry: new PlaneGeometry(0.7, 0.7),
+                material: SSMaterialType.Mask(
+                    "./source/node-overlay/slots.png",
+                    "./source/node-overlay/slots-mask.png",
+                    new Vector2(500, 500),
+                    new Vector2(4000, 3500)
+                ),
+            },
+            cash: {
+                offset: _currencyOverlayData.offset,
+                geometry: _currencyOverlayData.geometry,
+                material: SSMaterialType.DoubleMask(
+                    "./source/node-overlay/currency/cash-bar.png",
+                    _currencyOverlayData.alphaMap,
+                    _currencyOverlayData.mapSize,
+                    _currencyOverlayData.alphaMapSize,
+                    _currencyOverlayData.staticMap
+                ),
+            },
+            crypto: {
+                offset: _currencyOverlayData.offset,
+                geometry: _currencyOverlayData.geometry,
+                material: SSMaterialType.DoubleMask(
+                    "./source/node-overlay/currency/crypto-bar.png",
+                    _currencyOverlayData.alphaMap,
+                    _currencyOverlayData.mapSize,
+                    _currencyOverlayData.alphaMapSize,
+                    _currencyOverlayData.staticMap
+                ),
+            },
         },
-        cube: {
-            health: 100,
-            slots: 5,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        scanner: {
-            health: 75,
-            slots: 4,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        globe: {
-            health: 0,
-            slots: 3,
-            regen: 0
-        },
-        cashfarm: {
-            health: 75,
-            slots: 2,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        cashstore: {
-            health: 125,
-            slots: 3,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        cryptofarm: {
-            health: 75,
-            slots: 2,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        cryptostore: {
-            health: 125,
-            slots: 3,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        botnet: {
-            health: 225,
-            slots: 5,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        barracks: {
-            health: 135,
-            slots: 3,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-        core: {
-            health: 350,
-            slots: 7,
-            regen: _baseHealthRegenPercentage // per tick
-        },
-    },
-    BuildNodeOverlayData: {
-        slots: {
-            tiles: 7,
-            offset: new Vector3(-0.9, -0.95, 0),
-            geometry: new PlaneGeometry(0.7, 0.7),
-            material: SSMaterialType.Mask(
-                "./source/node-overlay/slots.png",
-                "./source/node-overlay/slots-mask.png",
-                new Vector2(500, 500),
-                new Vector2(4000, 3500)
-            ),
-        },
-        cash: {
-            offset: _currencyOverlayData.offset,
-            geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.DoubleMask(
-                "./source/node-overlay/currency/cash-bar.png",
-                _currencyOverlayData.alphaMap,
-                _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize,
-                _currencyOverlayData.staticMap
-            ),
-        },
-        crypto: {
-            offset: _currencyOverlayData.offset,
-            geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.DoubleMask(
-                "./source/node-overlay/currency/crypto-bar.png",
-                _currencyOverlayData.alphaMap,
-                _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize,
-                _currencyOverlayData.staticMap
-            ),
-        },
-    },
-    AttackNodeOverlayData: {
-        health: {
-            offset: new Vector3(-0.95, -0.95, 0),
-            geometry: new PlaneGeometry(0.6, 0.6),
-            material: SSMaterialType.CircleProgress(0xE3E3E3),
-        },
-        cash: {
-            offset: _currencyOverlayData.offset,
-            geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.Mask(
-                "./source/node-overlay/currency/cash-bar.png",
-                _currencyOverlayData.alphaMap,
-                _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize
-            ),
-        },
-        crypto: {
-            offset: _currencyOverlayData.offset,
-            geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.Mask(
-                "./source/node-overlay/currency/crypto-bar.png",
-                _currencyOverlayData.alphaMap,
-                _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize
-            ),
-        },
-        core: {
-            offset: _currencyOverlayData.offset,
-            geometry: _currencyOverlayData.geometry,
-            material: SSMaterialType.Mask(
-                "./source/node-overlay/currency/core-bar.png",
-                _currencyOverlayData.alphaMap,
-                _currencyOverlayData.mapSize,
-                _currencyOverlayData.alphaMapSize
-            ),
+        Attack: {
+            health: {
+                offset: new Vector3(-0.95, -0.95, 0),
+                geometry: new PlaneGeometry(0.6, 0.6),
+                material: SSMaterialType.CircleProgress(0xE3E3E3),
+            },
+            cash: {
+                offset: _currencyOverlayData.offset,
+                geometry: _currencyOverlayData.geometry,
+                material: SSMaterialType.Mask(
+                    "./source/node-overlay/currency/cash-bar.png",
+                    _currencyOverlayData.alphaMap,
+                    _currencyOverlayData.mapSize,
+                    _currencyOverlayData.alphaMapSize
+                ),
+            },
+            crypto: {
+                offset: _currencyOverlayData.offset,
+                geometry: _currencyOverlayData.geometry,
+                material: SSMaterialType.Mask(
+                    "./source/node-overlay/currency/crypto-bar.png",
+                    _currencyOverlayData.alphaMap,
+                    _currencyOverlayData.mapSize,
+                    _currencyOverlayData.alphaMapSize
+                ),
+            },
+            core: {
+                offset: _currencyOverlayData.offset,
+                geometry: _currencyOverlayData.geometry,
+                material: SSMaterialType.Mask(
+                    "./source/node-overlay/currency/core-bar.png",
+                    _currencyOverlayData.alphaMap,
+                    _currencyOverlayData.mapSize,
+                    _currencyOverlayData.alphaMapSize
+                ),
+            },
         },
     },
     AttackSfx: {
         "emptied-store": "coin",
     },
-    NodeDetailedInfo: {
-        placeholder: {
-            cost: {
-                type: "cash",
-                amount: 10,
-            },
-            sell: {
-                type: "cash",
-                amount: 0,
-            },
-            limit: {
-                base: 99,
-                increase: 0 // this can be a decimal, but final value is floored after calculation
-            },
-            name: "_???_",
-            description: "Placeholder. Doesn't do anything.",
-            thumb: "./source/node-thumbs/placeholder.gif",
-        },
-        cube: {
-            cost: {
-                type: "crypto",
-                amount: 6,
-            },
-            sell: {
-                type: "crypto",
-                amount: 3,
-            },
-            limit: {
-                base: 2,
-                increase: 1 // this can be a decimal, but final value is floored after calculation
-            },
-            highlightSteps: 1,
-            name: "Sentinal",
-            description: "Captures hostile Nodes within 1 step.",
-            thumb: "./source/node-thumbs/cube.gif", // placeholder
-        },
-        globe: {
-            cost: undefined,
-            sell: undefined,
-            limit: {
-                base: 2,
-                increase: 0.34 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 2,
-            highlightSteps: CONFIG.maxStepsFromGlobe,
-            name: "Access Port",
-            description: `Required for your net to exist.\nAll nodes exist within ${CONFIG.maxStepsFromGlobe} steps of an Access Port.\nAll attacks start in your net from here.`,
-            thumb: "./source/node-thumbs/globe.gif",
-        },
-        scanner: {
-            cost: {
-                type: "cash",
-                amount: 550,
-            },
-            sell: {
-                type: "cash",
-                amount: 240,
-            },
-            limit: {
-                base: .5,
-                increase: .5 // this can be a decimal, but final value is floored after calculation
-            },
-            highlightSteps: 2,
-            name: "Sentinal",
-            description: "Scans for Attacker activity within 2 steps.",
-            thumb: "./source/node-thumbs/scanner.gif",
-        },
-        cashfarm: {
-            cost: {
-                type: "crypto",
-                amount: 5,
-            },
-            sell: {
-                type: "crypto",
-                amount: 2,
-            },
-            limit: {
-                base: 1,
-                increase: 1 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 1,
-            name: "Cash Farm",
-            description:
-                "Farms for cash. Can be collected from to use for purchases.",
-            thumb: "./source/node-thumbs/cashfarm.gif",
-        },
-        cryptofarm: {
-            cost: {
-                type: "cash",
-                amount: 275,
-            },
-            sell: {
-                type: "cash",
-                amount: 135,
-            },
-            limit: {
-                base: 1,
-                increase: 1 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 0,
-            name: "Credit Farm",
-            description:
-                "Farms for credits. Can be collected from to use for purchases.",
-            thumb: "./source/node-thumbs/cryptofarm.gif",
-        },
-        cashstore: {
-            cost: {
-                type: "crypto",
-                amount: 5,
-            },
-            sell: {
-                type: "crypto",
-                amount: 2,
-            },
-            limit: {
-                base: 2,
-                increase: 1 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 1,
-            name: "Cash Storage",
-            description: "Holds Cash",
-            thumb: "./source/node-thumbs/cashstore.gif",
-        },
-        cryptostore: {
-            cost: {
-                type: "cash",
-                amount: 500,
-            },
-            sell: {
-                type: "cash",
-                amount: 250,
-            },
-            limit: {
-                base: 2,
-                increase: 1 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 0,
-            name: "Credits Storage",
-            description: "Holds Credits",
-            thumb: "./source/node-thumbs/cryptostore.gif",
-        },
-        botnet: {
-            cost: {
-                type: "crypto",
-                amount: 35,
-            },
-            sell: {
-                type: "crypto",
-                amount: 18,
-            },
-            limit: {
-                base: 1,
-                increase: .34 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 1,
-            name: "Processing Web",
-            description:
-                "Uses a botnet configured for compiling and upgrading Attacks.",
-            thumb: "./source/node-thumbs/botnet.gif",
-        },
-        barracks: {
-            cost: {
-                type: "crypto",
-                amount: 50,
-            },
-            sell: {
-                type: "crypto",
-                amount: 20,
-            },
-            limit: {
-                base: 1,
-                increase: .75 // this can be a decimal, but final value is floored after calculation
-            },
-            freecount: 1,
-            name: "Computer Rack Tunnel",
-            description:
-                "Racks of unused computers left at an abondoned warehouse, remotely activated in secret to house your compiled Attacks. Any Attacks stored here are ready to deploy on other networks.",
-            thumb: "./source/node-thumbs/barracks.gif",
-        },
-        core: {
-            cost: undefined,
-            sell: undefined,
-            limit: {
-                base: 1,
-                increase: 0
-            },
-            freecount: 1,
-            name: "Core",
-            description:
-                "\"NTS: Write Core bio.\"\n\nCore veeeeeery important...",
-            thumb: "./source/node-thumbs/core.gif",
-        },
-    },
     SelectPhaseBackground: "_world",
 };
+
+Object.values(CONFIG.NODES).forEach(({id}) => DataStore.BuilderData.icons[id] = _thumbnailPath + id + ".gif");
