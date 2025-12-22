@@ -394,13 +394,13 @@ PhaseManager.prototype.attackPhase = function (
                 attackResultCallback(record);
                 self.Managers.Overlay._menuManager._dispatch("swapphase", {
                     phase: "build",
-                    metadata: { transfer: transfer, barracks: attackerData.attacks},
+                    metadata: { transfer: transfer },
                     
                 });
             } else
                 self.Managers.Overlay._menuManager._dispatch("swapphase", {
                     phase: "build",
-                    metadata: { barracks: attackerData.attacks},
+                    metadata: { },
                 });
         } else {
             Logger.debug(
@@ -473,14 +473,17 @@ PhaseManager.prototype.attackPhase = function (
             );
             self.Managers.Menu.when("addattack", (detail) => {
                 const {type, nodeid} = detail;
+                const barracks = Storage.get("localBarracks");
                 if (
                     nodeController.addAttackToNode(type, nodeid)
                 ) {
                     overlayController._updateFocusMenu();
-                    if (!(--attackerData.attacks[type]))
+                    if (!(--barracks[type]))
                         overlayController.removeAttackBarTile(type);
-                    else
-                        overlayController.updateAttackBarTile(type, attackerData.attacks[type]);
+                    else {
+                        overlayController.updateAttackBarTile(type, barracks[type]);
+                        Storage.set("localBarracks", barracks);
+                    }
                 } else overlayController.messagePopup("Cannot add Attack to Node.");
             });
 
