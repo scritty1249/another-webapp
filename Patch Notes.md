@@ -15,7 +15,7 @@
 - Clicking a newly created node sometimes retrieves an undefined NodeID, crashing OverlayManager
 - ~~Collecting Credits can exceed storage limit~~ `@ 12/13/2025`
 - ~~Number of steps from nearest Access Port Node is improperly counted (9 max - flagged at 7 steps - internally read as 11)~~ `@ 12/18/2025`
-- Node Detail menu does not display line breaks on mobile (iOS Safari)
+- ~~Node Detail menu does not display line breaks on mobile (iOS Safari)~~ `@ 12/21/2025`
 - ~~Save debug file button can crash page (pressing forced a reload while testing)~~ `@ 12/18/2025`
 - ~~CashFarm, CreditFarm, CashStore, and CreditStore node emissive set too high while dragging (appears fully bright white instead of tinged red)~~ `@ 12/18/2025`
 - ~~Scene background images are incorrectly stored and fails to load (git page version saves unintended part of url path)~~ `@ 12/12/2025`
