@@ -377,8 +377,11 @@ export function MenuManager (
                     self.createElement.button(90, "gear", "Sign out", {
                         click: () => self._dispatch("logout"),
                     }, 4),
-                    self.createElement.button(90, "cpu", "Save debug file", {
+                    self.createElement.button(90, "cpu", "Save log file", {
                         click: () => self._dispatch("_savelog"),
+                    }, 4),
+                    self.createElement.button(90, "cpu", "Save game", {
+                        click: () => self._dispatch("savegame"),
                     }, 4),
                 ];
                 self._appendElement(central, ...buttons);

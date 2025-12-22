@@ -263,115 +263,85 @@ function mainloop(MenuController) {
                 }
             );
 
-            {
-                // autosave
-                const _autosaveHandler = (event) => {
-                    if (PhaseController.phase == "build") {
-                        const currLayout = UTIL.layoutToJsonObj(
-                            scene,
-                            PhaseController.Managers.Node
-                        );
+            // autosave
+            const _autosaveHandler = (event) => {
+                if (PhaseController.phase == "build") {
+                    const currLayout = UTIL.layoutToJsonObj(
+                        scene,
+                        PhaseController.Managers.Node
+                    );
+                    if (
+                        PhaseController.Managers.Node.validateLayout(
+                            CONFIG.maxStepsFromGlobe
+                        )
+                    ) {
                         if (
-                            PhaseController.Managers.Node.validateLayout(
-                                CONFIG.maxStepsFromGlobe
+                            !UTIL.layoutsEqual(
+                                currLayout,
+                                Storage.get("localLayout")
                             )
                         ) {
-                            if (
-                                !UTIL.layoutsEqual(
-                                    currLayout,
-                                    Storage.get("localLayout")
-                                )
-                            ) {
-                                Logger.log("saved changed layout");
-                                Storage.set("localLayout", currLayout);
-                            }
-                        } else if (event?.returnValue !== undefined)
-                            event.returnValue =
-                                "You have unsaved changes to your network. Are you sure you want to leave?";
-
-                        const layoutUpdated = Storage.has("localLayout") &&
-                            (!Storage.has("lastSavedLayout", true) ||
-                                !UTIL.layoutsEqual(
-                                    Storage.get("lastSavedLayout", true),
-                                    Storage.get("localLayout")
-                                ));
-                        const barracksUpdated = Storage.has("localBarracks") &&
-                            (!Storage.has("lastSavedBarracks", true) ||
-                                !UTIL.shallowObjectsEqual(
-                                    Storage.get("lastSavedBarracks", true),
-                                    Storage.get("localBarracks")
-                                ));
-                        const purchasesUpdated = Storage.has("localPurchases") &&
-                            (!Storage.has("lastSavedPurchases", true) ||
-                                !UTIL.shallowObjectsEqual(
-                                    Storage.get("lastSavedPurchases", true),
-                                    Storage.get("localPurchases")
-                                ));
-                        const profileUpdated = Storage.has("localProfileOptions") &&
-                            (!Storage.has("lastSavedProfileOptions", true) ||
-                                !UTIL.shallowObjectsEqual(
-                                    Storage.get("lastSavedProfileOptions", true),
-                                    Storage.get("localProfileOptions")
-                                ));
-                        if (
-                            layoutUpdated ||
-                            barracksUpdated ||
-                            purchasesUpdated ||
-                            profileUpdated
-                        ) {
-                            Logger.info("Saving game");
-                            Session.savegame(
-                                Storage.get("localLayout"),
-                                Storage.get("localBarracks"),
-                                Storage.get("localPurchases"),
-                                Storage.get("localProfileOptions")
-                            ).then(
-                                (res) => {
-                                    if (res) {
-                                        Logger.info("Saved game.");
-                                    } else {
-                                        Logger.warn("Failed to save.");
-                                        Session.wipeLastSavedSessionData();
-                                    }
-                                }
-                            );
+                            Logger.log("saved changed layout");
+                            Storage.set("localLayout", currLayout);
                         }
+                    } else if (event?.returnValue !== undefined)
+                        event.returnValue =
+                            "You have unsaved changes to your network. Are you sure you want to leave?";
+
+                    const layoutUpdated = Storage.has("localLayout") &&
+                        (!Storage.has("lastSavedLayout", true) ||
+                            !UTIL.layoutsEqual(
+                                Storage.get("lastSavedLayout", true),
+                                Storage.get("localLayout")
+                            ));
+                    const barracksUpdated = Storage.has("localBarracks") &&
+                        (!Storage.has("lastSavedBarracks", true) ||
+                            !UTIL.shallowObjectsEqual(
+                                Storage.get("lastSavedBarracks", true),
+                                Storage.get("localBarracks")
+                            ));
+                    const purchasesUpdated = Storage.has("localPurchases") &&
+                        (!Storage.has("lastSavedPurchases", true) ||
+                            !UTIL.shallowObjectsEqual(
+                                Storage.get("lastSavedPurchases", true),
+                                Storage.get("localPurchases")
+                            ));
+                    const profileUpdated = Storage.has("localProfileOptions") &&
+                        (!Storage.has("lastSavedProfileOptions", true) ||
+                            !UTIL.shallowObjectsEqual(
+                                Storage.get("lastSavedProfileOptions", true),
+                                Storage.get("localProfileOptions")
+                            ));
+                    if (
+                        layoutUpdated ||
+                        barracksUpdated ||
+                        purchasesUpdated ||
+                        profileUpdated ||
+                        event?.forceSave
+                    ) {
+                        Logger.info("Saving game");
+                        return Session.savegame(
+                            Storage.get("localLayout"),
+                            Storage.get("localBarracks"),
+                            Storage.get("localPurchases"),
+                            Storage.get("localProfileOptions")
+                        ).then(
+                            (res) => {
+                                if (res) {
+                                    Logger.info("Saved game.");
+                                    if (event?.forceSave)
+                                        return true;
+                                } else {
+                                    Logger.warn("Failed to save.");
+                                    Session.wipeLastSavedSessionData();
+                                }
+                            }
+                        );
                     }
-                };
-                if (DEBUG_MODE) {
-                    window.saveGame = _autosaveHandler;
                 }
-                if (!(DEBUG_MODE && URL_PARAMS.has("nosave"))) {
-                    window.addEventListener("pagehide", _autosaveHandler);
-                    setTimeout(
-                        () => setInterval(_autosaveHandler, CONFIG.AUTOSAVE_INTERVAL),
-                        CONFIG.AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
-                    );
-                }
-                MenuController.when(
-                    "logout",
-                    function (_) {
-                        _autosaveHandler();
-                        Session.clearSession();
-                        window.location.reload();
-                    },
-                    true
-                );
-            }
+            };
 
             {
-                // stop dragging if using more than one touch point (two finger zoom / pan)
-                // renderer.domElement.addEventListener("touchstart", function (event) {
-                //     if (event.touches.length > 1 && PhaseController.phase == "build") {
-                //         controls.drag.enabled = false;
-                //     }
-                // });
-                // renderer.domElement.addEventListener("touchend", function (event) {
-                //     if (event.touches.length > 1 && PhaseController.phase == "build") {
-                //         setTimeout(() => controls.drag.enabled = true);
-                //     }
-                // });
-                // persistent listeners
                 MenuController.when(
                     "swapphase",
                     function (dt) {
@@ -709,6 +679,31 @@ function mainloop(MenuController) {
                     },
                     true
                 );
+                MenuController.when(
+                    "savegame",
+                    function (_) {
+                        OverlayController.messagePopup("Saving game", 1500);
+                        _autosaveHandler({forceSave: true})
+                            .then(success => {
+                                OverlayController.messagePopup(
+                                    success
+                                        ? "Saved game successfully."
+                                        : "Failed to save game.",
+                                    1500
+                                );
+                            });
+                    },
+                    true
+                );
+                MenuController.when(
+                    "logout",
+                    function (_) {
+                        _autosaveHandler();
+                        Session.clearSession();
+                        window.location.reload();
+                    },
+                    true
+                );
             }
             statusEl.text = "Loading mesh data";
             const gtlfs = Promise.all([
@@ -818,8 +813,14 @@ function mainloop(MenuController) {
                                         controls.camera.maxDistance * 2
                                     )
                                 );
+                        if (!URL_PARAMS.has("nosave")) {
+                            window.addEventListener("pagehide", _autosaveHandler);
+                            setTimeout(
+                                () => setInterval(_autosaveHandler, CONFIG.AUTOSAVE_INTERVAL),
+                                CONFIG.AUTOSAVE_INTERVAL // don't actually start autosaving until after first "interval"
+                            );
+                        }
                     }
-                    
                 }
                 // render the stuff
                 function animate() {
