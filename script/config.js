@@ -660,7 +660,7 @@ Configuration.NODES = {
     cryptostore: {
         id: "cryptostore",
         catagory: "econ",
-        name: "Credit Farm",
+        name: "Credits Storage",
         data: {
             type: "crypto",
             amount: 0,
