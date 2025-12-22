@@ -293,7 +293,7 @@ div.carousel-scroll {
             --highlight-bg: #fff;
             --highlight-fg: #000;
             text-align: center;
-            white-space: wrap;
+            white-space: pre-line;
             display: flex;
             margin: 0 auto;
             align-content: center;
