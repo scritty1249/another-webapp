@@ -206,6 +206,20 @@ export function layoutsEqual(thisLayout, thatLayout) {
         return false;
     }
 }
+
+export function isLayoutAttackable(layoutObj) { // actually returns number of attacker entry points. 0 entry points is unattackable.
+    const globeNodes = layoutObj.layout.nodes
+        .filter(({type}) => type == "globe");
+    const globeIds = globeNodes.map(({uuid}) => uuid);
+    const globeConnections = layoutObj.layout.neighbors
+        .filter(([originid, targetid]) => {
+            const originIsGlobe = globeIds.includes(originid);
+            const targetIsGlobe = globeIds.includes(targetid);
+            return (originIsGlobe || targetIsGlobe) && !(originIsGlobe && targetIsGlobe) && originid != targetid;
+        });
+    return globeConnections.length;
+}
+
 export function shallowObjectsEqual(thisObj, thatObj) {
     if (Boolean(thisObj) != Boolean(thatObj)) return false; // one of the objects is falsey, likely undefined
     try {
@@ -285,7 +299,7 @@ export function layoutToJsonObj(scene, nodeManager) {
     nodeManager.nodelist.forEach((node, i) => {
         const posData = node.position.clone().round();
         data.layout.nodes.push(
-            new NodeObject(
+            new ExportNodeObject(
                 node.userData.type,
                 `${i}`,
                 [posData.x, posData.y, posData.z],
@@ -383,6 +397,7 @@ export function layoutFromJson(jsonStr, scene, dragControls, nodeManager) {
 }
 
 export function getRandomItems(array, count) {
+    if (array.length <= count) return array;
     const selected = new Set();
     while (selected.size < count)
         selected.add(Math.floor(Math.random() * array.length));
@@ -468,7 +483,7 @@ export const _DebugTool = {
     },
 };
 
-function NodeObject(type, uuid, position, data = {}) {
+function ExportNodeObject(type, uuid, position, data = {}) {
     this.uuid = uuid;
     this.type = type;
     this.position = position;
