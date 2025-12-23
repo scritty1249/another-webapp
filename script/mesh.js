@@ -11,6 +11,8 @@ import {
     PlaneGeometry,
     FrontSide,
     Object3D,
+    LoopOnce,
+    LoopRepeat,
     SphereGeometry,
 } from "three";
 import { Line2 } from "three/addons/lines/Line2.js";
@@ -229,8 +231,11 @@ function Node(nodeType, meshes, animations) {
     wrapper.userData = {
         materials: Object.assign({}, ...materialIndexes),
         exportData: {},
-        animations: {},
-        _animations: {},
+        animations: {
+            action: {},
+            active: {},
+        },
+
         dragged: false,
         mixer: new AnimationMixer(wrapper),
         playbackRate: 1,
@@ -244,20 +249,73 @@ function Node(nodeType, meshes, animations) {
                 ...Object.values(this.tethers.target),
             ];
         },
+        get activeAnimations() {
+            return Object.keys(this.animations.active);
+        },
+        get actionAnimations() {
+            return Object.keys(this.animations.action);
+        },
         state: {
             setLowPerformance: function () {},
             setHighPerformance: function () {},
         },
-        addAnimation: function (name, animationData, secDelay = 0) {
-            this._animations[name] =
-                    [this.mixer.clipAction(animationData[0])];
-            for (const animation of animationData.slice(1))
-                this._animations[name].push(
-                    this.mixer.clipAction(animation)
+        addAnimation: function (name, animationData) {
+            this.animations.action[name] = UTIL.CollectionWrapper(
+                animationData
+                    .map(ani => this.mixer.clipAction(ani))
                 );
-            this.animations[name] = UTIL.CollectionWrapper(this._animations[name]);
-            this.animations[name].startAt(this.mixer.time + secDelay);
-            return this.animations[name];
+        },
+        fadeAnimation: function (fadeInName, fadeOutName = "", transitionDuration = 0) {
+            if (!fadeInName) {
+                Logger.warn(`Failed to play animation "${fadeInName}" on Node ${wrapper.uuid}. Action not found.`);
+                return;
+            }
+            const targetAnimation = this.animations.action[fadeInName];
+            const transitionDurationMs = transitionDuration * 1000;
+            if (fadeInName == fadeOutName) {
+                let targetScale;
+                targetAnimation.forEach((animationAction) => {
+                    const animationDuration = animationAction.getClip().duration;
+                    const progress = animationAction.time / animationDuration;
+                    const timeScale = animationAction.timeScale;
+                    if (progress < .5) { // reverse to 0
+                        const secondsToStart = animationAction.time;
+                        targetScale = -(secondsToStart / transitionDuration);
+                    } else { // fast forward to 1 (which still wraps to 0)
+                        const secondsToEnd = animationDuration - animationAction.time;
+                        targetScale = secondsToEnd / transitionDuration;
+                    }
+                    animationAction.setLoop(LoopOnce);
+                    animationAction.timeScale = targetScale / this.playbackRate;
+                    setTimeout(() => {
+                        animationAction.timeScale = timeScale;
+                        animationAction.setLoop(LoopRepeat);
+                        animationAction.reset();
+                    }, transitionDurationMs);
+                });
+            } else if (fadeOutName && this.activeAnimations.includes(fadeOutName)) {
+                targetAnimation.reset();
+                targetAnimation.setEffectiveTimeScale(1);
+                targetAnimation.setEffectiveWeight(1);
+                this.animations.active[fadeOutName].forEach((anim, i) =>
+                    anim.crossFadeTo(targetAnimation[i], transitionDuration, true))
+                this.animations.active[fadeInName] = targetAnimation;
+                setTimeout(() => delete this.animations.active[fadeOutName], transitionDurationMs);
+            }
+        },
+        playAnimation: function (animationName, playbackOffset = 0) {
+            if (!animationName) {
+                Logger.warn(`Failed to play animation "${animationName}" on Node ${wrapper.uuid}. Action not found.`);
+                return;
+            } else if (this.activeAnimations.includes(animationName)) {
+                Logger.warn(`Failed to play animation "${animationName}" on Node ${wrapper.uuid}. Action already active.`);
+                return;
+            }
+            const targetAnimation = this.animations.action[animationName];
+            targetAnimation.time = playbackOffset;
+            targetAnimation.weight = 1;
+            this.animations.active[animationName] = targetAnimation;
+            targetAnimation.play();
         },
         updateAnimations: function (timedelta) {
             Object.values(this.animations).forEach(
@@ -500,13 +558,10 @@ const Nodes = {
         cube.userData.playbackRate = 0.45;
         if (animationOptions) {
             if (animationOptions.randomize) {
-                cube.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                cube.userData.animations["idle"].play();
+                cube.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 
@@ -523,13 +578,10 @@ const Nodes = {
         store.scale.setScalar(0.8);
         if (animationOptions) {
             if (animationOptions.randomize) {
-                store.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 store.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                store.userData.animations["idle"].play();
+                store.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 
@@ -547,13 +599,10 @@ const Nodes = {
 
         if (animationOptions) {
             if (animationOptions.randomize) {
-                store.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 store.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                store.userData.animations["idle"].play();
+                store.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 
@@ -568,13 +617,10 @@ const Nodes = {
         farm.scale.setScalar(0.8);
         if (animationOptions) {
             if (animationOptions.randomize) {
-                farm.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 farm.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                farm.userData.animations["idle"].play();
+                farm.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 
@@ -591,13 +637,10 @@ const Nodes = {
 
         if (animationOptions) {
             if (animationOptions.randomize) {
-                farm.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 farm.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                farm.userData.animations["idle"].play();
+                farm.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 
@@ -611,13 +654,10 @@ const Nodes = {
 
         if (animationOptions) {
             if (animationOptions.randomize) {
-                cube.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                cube.userData.animations["idle"].play();
+                cube.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
         return cube;
@@ -631,13 +671,10 @@ const Nodes = {
         globe.scale.setScalar(0.65);
         if (animationOptions) {
             if (animationOptions.randomize) {
-                globe.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 globe.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                globe.userData.animations["idle"].play();
+                globe.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
         return globe;
@@ -651,13 +688,10 @@ const Nodes = {
         scanner.scale.setScalar(0.7);
         if (animationOptions) {
             if (animationOptions.randomize) {
-                scanner.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 scanner.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                scanner.userData.animations["idle"].play();
+                scanner.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
         return scanner;
@@ -671,13 +705,10 @@ const Nodes = {
         cube.scale.setScalar(0.45);
         if (animationOptions) {
             if (animationOptions.randomize) {
-                cube.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                cube.userData.animations["idle"].play();
+                cube.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
         return cube;
@@ -694,13 +725,10 @@ const Nodes = {
 
         if (animationOptions) {
             if (animationOptions.randomize) {
-                cube.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                cube.userData.animations["idle"].play();
+                cube.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 
@@ -716,13 +744,10 @@ const Nodes = {
 
         if (animationOptions) {
             if (animationOptions.randomize) {
-                core.userData.mixer.setTime(
-                    animationOptions.randomize ? UTIL.random(0.05, 2) : 0
-                );
                 core.rotation.y = UTIL.random(0, Math.PI * 2);
             }
             if (animationOptions.idle) {
-                core.userData.animations["idle"].play();
+                core.userData.playAnimation("idle", animationOptions.randomize ? UTIL.random(0.05, 2) : 0);
             }
         }
 

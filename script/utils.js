@@ -284,6 +284,27 @@ export function CollectionWrapper(array) {
                 configurable: descriptor.configurable,
             });
     });
+    array.forEach((value, i) => {
+        Object.defineProperty(wrapper, i, {
+            get: function () {
+                return value;
+            },
+            set: function(value) {
+                return value;
+            },
+            enumerable: true,
+            configurable: false,
+        });
+    });
+    wrapper.isCollectionWrapper = true;
+    wrapper[Symbol.iterator] = function * () {
+        for (let i in array)
+            yield array[i];
+    }
+    wrapper.forEach = function (callbackFn) {
+        for (let i in array)
+            callbackFn(array[i], i);
+    }
     return wrapper;
 }
 export function layoutToJsonObj(scene, nodeManager) {

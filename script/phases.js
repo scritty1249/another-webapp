@@ -835,6 +835,10 @@ PhaseManager.prototype.buildPhase = function (
                     }
                     if (clickedNodeId) {
                         const node = nodeController.getNode(clickedNodeId);
+
+                        // play animation
+                        node.userData.fadeAnimation("idle", "idle", .75);
+
                         if (bankController.collect(clickedNodeId)) {
                             self.Managers.Audio.play("coin", node);
                         } else if (overlayController.focusedNodeId != clickedNodeId) {
