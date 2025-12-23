@@ -616,14 +616,6 @@ PhaseManager.prototype.buildPhase = function (
                                 node.userData.isStorageNode || node.userData.isCurrencyNode
                                     ? `Stored: ${node.userData.exportData.data.amount}/${node.userData.exportData.data.max} ${node.userData.exportData.data.type}`
                                     : "",
-                                "Costs: " +
-                                    (nodeTypeData.build.buy
-                                        ? `${nodeTypeData.build.buy.amount} ${nodeTypeData.build.buy.type}`
-                                        : "Free"),
-                                "Sell Value: " +
-                                    (nodeTypeData.build.buy
-                                        ? `${Math.floor(nodeTypeData.build.buy.amount * CONFIG.NODE_REFUND_RATIO)} ${nodeTypeData.build.buy.type}`
-                                        : "None"),
                             ].join("\n\n");
                             el.align("left");
                         },
