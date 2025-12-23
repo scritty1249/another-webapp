@@ -565,7 +565,7 @@ const Nodes = {
     ) {
         const farm = Node("cashfarm", sceneData.meshes, sceneData.animations);
         farm.userData.isCurrencyNode = true;
-
+        farm.scale.setScalar(0.8);
         if (animationOptions) {
             if (animationOptions.randomize) {
                 farm.userData.mixer.setTime(
@@ -688,8 +688,9 @@ const Nodes = {
     ) {
         const cube = Node("botnet", sceneData.meshes, sceneData.animations);
 
-        cube.userData.playbackRate = 0.25;
-        cube.scale.setScalar(0.65);
+        cube.userData.playbackRate = .7;
+        cube.scale.setScalar(0.6);
+        cube.userData.child("wrap").scale.setScalar(0.5);
 
         if (animationOptions) {
             if (animationOptions.randomize) {
