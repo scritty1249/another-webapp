@@ -170,7 +170,7 @@ Configuration.NODES = {
         unlock: 0,
         build: {
             description: "Placeholder. Doesn't do anything.\nWILL BE REMOVED SOON!",
-            highlightSteps: 2,
+            highlightSteps: 0,
             freeCount: 0,
             connections: {
                 base: 3,
