@@ -520,6 +520,7 @@ function mainloop(MenuController) {
                                         true
                                     );
                                 } else if (
+                                    PhaseController.Managers.Node &&
                                     PhaseController.Managers.Node.getTypeNodes("globe").length <= 0
                                 ) {
                                     MenuController.when(
