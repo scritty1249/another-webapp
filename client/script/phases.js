@@ -836,8 +836,9 @@ PhaseManager.prototype.buildPhase = function (
                     if (clickedNodeId) {
                         const node = nodeController.getNode(clickedNodeId);
 
-                        // play animation
-                        node.userData.fadeAnimation("idle", "idle", .75);
+                        // play animation, if supported
+                        if (node.userData.actionAnimations.includes("clicked"))
+                            node.userData.fadeAnimation("clicked", "idle", .75);
 
                         if (bankController.collect(clickedNodeId)) {
                             self.Managers.Audio.play("coin", node);
@@ -861,6 +862,10 @@ PhaseManager.prototype.buildPhase = function (
                             return;
                         }
                     }
+                    nodeController.nodelist.forEach(node => {
+                        if (node.userData.activeAnimations.includes("clicked"))
+                            node.userData.fadeAnimation("idle", "clicked", .75);
+                    });
                     overlayController.unfocusNode();
                 });
             listenerController
