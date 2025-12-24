@@ -264,6 +264,7 @@ function Node(nodeType, meshes, animations) {
                 animationData
                     .map(ani => this.mixer.clipAction(ani))
                 );
+            this.animations.action[name].setEffectiveWeight(0);
         },
         fadeAnimation: function (fadeInName, fadeOutName = "", transitionDuration = 0) {
             if (!fadeInName) {
@@ -294,13 +295,19 @@ function Node(nodeType, meshes, animations) {
                     }, transitionDurationMs);
                 });
             } else if (fadeOutName && this.activeAnimations.includes(fadeOutName)) {
+                const originAnimation = this.animations.active[fadeOutName];
+                originAnimation.fadeOut(transitionDuration);
+                originAnimation.halt(transitionDuration);
+
+                this.animations.active[fadeInName] = targetAnimation;
                 targetAnimation.reset();
                 targetAnimation.setEffectiveTimeScale(1);
                 targetAnimation.setEffectiveWeight(1);
-                this.animations.active[fadeOutName].forEach((anim, i) =>
-                    anim.crossFadeTo(targetAnimation[i], transitionDuration, true))
-                this.animations.active[fadeInName] = targetAnimation;
-                setTimeout(() => delete this.animations.active[fadeOutName], transitionDurationMs);
+                targetAnimation.fadeIn(transitionDuration);
+                targetAnimation.play();
+                setTimeout(() => {
+                    delete this.animations.active[fadeOutName];
+                }, transitionDurationMs);
             }
         },
         playAnimation: function (animationName, playbackOffset = 0) {
@@ -313,15 +320,25 @@ function Node(nodeType, meshes, animations) {
             }
             const targetAnimation = this.animations.action[animationName];
             targetAnimation.time = playbackOffset;
-            targetAnimation.weight = 1;
+            targetAnimation.setEffectiveWeight(1);
             this.animations.active[animationName] = targetAnimation;
+            targetAnimation.reset();
             targetAnimation.play();
         },
+        stopAnimations: function () {
+            this.activeAnimations.forEach(animation => {
+                const animationAction = this.animations.active[animation];
+                animationAction.enabled = false;
+                animationAction.stop();
+                animationAction.setEffectiveWeight(0);
+                delete this.animations.active[animation];
+            });
+        },
         updateAnimations: function (timedelta) {
-            Object.values(this.animations).forEach(
-                (animationAction) =>
-                    (animationAction.clampWhenFinished = this.dragged)
-            );
+            // Object.values(this.animations.action).forEach(
+            //     (animationAction) =>
+            //         (animationAction.clampWhenFinished = this.dragged)
+            // );
             if (this.mixer)
                 this.mixer.update(timedelta * this.playbackRate);
         },
@@ -722,6 +739,9 @@ const Nodes = {
         cube.userData.playbackRate = .7;
         cube.scale.setScalar(0.6);
         cube.userData.child("wrap").scale.setScalar(0.5);
+
+        cube.userData.animations.action["clicked"].clampWhenFinished = true;
+        cube.userData.animations.action["clicked"].setLoop(LoopOnce);
 
         if (animationOptions) {
             if (animationOptions.randomize) {
