@@ -303,6 +303,10 @@ Configuration.NODES = {
                 duration: 0,
                 type: undefined
             },
+            increase: {
+                active: 1,
+                max: 4,
+            },
             init: function (nodeData) {
                 nodeData.data.active = {
                     0: Object.create(Configuration.NODES.botnet.settings._activeSlotProto),
@@ -313,8 +317,9 @@ Configuration.NODES = {
             },
             upgrade: function (nodeData) {
                 for (let i = 3; i < nodeData.level + 3; i++) {
-                    nodeData.data.active[`${i}`] = Object.create(Configuration.NODES.botnet.settings._activeSlotProto)
-                    nodeData.data.max += 4
+                    Array(Configuration.NODES.botnet.settings.increase.active).forEach(() =>
+                        nodeData.data.active[`${i}`] = Object.create(Configuration.NODES.botnet.settings._activeSlotProto));
+                    nodeData.data.max += Configuration.NODES.botnet.settings.increase.max;
                 }
             },
         },

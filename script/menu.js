@@ -1,4 +1,5 @@
 import * as UTIL from "./utils.js";
+import { DataStore } from "./data.js";
 
 // main pause menu
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -19,6 +20,7 @@ const stopContextMenu = (el) => {
 const backgroundPreviewPath = (bgName) => `./source/bg/${bgName}/py.png`;
 const BACKGROUND_TYPES = DEFAULT.WALLPAPER_TYPES;
 const NODE_TYPES = DEFAULT.NODE_TYPES;
+const NODE_ICONS = DataStore.BuilderData.icons;
 
 export function MenuManager (
     overlayElement
@@ -238,6 +240,89 @@ export function MenuManager (
             self._dispatch("loadmenu", { history: [], infoElement: infoWindow, buttonElement: buttonEl });
         },
         nodeMenus: { // called externally
+            upgrade: function (node, coreTier) {
+                self.state.open = true;
+                self.loadMenu.clear();
+                self.element.wrapper.classList.add("nodeMenus", "upgrade");
+
+                const nodeid = node.uuid;
+                const nodeType = node.userData.type;
+                const currentTier = node.userData.exportData?.level;
+                const nodeTypeData = CONFIG.NODES[nodeType];
+                const nodeThumb = NODE_ICONS[nodeType];
+                const nextTier = currentTier + 1;
+                const nextTierData = nodeTypeData.build.upgrade[`${nextTier}`];
+                const upgradeInfo = [];
+
+                {
+                    const append = (text) => upgradeInfo[upgradeInfo.length - 1] = upgradeInfo[upgradeInfo.length - 1].concat(text);
+                    upgradeInfo.push(
+                        `${nodeTypeData.name} Tier: ${currentTier + 1}`
+                    );
+                    if (nextTierData)
+                        append(` > ${nextTier + 1}`);
+
+                    if (node.userData.isCurrencyNode) {
+                        upgradeInfo.push(
+                            `Collection Rate: ${node.userData.exportData?.data.rate}/hour`
+                        );
+                        if (nextTierData)
+                            append(` + ${nodeTypeData.settings?.increase?.rate}`);
+                    }
+                    if (node.userData.isStorageNode || node.userData.isCurrencyNode || nodeType == "barracks") {
+                        upgradeInfo.push(
+                            `Capacity: ${node.userData.exportData?.data.max}`
+                        );
+                        if (nextTierData)
+                            append(` + ${nodeTypeData.settings?.increase?.max}`);
+                    }
+                    if (node.userData.isCore) {
+                        upgradeInfo.push(
+                            `Download buffer: ${node.userData.exportData?.data.download.max}`
+                        );
+                        if (nextTierData)
+                            append(` + ${nodeTypeData.settings?.increase?.max}`);
+                    }
+                    if (nodeType == "botnet") {
+                        upgradeInfo.push(
+                            `Compiling slots: ${Object.keys(node.userData.exportData?.data.active).length}`
+                        );
+                        if (nextTierData)
+                            append(` + ${nodeTypeData.settings?.increase?.active}`);
+                        upgradeInfo.push(
+                            `Queue size: ${node.userData.exportData?.data.max}`
+                        );
+                        if (nextTierData)
+                            append(` + ${nodeTypeData.settings?.increase?.max}`);
+                    }
+                }
+
+
+                const central = stopContextMenu(document.createElement("div"));
+                const titleEl = self.createElement.textBox(nodeTypeData.name, false, false, false);
+                const descriptionWindow = self.createElement.textBox(upgradeInfo.join("\n\n"), true, false);
+                const previewTile = self.createElement.tileSvg(1, 0, [ self.createElement.svgImage(nodeThumb) ]);
+                const buyButton = nextTierData
+                    ? nextTierData.level <= coreTier
+                        ? self.createElement.button(90, undefined, `${nextTierData.amount} ${nodeTypeData.build.buy.type}`, {
+                                click: () => self._dispatch("upgradenode", {nodeid: nodeid}),
+                            }, 2)
+                        : self.createElement.button(90, "lock", `Core Tier ${nextTierData.level + 1} required`, {}, 2)
+                    : self.createElement.button(90, undefined, `Max Tier reached`, {}, 2);
+                
+
+                central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
+                titleEl.classList.add("title");
+                descriptionWindow.classList.add("description");
+                descriptionWindow.firstChild.classList.add("align-left");
+                buyButton.classList.add("buy");
+                previewTile.classList.add("preview");
+
+                self._appendElement(central, titleEl, previewTile, descriptionWindow, buyButton);
+                self._appendMenu(central);
+                central.scrollTo = 0;
+                self._dispatch("loadmenu", { history: [] });
+            },
             botnet: function (nodeid, data) { // expects {icons: {}, attackDetails: {}, nodeData: botnetData, removeAttackCallback: (nodeid, index, isCompiling)()}
                 self.state.open = true;
                 self.loadMenu.clear();
@@ -483,7 +568,7 @@ export function MenuManager (
                 self._dispatch("loadmenu", {history: ["addNode", "selectType"]});
             },
             nodeDetail: function (
-                details, // expects {_type, description, cost(str), name, thumb}
+                details, // expects {_type, description, cost(str), name}
                 lastMenu
             ) { // called externally
                 self.loadMenu.clear();
@@ -496,7 +581,7 @@ export function MenuManager (
                 descriptionWindow.classList.add("description");
                 descriptionWindow.firstChild.classList.add("align-left");
                 const previewTile = self.createElement.tileSvg(1, 0, [
-                    self.createElement.svgImage(details.thumb)
+                    self.createElement.svgImage(NODE_ICONS[details._type])
                 ]);
                 previewTile.classList.add("preview");
                 const buyButton = details?.free
