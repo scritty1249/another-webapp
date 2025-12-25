@@ -55,71 +55,64 @@ const BuildFocusMenu = {
     createMenuElement: function (
         linkButtonAction,
         infoButtonAction,
-        removeButtonAction
+        removeButtonAction,
+        actionButtonAction,
     ) {
         const el = document.createElement("div");
-        el.classList.add("nodeMenu", "right", "reveal");
-        // hard coded- needs to be updated if file changes.
-        el.style.backgroundImage = `url("./source/node-overlay/focus/node-overlay-menu.png")`;
-        el.style.minWidth = "calc(var(--unit) * 32)";
-        el.style.minHeight = "calc(var(--unit) * 32.5)";
-        //el.style.maxWidth = "50vw";
-        //el.style.maxHeight = "50vh";
-        el.style.width = "516px";
-        el.style.height = "545px";
+        el.classList.add("nodeMenu", "reveal");
 
-        const linkButton = this.createLinkButton(linkButtonAction);
-        el.appendChild(linkButton);
-        const infoButton = this.createInfoButton(infoButtonAction);
-        el.appendChild(infoButton);
-        const removeButton = this.createRemoveButton(removeButtonAction);
-        el.appendChild(removeButton);
+        el.style.width = "500px";
+        el.style.height = "500px";
+        el.appendChild(this.createLinkButton(linkButtonAction));
+        el.appendChild(this.createInfoButton(infoButtonAction));
+        el.appendChild(this.createRemoveButton(removeButtonAction));
+        el.appendChild(this.createActionButton(actionButtonAction));
 
+        return el;
+    },
+    createButton: function (filename, action) {
+        const el = document.createElement("div");
+        el.classList.add("button", "pointer-events");
+        el.style.width = "250px";
+        el.style.height = "250px";
+        el.style.backgroundImage = `url("./source/node-overlay/focus/buttons/${filename}.png")`;
+        el.addEventListener("click", action);
         return el;
     },
     createLinkButton: function (linkButtonAction) {
-        const el = document.createElement("div");
-        el.classList.add("button", "pointer-events");
+        const el = this.createButton("ne", linkButtonAction);
         el.dataset.buttonType = "link";
-        el.style.backgroundImage = `url("./source/node-overlay/focus/link-button.png")`;
-        el.style.width = "182px";
-        el.style.height = "55px";
-        el.style.setProperty("--left", "101px");
-        el.style.setProperty("--top", "104px");
-        el.addEventListener("click", function (event) {
-            linkButtonAction();
-        });
-
+        el.style.setProperty("--left", "-150px");
+        el.style.setProperty("--top", "400px");
+        el.innerText = "link\nnode";
+        el.style.transformOrigin = "top right";
         return el;
     },
     createInfoButton: function (infoButtonAction) {
-        const el = document.createElement("div");
-        el.classList.add("button", "pointer-events");
+        const el = this.createButton("nw", infoButtonAction);
         el.dataset.buttonType = "info";
-        el.style.backgroundImage = `url("./source/node-overlay/focus/info-button.png")`;
-        el.style.width = "172px";
-        el.style.height = "175px";
-        el.style.setProperty("--left", "215px");
-        el.style.setProperty("--top", "207px");
-        el.addEventListener("click", function (event) {
-            infoButtonAction();
-        });
-
+        el.style.setProperty("--left", "400px");
+        el.style.setProperty("--top", "400px");
+        el.innerText = "node\ninfo";
+        el.style.transformOrigin = "top left";
         return el;
     },
     createRemoveButton: function (removeButtonAction) {
-        const el = document.createElement("div");
-        el.classList.add("button", "pointer-events");
+        const el = this.createButton("sw", removeButtonAction);
         el.dataset.buttonType = "remove";
-        el.style.backgroundImage = `url("./source/node-overlay/focus/remove-button.png")`;
-        el.style.width = "121px";
-        el.style.height = "125px";
-        el.style.setProperty("--left", "343px");
-        el.style.setProperty("--top", "155px");
-        el.addEventListener("click", function (event) {
-            removeButtonAction();
-        });
-
+        el.style.setProperty("--left", "400px");
+        el.style.setProperty("--top", "-150px");
+        el.innerText = "delete\nnode";
+        el.style.transformOrigin = "bottom left";
+        return el;
+    },
+    createActionButton: function (actionButtonAction) {
+        const el = this.createButton("se", actionButtonAction);
+        el.dataset.buttonType = "action";
+        el.style.setProperty("--left", "-150px");
+        el.style.setProperty("--top", "-150px");
+        el.innerText = "node\naction";
+        el.style.transformOrigin = "bottom right";
         return el;
     },
 };
@@ -614,7 +607,13 @@ BuildOverlayManager.prototype._createFocusMenuElement = function () {
                     this._nodeManager.removeNode(nodeid);
                 }
             }
-        }
+        },
+        () => {
+            // action button (only works on some nodes, need to hide the button otherwise)
+            if (!this.state.stopFocusing) {
+                this._nodeMenuCallbacks.nodeAction(this.focusedNodeId);
+            }
+        },
     );
 };
 BuildOverlayManager.prototype._updateFocusMenu = function (
@@ -643,11 +642,7 @@ BuildOverlayManager.prototype._updateFocusMenu = function (
             clampScale[1]
         );
         // Adjust translation proportionally to scale- compensate for newly empty space
-        const x =
-            positionData.x -
-            (this.element.focusMenu.clientWidth -
-                this.element.focusMenu.clientWidth * scale) /
-                2;
+        const x = positionData.x
         const y = positionData.y;
         this.element.focusMenu.style.setProperty("--x", `${x}px`);
         this.element.focusMenu.style.setProperty("--y", `${y}px`);
