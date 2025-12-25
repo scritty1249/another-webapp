@@ -1,7 +1,5 @@
 import { Vector3, Color } from "three";
 
-
-const BASE_REGEN = .1;
 export const Configuration = {
     tetherForce: 0.2,
     passiveForce: 0.003, // used for elements gravitating towards y=0
@@ -32,6 +30,8 @@ export const Configuration = {
     NODE_REFUND_RATIO: .4, // how much you get back from selling, including cost of upgrades
     
 };
+
+const BASE_REGEN = .1 * Configuration.TICKSPEED; // % max hp applied per tick
 
 Configuration.NODES = {
     // defense nodes

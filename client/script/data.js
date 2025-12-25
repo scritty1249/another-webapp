@@ -63,10 +63,15 @@ export const DataStore = {
             particle: {
                 mesh: AttackManagerFactory.Particle,
                 sfx: "pew",
-                damage: 15,
+                maxTargets: 1,
                 cooldown: 650, // ms
                 logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-                effect: (nodeManager, attackid) => {},
+                effect: (attack, nodeManager) => {
+                    const targetData = attack.instancedata[0].targetNodeData;
+                    if (!targetData.damage(15)) {
+
+                    }
+                },
                 canAdd: (nodeData) => {
                     return (
                         nodeData.isFriendly &&
@@ -77,10 +82,15 @@ export const DataStore = {
             laser: {
                 mesh: AttackManagerFactory.Laser,
                 sfx: undefined,
-                damage: 5,
+                maxTargets: 1,
                 cooldown: 0, // ms
                 logic: AttackLogic.ParticleLogicFactory, // don't need to instantite logic controllers for "dumb" attackers- they're stateless!
-                effect: (nodeManager, attackid) => {},
+                effect: (attack, nodeManager) => {
+                    const targetData = attack.instancedata[0].targetNodeData;
+                    if (!targetData.damage(5)) {
+
+                    }
+                },
                 canAdd: (nodeData) => {
                     return (
                         nodeData.isFriendly &&
@@ -90,47 +100,93 @@ export const DataStore = {
             },
             pascualcannon: {
                 mesh: (a) => AttackManagerFactory.PascualCannon(camera, a),
+                maxTargets: 1,
                 sfx: undefined,
-                damage: 50,
                 cooldown: 1000, // ms
                 logic: AttackLogic.BasicLogicFactory,
-                effect: (nodeManager, attackid) => {
+                effect: (attack, nodeManager) => {
                     const _purp = 0x341539;
-                    const attack = nodeManager.getAttack(attackid);
-                    const targetData = nodeManager.getNodeData(attack.target);
-                    const targetid = attack.target;
-                    nodeManager.resetNodeColorTint(targetid);
-                    nodeManager.resetNodeEmissive(targetid);
-                    nodeManager.setNodeColorTint(targetid, _purp, 0.95);
-                    nodeManager.setNodeEmissive(targetid, _purp);
-                    targetData.state.disabled.set(
-                        true,
-                        1800,
-                        () => {
-                            if (!targetData.isFriendly) {
-                                nodeManager.resetNodeColorTint(targetid);
-                                nodeManager.resetNodeEmissive(targetid);
-                            }
-                        },
-                        true
-                    );
+                    const targetData = attack.instancedata[0].targetNodeData;
+                    const targetid = attack.instancedata[0].target;
+                    if (!targetData.damage(50)) {
+                        targetData.state.disabled.set(
+                            true,
+                            1800,
+                            () => {
+                                targetData.state.updateVfx();
+                            },
+                            true
+                        );
+                        targetData.state.updateVfx();
+                    }
                 },
                 canAdd: (nodeData) => {
                     return nodeData.isFriendly && nodeData.attackers.length == 0;
                 },
             },
-            cubedefense: {
-                mesh: AttackManagerFactory.CubeDefense,
+        };
+    },
+    DefenseTypeData: function (camera) {
+        return {
+            cube: {
+                mesh: (a) => AttackManagerFactory.CubeDefense(camera, a),
+                maxTargets: 7, // [!] unlimited, but for now cap it at the maximum number of node connections we technically support.
                 sfx: undefined,
-                damage: 12,
-                cooldown: 1500, // ms
-                logic: AttackLogic.BasicLogicFactory,
-                effect: (nodeManager, attackid) => {},
+                cooldown: 2150, // ms
+                logic: AttackLogic.CubeDefenseLogicFactory,
+                effect: (attack, nodeManager) => {
+                    const statusEffectName = "cubed"; // lol
+                    const maxStatusEffectStacks = 5;
+                    attack.instancedata
+                        .filter(({target}) => target !== undefined)
+                        .map(({targetNodeData}) => targetNodeData)
+                        .forEach((targetData) => {
+                            if (targetData.isFriendly)
+                                targetData.damage(5);
+                            else // apply stacks on enemy nodes
+                                if (
+                                    targetData.state.detail[statusEffectName] &&
+                                    targetData.state.detail[statusEffectName] >= maxStatusEffectStacks - 1
+                                ) { // propogate status
+                                    nodeManager.addAttackToNode("cube", targetData.uuid);
+                                    targetData.state[statusEffectName].set(true, -1);
+                                    delete targetData.state.detail[statusEffectName];
+                                    targetData.state.updateVfx();
+                                } else {
+                                    if (targetData.state.detail[statusEffectName])
+                                        targetData.state.detail[statusEffectName]++;
+                                    else
+                                        targetData.state.detail[statusEffectName] = 1;
+                                }
+                        });
+                },
                 canAdd: (nodeData) => {
-                    return !nodeData.isFriendly;
+                    return !nodeData.isFriendly && (nodeData.nodeType == "cube" || !nodeData.state.cubed.active);
                 },
             },
         };
+    },
+    StatusEffects: {
+        disabled: {
+            color: {
+                value: 0x341539,
+                strength: 0.95
+            },
+            emissive: {
+                value: 0x341539,
+                strength: undefined
+            },
+        },
+        cubed: {
+            color: {
+                value: 0x050505,
+                strength: 1
+            },
+            emissive: {
+                value: undefined,
+                strength: undefined
+            },
+        }
     },
     NodeOverlay: {
         Build: {

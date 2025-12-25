@@ -37,7 +37,10 @@ export function PhaseManager(
     this._scene = scene;
     this._controls = controls;
     this._rendererDom = rendererDom;
-    this._attackTypes = DataStore.AttackTypeData(camera);
+    this._attackTypes = {
+        attack: DataStore.AttackTypeData(camera),
+        defense: DataStore.DefenseTypeData(camera)
+    }
     this.tick.delta = 0;
     this.tick.interval = tickspeed;
     this.Managers.Attacks = new AttackManagerWrapper();
@@ -260,16 +263,16 @@ PhaseManager.prototype.attackPhase = function (
     // remove unknown attacks
     attackerData.attacks = Object.assign({}, attackData);
     Object.keys(attackData).forEach((a) => {
-        if (!self._attackTypes.hasOwnProperty(a))
+        if (!self._attackTypes.attack.hasOwnProperty(a))
             delete attackerData.attacks[a];
     });
     attackerData.icons = DataStore.AttackerData.icons; // [!]
     // Attacker attacks
     Object.entries(attackerData.attacks).forEach(([type, amount]) => {
-        const typeData = self._attackTypes[type];
+        const typeData = self._attackTypes.attack[type];
         attackerTypeData[type] = {
             manager: typeData.mesh(amount),
-            damage: typeData.damage,
+            targets: typeData.maxTargets,
             logic: typeData.logic,
             cooldown: typeData.cooldown,
             canAdd: typeData.canAdd,
@@ -279,14 +282,15 @@ PhaseManager.prototype.attackPhase = function (
     });
     // Defender attacks
     {
-        const _attackType = "cubedefense";
-        const cubeCount = layout.layout.nodes
-            .map((n) => n.type)
-            .filter((t) => t == "cube").length; // need to parse the layout object
-        const typeData = self._attackTypes[_attackType];
+        const _attackType = "cube";
+        const cubeDefenseCount = UTIL.sum(layout.layout.nodes  // need to parse the layout object
+            .filter((n) => n.type != "globe")
+            ?.map((n) =>
+                UTIL.getNeighbors(layout, n.uuid)));
+        const typeData = self._attackTypes.defense[_attackType];
         attackerTypeData[_attackType] = {
-            manager: typeData.mesh(cubeCount),
-            damage: typeData.damage,
+            manager: typeData.mesh(cubeDefenseCount),
+            targets: typeData.maxTargets,
             logic: typeData.logic,
             cooldown: typeData.cooldown,
             canAdd: typeData.canAdd,
@@ -435,6 +439,7 @@ PhaseManager.prototype.attackPhase = function (
     this._openLoadingAnimation();
     return UTIL.layoutFromJsonObj(layout, this._scene, this._controls.drag, nodeController)
         .then(layoutLoaded => {
+            nodeController.initDefenseNodes();
             Object.entries(attackerData.attacks)
                 .forEach(([type, amount]) => {
                     overlayController.updateAttackBarTile(type, amount);
@@ -839,6 +844,8 @@ PhaseManager.prototype.buildPhase = function (
                         // play animation, if supported
                         if (node.userData.actionAnimations.includes("clicked"))
                             node.userData.fadeAnimation("clicked", "idle", .75);
+                        else
+                            node.userData.fadeAnimation("idle", "idle", .75);
 
                         if (bankController.collect(clickedNodeId)) {
                             self.Managers.Audio.play("coin", node);

@@ -1,4 +1,4 @@
-import { Vector3, Color } from "three";
+import { Vector3, Color, MathUtils } from "three";
 import * as UTIL from "./utils.js";
 import {
     NodeSSOverlay,
@@ -211,11 +211,15 @@ NodeManager.prototype = {
         ];
     },
 };
-NodeManager.prototype.setNodeEmissive = function (nodeid, emissive) {
+NodeManager.prototype.setNodeEmissive = function (nodeid, emissive = undefined, strength = undefined) {
     const node = this.getNode(nodeid);
     node.traverse(function (mesh) {
-        if (mesh.material?.emissive && mesh.userData.sourceMaterial)
-            mesh.material.emissive.set(emissive);
+        if (mesh.material?.emissive && mesh.userData.sourceMaterial) {
+            if (emissive !== undefined)
+                mesh.material.emissive.set(emissive);
+            if (strength !== undefined)
+                mesh.material.emissiveIntensity = strength;
+        }
     });
 };
 NodeManager.prototype.resetNodeEmissive = function (nodeid) {
@@ -790,15 +794,26 @@ AttackNodeManager.prototype._addNodeData = function (node) {
     // [!] never call this outside of proxy handler and constructor
     try {
         this._nodedata[node.uuid] = NodeDataFactory(node.uuid, this);
-        if (!this.nodedata[node.uuid].isFriendly) {
-            if (node.userData.type == "cube")
-                this.addAttackToNode("cubedefense", node.uuid);
-        }
     } catch (err) {
         Logger.error(
             `[AttackNodeManager] | Error while creating node data for type: ${node.userData.type}.`
         );
         Logger.throw(err);
+    }
+};
+AttackNodeManager.prototype.initDefenseNodes = function () {
+    this.nodelist
+        .filter((node) => node.userData.isDefenseNode)
+        .forEach((node) => {
+            this._initDefenseNode(node);
+        });
+};
+AttackNodeManager.prototype._initDefenseNode = function (node) { // [!] expect input node to be a defense node already.
+    if (this.nodedata[node.uuid].isFriendly) return;
+    try {
+        this.addAttackToNode(node.userData.type, node.uuid);
+    } catch (err) {
+        Logger.warn(`[AttackNodeManager] | Error while initalizing Defense Node (${node.userData.type}): `, err);
     }
 };
 AttackNodeManager.prototype.addAttackData = function (attackData) {
@@ -818,7 +833,7 @@ AttackNodeManager.prototype.getAttack = function (attackid) {
     return attack;
 };
 AttackNodeManager.prototype.createAttack = function (originid, typeData) {
-    const attack = AttackFactory(typeData, originid, this);
+    const attack = AttacksFactory(typeData, originid, this);
     this.attacks[attack.uuid] = attack;
     return attack.uuid;
 };
@@ -871,10 +886,8 @@ AttackNodeManager.prototype.setNodeFriendly = function (nodeid) {
 AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
     const node = this.getNode(nodeid);
     const nodeData = this.getNodeData(nodeid);
-    const nodeTypeData = CONFIG.NODES[node.userData.type];
+    const nodeTypeData = CONFIG.NODES[node.userData.type].attack;
     nodeData.slots.clear();
-    if (node.userData.type == "cube")
-        this.addAttackToNode("cubedefense", node.uuid);
     if (node.userData.type != "globe") {
         nodeData.friendly = false;
         nodeData.hp.set(
@@ -886,6 +899,8 @@ AttackNodeManager.prototype.setNodeEnemy = function (nodeid) {
         nodeData.lastHit.reset();
         node.userData.materials.apply(node);
     }
+    if (node.userData.isDefenseNode)
+        this._initDefenseNode(node);
 };
 AttackNodeManager.prototype._initAlternateMaterials = function (node) {
     const table = node.userData.materials;
@@ -969,15 +984,12 @@ AttackNodeManager.prototype.addAttackToNode = function (attackType, nodeid) {
     const typeData = this._getAttackTypeData(attackType);
     if (nodeData.slots.empty >= 1) {
         if (typeData.canAdd(nodeData)) {
+            const attackid = this.createAttack(nodeid, typeData)
             nodeData.slots.push({
-                uuid: this.createAttack(nodeid, typeData),
+                uuid: attackid,
                 type: attackType,
             });
-            Logger.debug(
-                `[AttackNodeManager] | Added new Attack (${
-                    nodeData.slots.at(-1).uuid
-                }) to Node (${nodeid})`
-            );
+            Logger.debug(`[AttackNodeManager] | Added new Attack (${attackid}) to Node (${nodeid})`);
             return true;
         } else
             Logger.warn(
@@ -1316,94 +1328,118 @@ BuildNodeManager.prototype.clear = function () {
     
 };
 
-function AttackFactory(typeData, originid, nodeManager) {
-    const nodeData = nodeManager.getNodeData(originid);
+function AttacksFactory(typeData, originid, nodeManager) {
     const attackManager = typeData.manager;
-    const attackid = attackManager.userData.createAttack();
-    const attackUserData = attackManager.getUserData(attackid);
-    const attackOptionData = attackManager.getOptions(attackid);
+    const attackids = Array.from(Array(Math.min(
+        nodeManager.getNodeData(originid)
+            .neighbors.length,
+        typeData.targets
+    )), () => attackManager.userData.createAttack());
 
-    attackUserData.setOrigin(nodeManager.getNode(originid)?.position);
     const attack = Object.create({
-        data: {
-            options: attackOptionData,
-            userData: attackUserData,
-        },
-        _target: undefined,
+        instancedata: Array.from(attackids, (attackid) => ({
+            options: attackManager.getOptions(attackid),
+            userData: attackManager.getUserData(attackid),
+            uuid: attackid,
+            target: undefined,
+            get targetNodeData () {
+                return this.target ? nodeManager.getNodeData(this.target) : undefined;
+            },
+            get visible() {
+                return this.options.visible;
+            },
+            set visible(value) {
+                if (value) attackManager.show(attackid);
+                else attackManager.hide(attackid);
+            },
+        })),
         type: attackManager.attackType,
         origin: originid,
-        friendly: nodeData.isFriendly,
-        uuid: attackid,
-        damage: typeData.damage,
+        originNodeData: nodeManager.getNodeData(originid),
+        uuid: MathUtils.generateUUID(),
         cooldown: typeData.cooldown, // ms
         logic: typeData.logic(),
         active: false,
         waitCooldown: false,
-        get visible() {
-            return attackOptionData.visible;
+        get maxTargets () {
+            return this.instancedata.length;
         },
-        set visible(value) {
-            if (value) attackManager.show(attackid);
-            else attackManager.hide(attackid);
-        },
-        get target() {
-            return this._target;
-        },
-        set target(nodeid) {
-            this._target = nodeid;
-            if (nodeid) {
-                this.active = true;
-                this.data.userData.setTarget(
-                    nodeManager.getNode(nodeid)?.position
-                );
-                this.data.options.callback = function (_) {
-                    if (attack.active) {
-                        try {
-                            const targetData = nodeManager.getNodeData(
-                                attack.target
-                            );
-                            if (!targetData.damage(attack.damage))
-                                typeData.effect(nodeManager, attackid);
-                            attack.update();
-                            if (attack.active) {
-                                attack.visible = false;
-                                const wait = attack.waitCooldown
-                                    ? attack.cooldown
-                                    : 0;
-                                setTimeout(() => {
-                                    if (attack.active)
-                                        attackManager.restartPlayback(attackid);
-                                }, wait);
-                            }
-                        } catch (err) {
-                            Logger.warn(err.message);
-                        }
+        setTargets: function (...allTargets) {
+            const targets = Object.assign(Array(attack.maxTargets).fill(undefined), allTargets).slice(0, attack.maxTargets);
+            targets.forEach((target, i) => {
+                const attackdata = attack.instancedata[i];
+                attackdata.target = target;
+
+                if (target) {
+                    attackdata.userData.setTarget(
+                        nodeManager.getNode(target)?.position
+                    );
+                } else {
+                    attackdata.visible = false;
+                }
+
+                if (!i) { // we only care about callbacks from the first Attack Instance.
+                    if (target) {
+                        attack.active = true;
+                        attackdata.options.callback = attack._attackCallback;
+                        attack.playAnimations();
+                    } else {
+                        attack.active = false;
+                        attack.waitCooldown = false;
                     }
-                };
-                attackManager.restartPlayback(attackid);
+                }
+            });
+            if (attack.active) {
+                attack.playAnimations();
                 attack.waitCooldown = true;
-            } else {
-                this.active = false;
-                this.visible = false;
-                this.waitCooldown = false;
+            }
+        },
+        playAnimations: function () {
+            if (attack.active) {
+                attack.instancedata
+                    .filter(({target}) => target !== undefined)
+                    .forEach(({uuid}) => attackManager.restartPlayback(uuid));
             }
         },
         update: function () {
-            // assumes enabled
-            if (
-                !this.active ||
-                !this.target ||
-                !nodeManager.getNodeData(this.origin)?.canAttack(this.target)
-            )
-                this.target = this.logic.target(
-                    nodeManager.getNodeData(this.origin)?.attackableNeighbors
-                );
+            if (!this.originNodeData.state.disabled.active)
+                if (!this.active)
+                    this.setTargets(...this.logic.target(this.originNodeData.neighbors));
         },
         halt: function () {
             this.active = false;
-            attackManager.userData.removeAttack(attackid);
+            this.instancedata
+                    .forEach(({uuid}) =>
+                        attackManager.userData.removeAttack(uuid));
+            this.update = function () {};
+        },
+        _attackCallback: function (_) { // only apply to the first Attack Instance. All Instances should share the same duration.
+            if (attack.active) {
+                try {
+                    typeData.effect(attack, nodeManager);
+                    attack.active = false;
+                    attack.update();
+                    if (attack.active) {
+                        attack.instancedata.forEach((attackdata) => attackdata.visible = false);
+                        const wait = attack.waitCooldown
+                            ? attack.cooldown
+                            : 0;
+                        setTimeout(() => {
+                            if (attack.originNodeData.state.disabled.active)
+                                attack.active = false;
+                            else
+                                attack.playAnimations();
+                        }, wait);
+                    }
+                } catch (err) {
+                    Logger.warn(err);
+                }
+            }
         },
     });
+
+    attack.instancedata.forEach(({userData}) =>
+        userData.setOrigin(nodeManager.getNode(originid)?.position));
     return attack;
 }
 
@@ -1413,9 +1449,40 @@ function NodeDataFactory(nodeid, manager) {
     const typeData = CONFIG.NODES[node.userData.type].attack;
     const obj = Object.create({
         state: {
-            disabled: StatusEffectFactory(),
+            detail: {}, // [!] may be overhauled. This place is for custom effects, or things that are too niche to warrant a generalized implementation
+            disabled: StatusEffectFactory(
+                false,
+                DataStore.StatusEffects.disabled
+            ),
+            cubed: StatusEffectFactory(
+                false,
+                DataStore.StatusEffects.cubed
+            ),
             reset: function () {
+                this.detail = {};
                 this.disabled.reset();
+                this.cubed.reset();
+            },
+            updateVfx: function () {
+                const ignoreProps = [
+                    "updateVfx",
+                    "reset",
+                    "detail"
+                ];
+                manager.resetNodeEmissive(nodeid);
+                manager.resetNodeColorTint(nodeid);
+                const statuses = Object.entries(obj.state)
+                    .filter(([prop, status]) => !ignoreProps.includes(prop) && status.vfx && status.active)
+                    ?.sort((a, b) => b[1].vfx.index - a[1].vfx.index);
+                statuses
+                    .forEach(([prop, status]) => {
+                        if (!status.vfx) return;
+                        const { color, emissive } = status.vfx;
+                        if (color?.value !== undefined)
+                            manager.setNodeColorTint(nodeid, color.value, color.strength);
+                        if (emissive?.value)
+                            manager.setNodeEmissive(nodeid, emissive.value, emissive.strength);
+                    });
             },
         },
         get neighbors() {
@@ -1483,6 +1550,7 @@ function NodeDataFactory(nodeid, manager) {
         },
         uuid: nodeid,
         friendly: node.userData.type == "globe",
+        nodeType: node.userData.type,
         hp: NodeHealthFactory(
             Math.floor(typeData.health.base + (typeData.health.increase * nodeLevel))
         ),
@@ -1614,10 +1682,24 @@ function NodeHealthFactory(maxHealth) {
     });
 }
 
-function StatusEffectFactory(defaultActive = false) {
+function StatusEffectFactory(
+    defaultActive = false,
+    vfx = {
+        index: 0, // order that the vfx are overlayed onto the node, greatest to least.
+        color: {
+            value: undefined,
+            strength: undefined,
+        },
+        emissive: {
+            value: undefined,
+            strength: undefined,
+        },
+    }
+) {
     const obj = Object.create({
         _timer: undefined,
         active: defaultActive,
+        vfx: vfx, // handle externally
         _callback: {
             func: undefined,
             callOnReset: false,
@@ -1648,7 +1730,7 @@ function StatusEffectFactory(defaultActive = false) {
         },
         set: function (
             state,
-            durationMs,
+            durationMs, // set to a >0 value for states that do not have a limited duraton
             callback = undefined,
             callbackWhenReset = false
         ) {
