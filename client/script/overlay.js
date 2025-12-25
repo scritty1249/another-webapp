@@ -98,21 +98,21 @@ const BuildFocusMenu = {
         return el;
     },
     createRemoveButton: function (removeButtonAction) {
-        const el = this.createButton("sw", removeButtonAction);
+        const el = this.createButton("se", removeButtonAction);
         el.dataset.buttonType = "remove";
-        el.style.setProperty("--left", "400px");
+        el.style.setProperty("--left", "-150px");
         el.style.setProperty("--top", "-150px");
+        el.style.transformOrigin = "bottom right";
         el.innerText = "delete\nnode";
-        el.style.transformOrigin = "bottom left";
         return el;
     },
     createActionButton: function (actionButtonAction) {
-        const el = this.createButton("se", actionButtonAction);
+        const el = this.createButton("sw", actionButtonAction);
         el.dataset.buttonType = "action";
-        el.style.setProperty("--left", "-150px");
+        el.style.setProperty("--left", "400px");
         el.style.setProperty("--top", "-150px");
+        el.style.transformOrigin = "bottom left";
         el.innerText = "node\naction";
-        el.style.transformOrigin = "bottom right";
         return el;
     },
 };
