@@ -462,7 +462,12 @@ div.carousel-scroll {
                 gap: calc(var(--unit) * 2);
                 padding: calc(var(--unit) / 4);
                 width: calc(var(--vw) * 30);
-                height: calc(var(--unit) * 2);
+            }
+            > .nameplate {
+                display: flex;
+                flex-direction: row;
+                justify-content: flex-end;
+                position: relative;
             }
         }
         &.attack {

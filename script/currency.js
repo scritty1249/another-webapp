@@ -13,11 +13,11 @@ export function Currency (type, amount) {
             ? currency.amount > 1 && CURRENCY_KEY[currency.type]?.pluralname
                 ? `${currency.amount} ${CURRENCY_KEY[currency.type]?.pluralname}`
                 : `${currency.amount} ${CURRENCY_KEY[currency.type]?.name}`
-            : "Free";
+            : "None";
     };
     currency.isCurrency = true;
     currency.type = type;
-    currency.amount = amount;
+    currency.amount = Math.floor(amount); // only deal with integers
     return currency;
 };
 
@@ -29,7 +29,7 @@ export function Cost (...currencies) {
         return cost.total;
     };
     cost.toString = function () {
-        return cost() ? cost.currencies.filter((c) => c()).map((c) => c.toString()).join(", ") : "Free";
+        return cost() ? cost.currencies.filter((c) => c()).map((c) => c.toString()).join(", ") : "None";
     };
     cost.forEach = function (callbackFn) {
         cost.currencies
@@ -63,6 +63,15 @@ export function Cost (...currencies) {
                 cost.currencies.filter((c) => c.type == other.type)[0].amount -= other.amount;
         }
         return cost; // for chaining
+    };
+    cost.fromObj = function (obj) { // appends
+        Object.entries(obj).forEach(([type, amount]) => {
+            cost.currencies.push(Currency(type, amount));
+        });
+        return cost; // for chaining
+    };
+    cost.multiplyScalar = function (scalar) {
+        cost.currencies.forEach((c) => c.amount *= scalar);
     };
     Object.defineProperty(cost, "isFree", {
         get: function () {
