@@ -694,11 +694,13 @@ BuildOverlayManager.prototype.updateWallet = function (bankData) {
         .forEach((el) => {
             walletEls[el.dataset.currencyType] = el;
         });
-    Object.entries(bankData).forEach(([currencyType, currencyData]) => {
+    const stored = bankData.stored.total;
+    const max = bankData.max.total;
+    Object.entries(max).forEach(([currencyType, maxAmount]) => {
         if (walletEls.hasOwnProperty(currencyType))
             walletEls[currencyType].innerText =
                 walletEls[currencyType].innerText.split(":", 2)[0] +
-                `: ${Math.floor(currencyData.amount)} / ${currencyData.max}`;
+                `: ${Math.floor(stored[currencyType])} / ${maxAmount}`;
         else
             Logger.warn(
                 `[BuildOverlayManager] | Failed to update currency display for type "${currencyType}": Corrosponding element does not exist in wallet.`

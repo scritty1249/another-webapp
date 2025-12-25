@@ -2,6 +2,7 @@ import { AttackManagerFactory } from "./mesh.js";
 import { AttackLogic } from "./attacker.js";
 import { Vector2, Vector3, PlaneGeometry }  from "three";
 import { SSMaterialType, SSFramesMesh } from "./spritesheet.js";
+import { Cost, Currency } from "./currency.js";
 
 const _currencyOverlayData = {
     // avoid reinitializing where possible
@@ -15,7 +16,6 @@ const _currencyOverlayData = {
 
 const _thumbnailPath = "./source/node-thumbs/";
 
-
 export const DataStore = {
     AttackerData: {
         icons: {
@@ -27,28 +27,19 @@ export const DataStore = {
         },
         attacks: {
             particle: {
-                cost: {
-                    type: "crypto",
-                    amount: 1
-                },
+                cost: Cost ("crypto", 1),
                 name: "Worms",
                 description:
                     "Malicious attack, nasty stuff. When injected, it seeks out a nearby Node with the lowest health, and applies sustained pressure until that Node is taken.",
             },
             pascualcannon: {
-                cost: {
-                    type: "crypto",
-                    amount: 4
-                },
+                cost: Cost ("crypto", 4),
                 name: "[Name TBD] Special Beam Cannon",
                 description:
                     "Devastating attack that stuns any target hit. Requires all slots on a Node to be empty before injecting.",
             },
             laser: {
-                cost: {
-                    type: "crypto",
-                    amount: 2
-                },
+                cost: Cost ("crypto", 2 ),
                 name: "[Name TBD] Brute Force v1",
                 description:
                     "Applies single target, sustained stress to any nearby Node upon injection.",

@@ -1,4 +1,5 @@
 import { Vector3, Color } from "three";
+import { Cost } from  "./currency.js";
 
 export const Configuration = {
     tetherForce: 0.2,
@@ -57,30 +58,27 @@ Configuration.NODES = {
                 base: 2,
                 increase: 1, // flat value per Core level, floored when totaled
             },
-            buy: {
-                type: "crypto",
-                amount: 15,
-            },
-            upgrade: { // upgrade levels
+            buy: Cost ("crypto", 15),
+            upgrade: { // upgrade tiers
                 1: {
                     level: 0,
-                    amount: 15
+                    cost: Cost ("crypto", 15),
                 },
                 2: {
                     level: 0,
-                    amount: 225
+                    cost: Cost ("crypto", 225),
                 },
                 3: {
                     level: 4,
-                    amount: 3375
+                    cost: Cost ("crypto", 3375),
                 },
                 4: {
                     level: 4,
-                    amount: 50625
+                    cost: Cost ("crypto", 50625),
                 },
                 5: {
                     level: 5,
-                    amount: 759375
+                    cost: Cost ("crypto", 759375),
                 },
             },
         },
@@ -118,30 +116,27 @@ Configuration.NODES = {
                 base: 1,
                 increase: .5,
             },
-            buy: {
-                type: "crypto",
-                amount: 15,
-            },
+            buy: Cost ("crypto", 15),
             upgrade: {
                 1: {
                     level: 0,
-                    amount: 15
+                    cost: Cost ("crypto", 15),
                 },
                 2: {
                     level: 0,
-                    amount: 225
+                    cost: Cost ("crypto", 225),
                 },
                 3: {
                     level: 4,
-                    amount: 3375
+                    cost: Cost ("crypto", 3375),
                 },
                 4: {
                     level: 4,
-                    amount: 50625
+                    cost: Cost ("crypto", 50625),
                 },
                 5: {
                     level: 5,
-                    amount: 759375
+                    cost: Cost ("crypto", 759375),
                 },
             },
         },
@@ -180,10 +175,7 @@ Configuration.NODES = {
                 base: 99,
                 increase: 0,
             },
-            buy: {
-                type: "cash",
-                amount: 50,
-            },
+            buy: Cost ("cash", 50),
             upgrade: {},
         },
         attack: {
@@ -237,7 +229,9 @@ Configuration.NODES = {
                 increase: 0,
             },
             buy: undefined,
-            upgrade: {},
+            upgrade: {
+
+            },
         },
         attack: {
             regen: BASE_REGEN,
@@ -336,22 +330,19 @@ Configuration.NODES = {
                 base: 1,
                 increase: .34,
             },
-            buy: {
-                type: "crypto",
-                amount: 1,
-            },
+            buy: Cost ("crypto", 1),
             upgrade: {
                 1: {
                     level: 0,
-                    amount: 100
+                    cost: Cost ("crypto", 100),
                 },
                 2: {
                     level: 3,
-                    amount: 10000
+                    cost: Cost ("crypto", 10000),
                 },
                 3: {
                     level: 5,
-                    amount: 100000000
+                    cost: Cost ("crypto", 100000000),
                 },
             },
         },
@@ -398,22 +389,19 @@ Configuration.NODES = {
                 base: 1,
                 increase: .75,
             },
-            buy: {
-                type: "crypto",
-                amount: 10,
-            },
+            buy: Cost ("crypto", 10),
             upgrade: {
                 1: {
                     level: 2,
-                    amount: 25
+                    cost: Cost ("crypto", 25),
                 },
                 2: {
                     level: 4,
-                    amount: 625
+                    cost: Cost ("crypto", 625),
                 },
                 3: {
                     level: 5,
-                    amount: 390625
+                    cost: Cost ("crypto", 390625),
                 },
             },
         },
@@ -471,30 +459,27 @@ Configuration.NODES = {
                 base: 1,
                 increase: 1,
             },
-            buy: {
-                type: "crypto",
-                amount: 5,
-            },
+            buy: Cost ("crypto", 5),
             upgrade: {
                 1: {
                     level: 0,
-                    amount: 25
+                    cost: Cost ("crypto", 25),
                 },
                 2: {
                     level: 1,
-                    amount: 50
+                    cost: Cost ("crypto", 50),
                 },
                 3: {
                     level: 2,
-                    amount: 100
+                    cost: Cost ("crypto", 100),
                 },
                 4: {
                     level: 4,
-                    amount: 200
+                    cost: Cost ("crypto", 200),
                 },
                 5: {
                     level: 5,
-                    amount: 400
+                    cost: Cost ("crypto", 400),
                 },
             },
         },
@@ -551,30 +536,27 @@ Configuration.NODES = {
                 base: 1,
                 increase: 1,
             },
-            buy: {
-                type: "cash",
-                amount: 100,
-            },
+            buy: Cost ("cash", 100),
             upgrade: {
                 1: {
                     level: 0,
-                    amount: 250
+                    cost: Cost ("cash", 250),
                 },
                 2: {
                     level: 1,
-                    amount: 500
+                    cost: Cost ("cash", 500),
                 },
                 3: {
                     level: 2,
-                    amount: 1000
+                    cost: Cost ("cash", 1000),
                 },
                 4: {
                     level: 4,
-                    amount: 2000
+                    cost: Cost ("cash", 2000),
                 },
                 5: {
                     level: 5,
-                    amount: 4000
+                    cost: Cost ("cash", 4000),
                 },
             },
         },
@@ -623,30 +605,27 @@ Configuration.NODES = {
                 base: 2,
                 increase: 1,
             },
-            buy: {
-                type: "crypto",
-                amount: 10,
-            },
+            buy: Cost ("crypto", 10),
             upgrade: {
                 1: {
                     level: 0,
-                    amount: 35
+                    cost: Cost ("crypto", 35),
                 },
                 2: {
                     level: 1,
-                    amount: 70
+                    cost: Cost ("crypto", 70),
                 },
                 3: {
                     level: 2,
-                    amount: 140
+                    cost: Cost ("crypto", 140),
                 },
                 4: {
                     level: 4,
-                    amount: 280
+                    cost: Cost ("crypto", 280),
                 },
                 5: {
                     level: 5,
-                    amount: 560
+                    cost: Cost ("crypto", 560),
                 },
             },
         },
@@ -695,30 +674,27 @@ Configuration.NODES = {
                 base: 2,
                 increase: 1,
             },
-            buy: {
-                type: "crypto",
-                amount: 110,
-            },
+            buy: Cost ("cash", 110),
             upgrade: {
                 1: {
                     level: 0,
-                    amount: 350
+                    cost: Cost ("cash", 350)
                 },
                 2: {
                     level: 1,
-                    amount: 700
+                    cost: Cost ("cash", 700)
                 },
                 3: {
                     level: 2,
-                    amount: 1400
+                    cost: Cost ("cash", 1400)
                 },
                 4: {
                     level: 4,
-                    amount: 2800
+                    cost: Cost ("cash", 2800)
                 },
                 5: {
                     level: 5,
-                    amount: 5600
+                    cost: Cost ("cash", 5600)
                 },
             },
         },
@@ -780,6 +756,13 @@ export const Default = {
         BASE: [],
     },
 };
+
+function Currency(type, amount) {
+    return {
+        type: type,
+        amount: amount
+    };
+}
 
 Object.values(Configuration.NODES).forEach(({id, name, catagory}) =>
     id != "core" ? Default.NODE_TYPES[catagory.toUpperCase()].push({id: id, name: name}) : null

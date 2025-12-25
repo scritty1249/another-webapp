@@ -284,41 +284,51 @@ div.carousel-scroll {
     }
     div.textbox {
         &:not(.naked) {
-            background-image: url("../source/textbox-background.png") !important;
-            background-position: center center !important;
-            background-size: cover !important;
-            background-repeat: no-repeat !important;
-            box-sizing: border-box !important;
-            overflow: hidden !important;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            > div {
+                background-image: url("../source/textbox-background.png") !important;
+                background-position: center center !important;
+                background-size: cover !important;
+                background-repeat: no-repeat !important;
+                box-sizing: border-box !important;
+                overflow: hidden !important;
+            }
         }
-        > textarea {
-            all: unset;
-            --highlight-bg: #fff;
-            --highlight-fg: #000;
-            text-align: center;
-            white-space: pre-line;
-            display: flex;
-            margin: 0 auto;
-            align-content: center;
-            justify-content: center;
-            padding: calc(var(--unit) * 3);
-            font-size: calc(var(--unit) * 2);
-            box-sizing: border-box !important;
-            width: 80% !important;
-            height: 100% !important;
-            padding: 5% 15%;
-            &::selection,
-            &::-moz-selection,
-            &::-webkit-selection {
-                background: var(--highlight-bg) !important;
-                text-shadow: none;
-                color: var(--highlight-fg) !important;
-            }
-            &.align-left {
-                text-align: left;
-            }
-            &.align-right {
-                text-align: right;
+        > div {
+            width: 100%;
+            height: 100%;
+            min-width: 100%;
+            min-height: 100%;
+            > textarea {
+                all: unset;
+                --highlight-bg: #fff;
+                --highlight-fg: #000;
+                text-align: center;
+                white-space: pre-line;
+                display: flex;
+                margin: 0 auto;
+                align-content: center;
+                justify-content: center;
+                padding: calc(var(--unit) * 3);
+                font-size: calc(var(--unit) * 2);
+                box-sizing: border-box !important;
+                width: 80% !important;
+                height: 100% !important;
+                padding: 5% 15%;
+                &::selection,
+                &::-moz-selection,
+                &::-webkit-selection {
+                    background: var(--highlight-bg) !important;
+                    text-shadow: none;
+                    color: var(--highlight-fg) !important;
+                }
+                &.align-left {
+                    text-align: left;
+                }
+                &.align-right {
+                    text-align: right;
+                }
             }
         }
     }
@@ -530,7 +540,7 @@ div.carousel-scroll {
         padding: 5rem;
         backdrop-filter: blur(10px);
         pointer-events: all;
-        background: url("../source/menu/menu-background-pattern.png"), rgba(0,0,0,0.95);
+        background: url("../source/menu/menu-background-pattern.png"), rgba(0,0,0,1);
         background-size: 5%;
         background-blend-mode: difference;
         background-repeat: repeat;
@@ -665,7 +675,7 @@ div.carousel-scroll {
                         grid-row: 3;
                         width: 100%;
                         height: 100%;
-                        > textarea {
+                        * textarea {
                             padding: 0;
                         }
                     }
