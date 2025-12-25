@@ -1222,6 +1222,23 @@ BuildNodeManager.prototype._updateBotetNode = function (node, now) {
         }
     });
 };
+BuildNodeManager.prototype.upgradeNode = function (nodeid) { // does not check if user is allowed to upgrade, must be done by caller
+    const node = this.getNode(nodeid);
+    const nodeTypeData = CONFIG.NODES[node.userData.type];
+    const currentTier = node.userData.exportData.level;
+    const nextTier = currentTier + 1;
+    const nextTierData = nodeTypeData.build.upgrade[`${nextTier}`];
+    if (!nextTierData) {
+        Logger.warn(`[BuildNodeManager] | Failed to upgrade Node: Tier ${nextTier} for "${node.userData.type}" Nodes does not exist.`);
+        return false;
+    }
+    node.userData.exportData.level = nextTier;
+    node.userData.exportData.maxConnections = Math.floor(nodeTypeData.build.connections.base + (nodeTypeData.build.connections.increase * nextTier));
+    nodeTypeData.settings.upgrade(node.userData.exportData);
+    this.getOverlayByTarget(nodeid)
+        .userData.children.slots.userData.slots = node.userData.exportData.maxConnections;
+    return true;
+};
 BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
     const node = this.getNode(nodeid);
     if (!this.isCurrencyNode(nodeid))

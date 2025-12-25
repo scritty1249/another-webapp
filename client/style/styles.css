@@ -587,6 +587,40 @@ div.carousel-scroll {
             }
         }
         &.nodeMenus {
+            &.upgrade {
+                > div.center {
+                    display: grid;
+                    grid-template-columns: 1fr; 
+                    grid-template-rows: 1fr 2fr 2.5fr 1fr;
+                    place-items: center; 
+                    height: max-content;
+                    > .title {
+                        grid-row: 1;
+                        width: 100%;
+                        padding: 0 0;
+                    }
+                    > svg.preview {
+                        --length: 2 !important;
+                        grid-row: 2;
+                        margin-bottom: calc(var(--unit) * 3.5);
+                        > image {
+                            --scale: 0.75 !important;
+                        }
+                    }
+                    > .description {
+                        grid-row: 3;
+                        height: 100%;
+                        width: 100%;
+                    }
+                    > .buy {
+                        --length: 1 !important;
+                        grid-row: 4;
+                        text {
+                            --scale: 2 !important;
+                        }
+                    }
+                }
+            }
             &.botnet {
                 > div {
                     display: grid;

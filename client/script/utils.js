@@ -178,6 +178,12 @@ export function layoutsEqual(thisLayout, thatLayout) {
         const thatNeighbors = new Set(
             thatLayout.layout.neighbors.map((edge) => new Set(edge))
         );
+        let isDataSame = true;
+        // order should be preserved... otherwise this will always be false
+        for (let i = 0; i < thisNodes.length && i < thatNodes.length; i++) {
+            isDataSame = isDataSame && shallowObjectsEqual(thisNodes[i]._data, thatNodes[i]._data);
+        }
+
         const thisNodeTypes = {};
         const thatNodeTypes = {};
 
@@ -198,7 +204,7 @@ export function layoutsEqual(thisLayout, thatLayout) {
             ) &&
             Object.entries(thatNodeTypes).every(
                 ([type, count]) => thisNodeTypes[type] == count
-            )
+            ) && isDataSame
         );
     } catch {
         // if a layout is missing an expected property, it means it's not a Layout. which likely means its NOT equal to whatever we're trying to compare anyways.

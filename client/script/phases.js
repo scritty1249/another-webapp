@@ -618,9 +618,10 @@ PhaseManager.prototype.buildPhase = function (
                                 node.userData.isCurrencyNode
                                     ? `Collection rate: ${node.userData.exportData.data.rate}/hour`
                                     : "",
-                                node.userData.isStorageNode || node.userData.isCurrencyNode
+                                node.userData.isStorageNode
                                     ? `Stored: ${node.userData.exportData.data.amount}/${node.userData.exportData.data.max} ${node.userData.exportData.data.type}`
                                     : "",
+                                `Node Tier: ${node.userData.exportData.level + 1}`
                             ].join("\n\n");
                             el.align("left");
                         },
@@ -771,6 +772,44 @@ PhaseManager.prototype.buildPhase = function (
                     }
                 }
                 nodeController.queueCompile(nodeid, attackType, 10);
+            });
+            self.Managers.Menu.when("upgradenode", (detail) => { // expects next tier to exist. This shouldn't be getting called if it doesn't- caller needs to verify
+                const { nodeid } = detail;
+                const node = nodeController.getNode(nodeid);
+                const nodeTypeData = CONFIG.NODES[node.userData.type];
+                const currentTier = node.userData.exportData.level;
+                const nextTier = currentTier + 1;
+                const nextTierData = nodeTypeData.build.upgrade[`${nextTier}`];
+                const cost = {
+                    type: nodeTypeData.build.buy.type,
+                    amount: nextTierData.amount
+                };
+                const bankData = bankController.bank;
+                if (cost && cost.type && cost.amount) {
+                    if (bankData[cost.type].amount - cost.amount < 0) {
+                        overlayController.messagePopup(
+                            `Cannot upgrade Node: Insufficient currency.`,
+                            1500
+                        );
+                        return;
+                    } else {
+                        nodeController.removeCurrency(cost.type, cost.amount);
+                        overlayController.updateWallet(bankData);
+                    }
+                } else {
+                    Logger.warn(`[PhaseManager] | Configuration Error: Missing upgrade cost data for Node type ${node.userData.type} to Tier ${nextTier}.`);
+                }
+                if (nodeController.upgradeNode(nodeid))
+                    overlayController.messagePopup(
+                        `Upgraded Node.`,
+                        1000
+                    );
+                else
+                    overlayController.messagePopup(
+                        `Failed to upgrade Node.`,
+                        1500
+                    );
+                self.Managers.Menu.close();
             });
             // Add event listeners
             let rotateTimeout;
