@@ -360,8 +360,8 @@ export function getStoredCurrencyFromLayout(layoutObj) {
         crypto: 0,
     };
     layoutObj.layout.nodes.forEach((node) => {
-        if (node._data?.store)
-            bank[node._data.store.type] += node._data.store.amount;
+        if (node.type.endsWith("store")) // crude.
+            bank[node._data.data.type] += node._data.data.amount;
     });
     return bank;
 }

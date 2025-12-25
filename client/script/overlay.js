@@ -25,7 +25,10 @@ const BuildHud = {
         walletEl.appendChild(cashEl);
         walletEl.appendChild(cryptoEl);
 
+        const nameEl = this.createNamePlate();
+
         wrapper.appendChild(walletEl);
+        wrapper.appendChild(nameEl);
         return wrapper;
     },
     createCashEl: function () {
@@ -38,6 +41,12 @@ const BuildHud = {
         const el = document.createElement("div");
         el.innerText = "Credit: ---";
         el.dataset.currencyType = "crypto";
+        return el;
+    },
+    createNamePlate: function () {
+        const el = document.createElement("div");
+        el.classList.add("nameplate");
+        el.innerText = CookieJar.get("username"); // [!]
         return el;
     },
 };

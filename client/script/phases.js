@@ -188,23 +188,10 @@ PhaseManager.prototype.selectPhase = function (
                             const targetData = Storage.get("targets", true).filter(
                                 (t) => t.id == target.id
                             )?.[0];
+                            const lootableCurrency = Cost().fromObj(UTIL.getStoredCurrencyFromLayout(targetData.game));
+                            lootableCurrency.multiplyScalar(CONFIG.CURRENCY_THEFT_RATIO);
                             detail.infoElement.text = targetData
-                                ? [
-                                    targetData.username,
-                                    "\n",
-                                    "Currency Stored:",
-                                    Array.from(
-                                        Object.entries(
-                                            UTIL.getStoredCurrencyFromLayout(
-                                                targetData.game
-                                            )
-                                        ),
-                                        ([currencyType, currencyAmount]) =>
-                                            `${currencyType}: ${Math.floor(
-                                                CONFIG.CURRENCY_THEFT_RATIO * currencyAmount
-                                            )}`
-                                    ).join("\n"),
-                                ].join("\n\n")
+                                ? `${targetData.username}\n\nCurrency Stored:\n${lootableCurrency.toString().replace(",", "\n")}`
                                 : "-- No Data Found --";
                             detail.infoElement.align("left");
                             detail.buttonElement.addEventListener("click", () => {
