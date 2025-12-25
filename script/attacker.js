@@ -530,7 +530,7 @@ AttackManager.prototype._updateAnimation = function (instanceid) {
         if (options.playing) {
             if (currentFrame >= this.config.frames - 1) {
                 options.playing = false;
-                if (options.callback) options.callback(options);
+                if (options.callback) options.callback();
             } else {
                 this.setFrame(instanceid, currentFrame + 1);
             }
@@ -607,11 +607,14 @@ export const AttackLogic = {
                 // both are equal
                 else return 0;
             },
+            attackable: (that) => {
+                return !that.isFriendly;
+            },
             target: function (targets) {
                 return targets
+                    .filter(this.attackable)
                     .sort(this.logic)
-                    ?.map((target) => target.uuid)
-                    .at(0);
+                    ?.map((target) => target.uuid);
             },
         });
     },
@@ -619,6 +622,13 @@ export const AttackLogic = {
         const self = AttackLogic.BasicLogicFactory();
         self.logic = function (me, them) {
             return them.hp.total - me.hp.total; // sorts from greatest to lowest health
+        };
+        return self;
+    },
+    CubeDefenseLogicFactory: function () {
+        const self = AttackLogic.BasicLogicFactory();
+        self.attackable = function (other) {
+            return other.nodeType != "globe" && !other.state.cubed.active && !(other.nodeType == "cube" && !other.isFriendly);
         };
         return self;
     },

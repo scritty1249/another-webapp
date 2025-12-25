@@ -668,7 +668,7 @@ const Nodes = {
         animationOptions = { idle: true, randomize: true }
     ) {
         const cube = Node("cube", sceneData.meshes, sceneData.animations);
-
+        cube.userData.isDefenseNode = true;
         if (animationOptions) {
             if (animationOptions.randomize) {
                 cube.rotation.y = UTIL.random(0, Math.PI * 2);
@@ -701,7 +701,7 @@ const Nodes = {
         animationOptions = { idle: true, randomize: true }
     ) {
         const scanner = Node("scanner", sceneData.meshes, sceneData.animations);
-
+        scanner.userData.isDefenseNode = true;
         scanner.scale.setScalar(0.7);
         if (animationOptions) {
             if (animationOptions.randomize) {
@@ -1190,23 +1190,22 @@ const AttackManagerFactory = {
 
         return ParticleController;
     },
-    CubeDefense: function (count) {
-        const CubeDefenseController = WrappedProjectile(
+    CubeDefense: function (camera, count) {
+        const CubeDefenseController = SpriteProjectile(
             "cubedefense",
-            0.65,
-            16,
-            1,
-            1,
+            camera,
+            0.6,
             count,
             {
                 // animation data
-                mappath: "./source/attacks/particle/attack.png",
-                maskpath: "./source/attacks/particle/attack-mask.png",
+                mappath: "./source/attacks/cubedefense/attack.png",
+                maskpath: "./source/attacks/cubedefense/attack-mask.png",
                 fps: 30,
-                frames: 121,
-            }
+                frames: 21,
+            },
+            1,
+            1
         );
-
         return CubeDefenseController;
     },
     Laser: function (count) {

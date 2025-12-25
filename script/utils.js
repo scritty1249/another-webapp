@@ -207,6 +207,10 @@ export function layoutsEqual(thisLayout, thatLayout) {
     }
 }
 
+export function getNeighbors(layoutObj, nodeid) {
+    return layoutObj.layout.neighbors.filter((edge) => edge.includes(nodeid)).length;
+}
+
 export function isLayoutAttackable(layoutObj) { // actually returns number of attacker entry points. 0 entry points is unattackable.
     if (!layoutObj.layout.neighbors.length) return 0;
     const globeNodes = layoutObj.layout.nodes
