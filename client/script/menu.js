@@ -219,13 +219,14 @@ export function MenuManager (
         nodeInfo: function () {
             self.loadMenu.clear();
             self.element.wrapper.classList.add("nodeInfo");
-            const central = document.createElement("div");
-            central.classList.add("center", "absolutely-center");
+            const central = stopContextMenu(document.createElement("div"));
+            central.classList.add("center", "absolutely-center", "scrollview");
             const infoWindow = self.createElement.statusTextBox(true, false);
             infoWindow.element.classList.add("info-window");
-            central.appendChild(infoWindow.element);
+            const buttonEl = self.createElement.button(90, undefined, "Upgrade Tier", {}, 2);
+            self._appendElement(central, infoWindow.element, buttonEl);
             self._appendMenu(central);
-            self._dispatch("loadmenu", { history: [], infoElement: infoWindow });
+            self._dispatch("loadmenu", { history: [], infoElement: infoWindow, upgradeButton: buttonEl });
         },
         targetInfo: function () {
             self.loadMenu.clear();
@@ -295,6 +296,10 @@ export function MenuManager (
                         if (nextTierData)
                             append(` + ${nodeTypeData.settings?.increase?.max}`);
                     }
+                    if (nextTierData)
+                        upgradeInfo.push(`Upgrade cost:\n${nextTierData.cost}`.replace(",", "\n"));
+                    else
+                        upgradeInfo.push("Max Tier Reached");
                 }
 
 
@@ -304,11 +309,11 @@ export function MenuManager (
                 const previewTile = self.createElement.tileSvg(1, 0, [ self.createElement.svgImage(nodeThumb) ]);
                 const buyButton = nextTierData
                     ? nextTierData.level <= coreTier
-                        ? self.createElement.button(90, undefined, `${nextTierData.amount} ${nodeTypeData.build.buy.type}`, {
+                        ? self.createElement.button(90, undefined, `Upgrade Node`, {
                                 click: () => self._dispatch("upgradenode", {nodeid: nodeid}),
-                            }, 2)
-                        : self.createElement.button(90, "lock", `Core Tier ${nextTierData.level + 1} required`, {}, 2)
-                    : self.createElement.button(90, undefined, `Max Tier reached`, {}, 2);
+                            }, 3.5)
+                        : self.createElement.button(90, undefined, `Core Tier ${nextTierData.level + 1} required`, {}, 3.5)
+                    : self.createElement.button(90, "lock", undefined, {}, 3.5);
                 
 
                 central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");

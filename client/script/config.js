@@ -230,7 +230,41 @@ Configuration.NODES = {
             },
             buy: undefined,
             upgrade: {
-
+                1: {
+                    level: 0,
+                    cost: Cost (
+                        "crypto", 45,
+                        "cash", 22000,
+                    ),
+                },
+                2: {
+                    level: 0,
+                    cost: Cost (
+                        "crypto", 1500,
+                        "cash", 30000,
+                    ),
+                },
+                3: {
+                    level: 4,
+                    cost: Cost (
+                        "crypto", 2000,
+                        "cash", 35000,
+                    ),
+                },
+                4: {
+                    level: 4,
+                    cost: Cost (
+                        "crypto", 2500,
+                        "cash", 40000,
+                    ),
+                },
+                5: {
+                    level: 5,
+                    cost: Cost (
+                        "crypto", 3000,
+                        "cash", 45000,
+                    ),
+                },
             },
         },
         attack: {

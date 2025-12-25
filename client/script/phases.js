@@ -534,6 +534,36 @@ PhaseManager.prototype.buildPhase = function (
                     const node = nodeController.getNode(nodeid);
                     Logger.info("[PhaseManager] | Node Info pressed:\n", node);
                 }
+                self.Managers.Menu.when(
+                    "loadmenu",
+                    (detail) => {
+                        const node =
+                            overlayController._nodeManager.getNode(nodeid);
+                        const nodeTypeData = CONFIG.NODES[node.userData.type];
+                        const {infoElement: el, upgradeButton: button} = detail;
+                        el.text = [
+                            nodeTypeData.name,
+                            "\n",
+                            nodeTypeData.build.description,
+                            node.userData.isCurrencyNode
+                                ? `Collection rate: ${node.userData.exportData.data.rate}/hour`
+                                : "",
+                            node.userData.isStorageNode
+                                ? `Stored: ${node.userData.exportData.data.amount}/${node.userData.exportData.data.max} ${node.userData.exportData.data.type}`
+                                : "",
+                            `Node Tier: ${node.userData.exportData.level + 1}`
+                        ].join("\n");
+                        el.align("left");
+                        button.addEventListener("click", function () {
+                            self.Managers.Menu.loadMenu.nodeMenus.upgrade(node, self.playerLevel);
+                        });
+                    },
+                    false,
+                    true
+                );
+                self.Managers.Menu.open(["nodeInfo"]);
+            },
+            nodeAction: (nodeid) => {
                 const nodeType = nodeController.getNodeType(nodeid);
                 // handle the nodes with their own menus
                 if (nodeType == "botnet") {
@@ -589,33 +619,9 @@ PhaseManager.prototype.buildPhase = function (
                     });
 
                 } else {
-                    // generic node pressed, just display node bio
-                    self.Managers.Menu.when(
-                        "loadmenu",
-                        (detail) => {
-                            const node =
-                                overlayController._nodeManager.getNode(nodeid);
-                            const nodeTypeData = CONFIG.NODES[node.userData.type];
-                            const el = detail.infoElement;
-                            el.text = [
-                                nodeTypeData.name,
-                                "\n",
-                                nodeTypeData.build.description,
-                                "\n",
-                                node.userData.isCurrencyNode
-                                    ? `Collection rate: ${node.userData.exportData.data.rate}/hour`
-                                    : "",
-                                node.userData.isStorageNode
-                                    ? `Stored: ${node.userData.exportData.data.amount}/${node.userData.exportData.data.max} ${node.userData.exportData.data.type}`
-                                    : "",
-                                `Node Tier: ${node.userData.exportData.level + 1}`
-                            ].join("\n\n");
-                            el.align("left");
-                        },
-                        false,
-                        true
+                    overlayController.messagePopup(
+                        `No Action for this Node.`
                     );
-                    self.Managers.Menu.open(["nodeInfo"]);
                 }
             },
         },
@@ -684,7 +690,7 @@ PhaseManager.prototype.buildPhase = function (
                 const cost = CONFIG.NODES[detail.nodeType]?.build.buy;
                 const bankData = bankController.bank;
                 if (!detail?.free && cost()) {
-                    if (bankData.stored.canAfford(cost)) {
+                    if (!bankData.stored.canAfford(cost)) {
                         overlayController.messagePopup(
                             `Cannot create new Node: Insufficient currency.`
                         );
@@ -756,7 +762,7 @@ PhaseManager.prototype.buildPhase = function (
                 const cost = DataStore.AttackerData.attacks[attackType]?.cost;
                 const bankData = bankController.bank;
                 if (cost()) {
-                    if (bankData.stored.canAfford(cost)) {
+                    if (!bankData.stored.canAfford(cost)) {
                         overlayController.messagePopup(
                             `Cannot compile Attack: Insufficient currency.`,
                             1500
@@ -780,7 +786,7 @@ PhaseManager.prototype.buildPhase = function (
                 const cost = nextTierData.cost;
                 const bankData = bankController.bank;
                 if (cost()) {
-                    if (bankData.stored.canAfford(cost)) {
+                    if (!bankData.stored.canAfford(cost)) {
                         overlayController.messagePopup(
                             `Cannot upgrade Node: Insufficient currency.`,
                             1500
