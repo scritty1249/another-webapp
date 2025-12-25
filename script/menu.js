@@ -68,12 +68,12 @@ export function MenuManager (
 
             const getLoginData = () => {
                 const values = {
-                    username: usernameField.firstChild.value.trim(),
-                    password: passwordField.firstChild.value.trim(),
+                    username: usernameField.firstChild.firstChild.value.trim(),
+                    password: passwordField.firstChild.firstChild.value.trim(),
                     elements: elements
                 };
-                usernameField.firstChild.value = "";
-                passwordField.firstChild.value = "";
+                usernameField.firstChild.firstChild.value = "";
+                passwordField.firstChild.firstChild.value = "";
                 return values;
             };
 
@@ -116,7 +116,7 @@ export function MenuManager (
             });
             usernameField.addEventListener("keydown", (e) => {
                 if (e.keyCode === 9) { // tab key
-                    passwordField.firstChild.focus();
+                    passwordField.firstChild.firstChild.focus();
                     e.preventDefault();
                 }
             });
@@ -132,7 +132,7 @@ export function MenuManager (
             });
             passwordField.addEventListener("keydown", (e) => {
                 if (e.keyCode === 9) { // tab key
-                    usernameField.firstChild.focus();
+                    usernameField.firstChild.firstChild.focus();
                     e.preventDefault();
                 }
             });
@@ -314,7 +314,7 @@ export function MenuManager (
                 central.classList.add("center", "absolutely-center", "fade-edges-vertical", "scrollview");
                 titleEl.classList.add("title");
                 descriptionWindow.classList.add("description");
-                descriptionWindow.firstChild.classList.add("align-left");
+                descriptionWindow.firstChild.firstChild.classList.add("align-left");
                 buyButton.classList.add("buy");
                 previewTile.classList.add("preview");
 
@@ -374,7 +374,7 @@ export function MenuManager (
                     const now = UTIL.getNowUTCSeconds();
                     const focusedType = _getFocusedType();
                     const entriesArr = Object.entries(activeSlots);
-                    infoWindow.text = `\t${data?.attackDetails[focusedType].name}\n${data?.attackDetails[focusedType].description}\n\nCosts: ${data?.attackDetails[focusedType].cost.amount} ${data?.attackDetails[focusedType].cost.type}`;
+                    infoWindow.text = `\t${data?.attackDetails[focusedType].name}\n${data?.attackDetails[focusedType].description}\n\nCosts: ${data?.attackDetails[focusedType].cost}`;
                     entriesArr.forEach(([idx, slot]) => {
                         const el = compilingBar.children[Number(idx)];
                         if (!slot?.type) {
@@ -579,7 +579,7 @@ export function MenuManager (
                 titleEl.classList.add("title");
                 const descriptionWindow = self.createElement.textBox(details.description, true, false);
                 descriptionWindow.classList.add("description");
-                descriptionWindow.firstChild.classList.add("align-left");
+                descriptionWindow.firstChild.firstChild.classList.add("align-left");
                 const previewTile = self.createElement.tileSvg(1, 0, [
                     self.createElement.svgImage(NODE_ICONS[details._type])
                 ]);
@@ -777,30 +777,32 @@ export function MenuManager (
             const wrapper = {
                 _display: el.style.display,
                 element: el,
+                textElement: el.firstChild.firstChild,
                 set text (value) {
-                    this.element.firstChild.value = value;
+                    wrapper.textElement.value = value;
                 },
                 get text () {
-                    return this.element.firstChild.value;
+                    return wrapper.textElement.value;
                 },
                 hide: () => {
                     el.style.display = "none";
                 },
                 show: () => {
-                    el.style.display = this._display;
+                    el.style.display = wrapper._display;
                 },
                 align: (side) => {
-                    el.firstChild.classList.remove("align-left", "align-right");
+                    wrapper.textElement.classList.remove("align-left", "align-right");
                     if (side == "left")
-                        el.firstChild.classList.add("align-left");
+                        wrapper.textElement.classList.add("align-left");
                     if (side == "right")
-                        el.firstChild.classList.add("align-right");
+                        wrapper.textElement.classList.add("align-right");
                 },
             };
             return wrapper;
         },
         textBox: function (text, background = true, interactive = true, editable = true, fontColor = "#ff5757", highlightBg = "#ffa2a2", highlightFg = "#fff") {
             const wrapper = document.createElement("div");
+            const filterEl = document.createElement("div");
             const el = document.createElement("textarea");
             wrapper.classList.add("textbox");
             wrapper.classList.add("hide-scroll");
@@ -815,7 +817,8 @@ export function MenuManager (
             el.style.setProperty("--highlight-fg", highlightFg);
             el.spellcheck = false;
             el.innerHTML = text;
-            wrapper.appendChild(el);
+            filterEl.appendChild(el);
+            wrapper.appendChild(filterEl);
             return wrapper;
         },
         tileImg: function (src, events = {}, alternate = false, interactive = false, outline = false) {

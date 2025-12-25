@@ -8,7 +8,7 @@ import {
 import { BuildNodeManager, AttackNodeManager } from "./nodes.js";
 import { Color } from "three";
 import * as UTIL from "./utils.js";
-
+import { Cost, Currency } from "./currency.js";
 import { DataStore } from "./data.js";
 
 const nodeDraggedEmissive = new Color(0xff8888);
@@ -638,10 +638,18 @@ PhaseManager.prototype.buildPhase = function (
     const bankController = {
         // pseudo-manager for bank data
         get bank() {
+            const cash = nodeController.getStoredCurrency("cash");
+            const crypto = nodeController.getStoredCurrency("crypto");
             return {
-                cash: nodeController.getStoredCurrency("cash"),
-                crypto: nodeController.getStoredCurrency("crypto"),
-            };
+                stored: Cost (
+                    cash.stored,
+                    crypto.stored,
+                ),
+                max: Cost (
+                    cash.max,
+                    crypto.max,
+                ),
+            };  
         },
         update: function () {
             const bankData = this.bank;
@@ -670,7 +678,7 @@ PhaseManager.prototype.buildPhase = function (
                 let text = [];
                 metadata.transfer.forEach((currencyData) => {
                     const [[currencyType, amount]] = Object.entries(currencyData);
-                    nodeController.addCurrency(currencyType, amount);
+                    nodeController.addCurrency(Currency(currencyType, amount));
                     text.push(`${amount} ${currencyType}`);
                 });
                 const message =
@@ -682,21 +690,22 @@ PhaseManager.prototype.buildPhase = function (
                         : text[0]);
                 overlayController.messagePopup(message);
             }
-            if (metadata.barracks) {
+            if (metadata.barracks) { // [!] deprecated
                 Storage.set("localBarracks", metadata.barracks);
             }
             self.Managers.Menu.when("addnode", (detail) => {
                 const cost = CONFIG.NODES[detail.nodeType]?.build.buy;
                 const bankData = bankController.bank;
-                if (!detail?.free && cost) {
-                    if (bankData[cost.type].amount - cost.amount < 0) {
+                if (!detail?.free && cost()) {
+                    if (bankData.stored.canAfford(cost)) {
                         overlayController.messagePopup(
                             `Cannot create new Node: Insufficient currency.`
                         );
                         self.Managers.Menu.close();
                         return;
                     } else {
-                        nodeController.removeCurrency(cost.type, cost.amount);
+                        nodeController.removeCost(cost);
+                        bankData.stored.deduct(cost);
                         overlayController.updateWallet(bankData);
                     }
                 }
@@ -742,11 +751,11 @@ PhaseManager.prototype.buildPhase = function (
                         nodeDetailMenuInfo.cost = undefined;
                     } else if (
                         (nodeTypeData.build.freeCount && nodeCount < nodeTypeData.build.freeCount) ||
-                        !nodeTypeData.build.buy
+                        !nodeTypeData.build.buy()
                     ) {
                         nodeDetailMenuInfo.free = true;
                     } else {
-                        nodeDetailMenuInfo.cost = `${nodeTypeData.build.buy.amount} ${nodeTypeData.build.buy.type}`;
+                        nodeDetailMenuInfo.cost = `${nodeTypeData.build.buy}`;
                     }
                     self.Managers.Menu.loadMenu.addNode.nodeDetail(
                         nodeDetailMenuInfo,
@@ -759,15 +768,16 @@ PhaseManager.prototype.buildPhase = function (
                 const {attackType, nodeid} = detail;
                 const cost = DataStore.AttackerData.attacks[attackType]?.cost;
                 const bankData = bankController.bank;
-                if (cost) {
-                    if (bankData[cost.type].amount - cost.amount < 0) {
+                if (cost()) {
+                    if (bankData.stored.canAfford(cost)) {
                         overlayController.messagePopup(
                             `Cannot compile Attack: Insufficient currency.`,
                             1500
                         );
                         return;
                     } else {
-                        nodeController.removeCurrency(cost.type, cost.amount);
+                        nodeController.removeCost(cost);
+                        bankData.stored.deduct(cost);
                         overlayController.updateWallet(bankData);
                     }
                 }
@@ -780,20 +790,18 @@ PhaseManager.prototype.buildPhase = function (
                 const currentTier = node.userData.exportData.level;
                 const nextTier = currentTier + 1;
                 const nextTierData = nodeTypeData.build.upgrade[`${nextTier}`];
-                const cost = {
-                    type: nodeTypeData.build.buy.type,
-                    amount: nextTierData.amount
-                };
+                const cost = nextTierData.cost;
                 const bankData = bankController.bank;
-                if (cost && cost.type && cost.amount) {
-                    if (bankData[cost.type].amount - cost.amount < 0) {
+                if (cost()) {
+                    if (bankData.stored.canAfford(cost)) {
                         overlayController.messagePopup(
                             `Cannot upgrade Node: Insufficient currency.`,
                             1500
                         );
                         return;
                     } else {
-                        nodeController.removeCurrency(cost.type, cost.amount);
+                        nodeController.removeCost(cost);
+                        bankData.stored.deduct(cost);
                         overlayController.updateWallet(bankData);
                     }
                 } else {

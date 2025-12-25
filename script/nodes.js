@@ -8,6 +8,7 @@ import {
     SSNodeSlotsMesh,
 } from "./spritesheet.js";
 import { DataStore } from "./data.js";
+import { Currency } from "./currency.js";
 
 export function NodeManager(
     scene,
@@ -550,8 +551,8 @@ NodeManager.prototype.getStoredCurrency = function (currencyType) {
     const total = UTIL.sum(nodes
         .map((n) => n.userData.exportData?.data.max));
     return {
-        amount: amount ? amount : 0,
-        max: total ? total : 0,
+        stored: Currency (currencyType, amount ? amount : 0),
+        max: Currency (currencyType, total ? total : 0),
     };
 };
 NodeManager.prototype.isCurrencyNode = function (nodeid) {
@@ -1249,20 +1250,20 @@ BuildNodeManager.prototype.collectCurrencyNode = function (nodeid) {
         );
     const currencyData = node.userData.exportData?.data;
     const storageData = this.getStoredCurrency(currencyData.type);
-    if (storageData.max <= storageData.amount) return false;
+    if (storageData.max.amount <= storageData.stored.amount) return false;
     const amount = currencyData.amount;
     if (amount > 0) {
         currencyData.amount = 0;
         currencyData.lastUpdated = UTIL.getNowUTCSeconds();
-        this.addCurrency(currencyData.type, Math.min(amount, storageData.max));
+        this.addCurrency(Currency(currencyData.type, Math.min(amount, storageData.max.amount)));
         return true;
     }
     return false;
 };
-BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
-    const nodes = this.getStorageNodes(currencyType);
+BuildNodeManager.prototype.addCurrency = function (currency) {
+    const nodes = this.getStorageNodes(currency.type);
     let nodeIdx = 0;
-    let remaining = amount;
+    let remaining = currency.amount;
     while (remaining && nodeIdx < nodes.length) {
         if (nodes[nodeIdx].userData.exportData?.data.amount >= nodes[nodeIdx].userData.exportData?.data.max) {
             nodeIdx++;
@@ -1271,25 +1272,28 @@ BuildNodeManager.prototype.addCurrency = function (currencyType, amount) {
         nodes[nodeIdx].userData.exportData.data.amount++;
         remaining--;
     }
+    if (remaining) Logger.info(`[BuildNodeManager] | Lost an execess of ${remaining} after attempting to add ${currency}.`);
     return remaining;
 };
-BuildNodeManager.prototype.removeCurrency = function (currencyType, amount) {
-    const nodes = this.getStorageNodes(currencyType);
-    const currencyData = this.getStoredCurrency(currencyType);
-    if (currencyData.amount - amount < 0)
+BuildNodeManager.prototype.removeCost = function (cost) {
+    cost.currencies.forEach((currency) => this.removeCurrency(currency));
+};
+BuildNodeManager.prototype.removeCurrency = function (currency) {
+    const nodes = this.getStorageNodes(currency.type);
+    const { stored } = this.getStoredCurrency(currency.type);
+    if (stored.amount - currency.amount < 0)
         Logger.throw(
             new Error(
-                `[BuildNodeManager] | Cannot remove ${amount} ${currencyType}: Insufficient balance.`
+                `[BuildNodeManager] | Cannot remove ${currency}: Insufficient balance.`
             )
         );
     let nodeIdx = 0;
-    let remaining = amount;
+    let remaining = currency.amount;
     while (remaining && nodeIdx < nodes.length) {
         if (nodes[nodeIdx].userData.exportData?.data.amount <= 0) nodeIdx++;
         nodes[nodeIdx].userData.exportData.data.amount--;
         remaining--;
     }
-    if (remaining) Logger.info(`[BuildNodeManager] | Lost ${remaining} execess ${currencyType} after attempting to add ${amount} ${currencyType}.`);
     return remaining;
 };
 BuildNodeManager.prototype._updateOverlays = function () {
