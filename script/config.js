@@ -46,8 +46,8 @@ Configuration.NODES = {
         },
         unlock: 0, // Core level required to buy
         build: {
-            description: "Captures hostile Nodes within 1 step.",
-            highlightSteps: 1, // when clicked, highlight connections for X steps
+            description: "Spreads a combative Antivirus throughout your network during Attacks.",
+            highlightSteps: 999999, // when clicked, highlight connections for X steps
             freeCount: 0, // number of these you can get for free (limit still applies)- intended for new players
             connections: {
                 base: 5,
