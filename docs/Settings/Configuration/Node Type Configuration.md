@@ -31,7 +31,7 @@ Node Type data intended to only be used in the Attack Phase.
 ## .data
 If the object is not null, the properties within the `data` object are abritrary, and specific to each Node Type.
 
-*Data structures with nested objects must remain undefined at the start Node initialization and be assigned specifically within the Node Type's own [`initialization function`](#init--nodedata--exportdata-)- as [Nodes](<../../Objects/Node.md>) only assign a shallow copy by default.
+*Data structures with nested objects must remain undefined at the start Node initialization and be assigned specifically within the Node Type's own [`initialization function`](#init--nodedata--exportdata-)- as [Nodes](<../../Objects/Node.md>) only assign a shallow copy by default.*
 ## .settings
 ### .init ( nodeData : [`exportData`](<../../Objects/Node.md#exportdata--objectexportdata--undefined>) )
 This method is called at the end of [Node](<../../Objects/Node.md>) creation, and can be used to set up any custom behavior for a Node Type's [`data`](#data--object-data---null).
