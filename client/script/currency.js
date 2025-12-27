@@ -1,6 +1,6 @@
 export function Currency (type, amount) {
     const currency = function () {
-        return currency.type === undefined || !currency.amount ? undefined : currency.toJSON();
+        return currency.type === undefined || currency.amount === 0 ? undefined : currency.toJSON();
     };
     currency.toJSON = function () {
         return {
@@ -30,11 +30,6 @@ export function Cost (...currencies) {
     };
     cost.toString = function () {
         return cost() ? cost.currencies.filter((c) => c()).map((c) => c.toString()).join(", ") : "None";
-    };
-    cost.forEach = function (callbackFn) {
-        cost.currencies
-            .filter((c) => c())
-            .forEach((c, i) => callbackFn(c, i));
     };
     cost.canAfford = function (other) {
         const self = cost.total;
@@ -72,6 +67,7 @@ export function Cost (...currencies) {
     };
     cost.multiplyScalar = function (scalar) {
         cost.currencies.forEach((c) => c.amount *= scalar);
+        return cost; // for chaining
     };
     Object.defineProperty(cost, "isFree", {
         get: function () {
