@@ -21,6 +21,7 @@ Assigned to the Node's [exported `data`](<../../Objects/Node.md#data--object-nul
 
 Defaults to `null`.
 ### .settings : *Object.< [`settings`](#settings) >*
+Contains methods for initalizing and upgrading the Node Type. May contain other properties related to these operations if needed.
 
 ### .build : *Object.< [`build`](#build) >*
 Node Type data intended to only be used in the Build Phase.
