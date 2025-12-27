@@ -86,7 +86,7 @@ export function LogManager() {
         );
         console.warn(message);
         alert(message);
-    }
+    };
 
     this.eventDomElement = document.createElement("div");
     this.eventDomElement.style.display = "none";

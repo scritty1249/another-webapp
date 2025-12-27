@@ -538,7 +538,7 @@ Configuration.NODES = {
             amount: 0,
             max: 350,
             rate: 100, // per hour
-            lastUpdated: undefined,   
+            lastUpdated: undefined,
         },
         settings: {
             increase: {
@@ -790,13 +790,6 @@ export const Default = {
         BASE: [],
     },
 };
-
-function Currency(type, amount) {
-    return {
-        type: type,
-        amount: amount
-    };
-}
 
 Object.values(Configuration.NODES).forEach(({id, name, catagory}) =>
     id != "core" ? Default.NODE_TYPES[catagory.toUpperCase()].push({id: id, name: name}) : null

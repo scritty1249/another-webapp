@@ -126,7 +126,6 @@ export function AttackManager(
             },
         }
     );
-
     this.instanceAttributes.options = {};
     this.instanceAttributes.userData = {};
     for (let i = 0; i < instanceCount; i++) {
