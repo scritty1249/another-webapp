@@ -1,4 +1,7 @@
 # MaterialTable
+
+Stores, clones, and reapplies [Materials](<ThreeJS References.md#material>) on a [Mesh](<ThreeJS References.md#mesh>).
+
 > **Extends** : `Object`
 
 ## Constructor

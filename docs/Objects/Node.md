@@ -1,4 +1,8 @@
+*< This page is unfinished >*
+
 # Node
+Handles [Mesh](<ThreeJS References.md#mesh>) data used for rendering and stores instance-specific Node information.
+
 > **Extends** : [`MeshWrapper`](<../Structures/MeshWrapper.md>)
 
 ## Constructor

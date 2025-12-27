@@ -81,7 +81,7 @@ The maximum quantity of this Node Type a player can have on their Network.
 ### .upgrade : *Object.< `Number`, [`upgrade requirements`](#upgrade-requirements) > | Object*
 An object with entries that contain the levels available for the Node Type to upgrade to. The number of available upgrades for each Node Type may vary and should be appendable without corrupting existing Node data on the server in future updates.
 
-Each key is a number corrosponding to the zero-indexed level starting from 1, in a consecutive sequence.
+Each key is a number corrosponding to the zero-indexed level starting from one, in a consecutive sequence.
 Each value should contain the details to get the upgrade. 
 
 Defaults to `{}`.

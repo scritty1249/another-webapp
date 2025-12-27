@@ -1,3 +1,5 @@
+*< This page is unfinished >*
+
 # Game Configuration
 These values are constant, and are not to be changed at runtime.
 

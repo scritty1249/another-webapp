@@ -1,7 +1,8 @@
 # AnimationWrapper
-> **Extends** : `Object`
 
 A structure used to pass animation data for a all children of a [`Mesh`](<../Objects/ThreeJS References.md#mesh>), grouped by overall action.
+
+> **Extends** : `Object`
 
 **Structure**
 ```javascript
