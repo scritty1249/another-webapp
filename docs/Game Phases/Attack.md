@@ -3,5 +3,3 @@
 # Attack Phase
 
 ## Attacks
-
-### Attackers
