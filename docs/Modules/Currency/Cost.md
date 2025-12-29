@@ -9,7 +9,7 @@ This callable object stores multiple types of currency data that can be converte
 Constructs a new [Cost](#cost) instance. Duplicate currency types are permitted and will be stored individually for calculation, but represented as a sum when returned.
 |||
 |:-|:-|
-| **currencies** | An abritrary amount of currencies, or <currencyType, currencyAmount> parameter pairs. |
+| **currencies** | An abritrary amount of currencies, or *< `currencyType`, `currencyAmount` >* parameter pairs. |
 ## Properties
 ### .isCost : *`Boolean`*
 This flag is used for type testing.
