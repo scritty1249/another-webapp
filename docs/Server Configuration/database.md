@@ -22,8 +22,6 @@ Should store the following tables:
 
 > Game
 
-*intentionally keep currencies separate, so if a transaction fails it doesn't corrupt all currency data*
-
-| userid | scene background | base layout | currency | ...currency |
-| :-- | :-: | :-: | --: | --: |
-| arbitrary | filepath or b64 payload | obfuscated json | uint | ...uint |
+| userid | scene background | base layout | 
+| :-- | :-: | :-: | 
+| arbitrary | filepath or b64 payload | obfuscated json |
