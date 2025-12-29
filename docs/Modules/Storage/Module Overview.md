@@ -1,0 +1,2 @@
+# Storage
+This module provides Objects for storing and retrieving data from browser [session](https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage) and [local](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) storage.

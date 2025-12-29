@@ -1,0 +1,2 @@
+# Session
+This module provides methods for interacting with browser [cookies](../Cookies/CookieJar.md), browser [storage](../Storage/StorageManager.md), and communicating with the [API](<../API/Module Overview.md>).

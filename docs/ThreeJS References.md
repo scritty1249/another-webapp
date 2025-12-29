@@ -13,3 +13,5 @@
 [`three.AnimationMixer`](https://threejs.org/docs/#AnimationMixer)
 ## AnimationAction
 [`three.AnimationAction`](https://threejs.org/docs/#AnimationAction)
+## InstancedMesh
+[`three.InstancedMesh`](https://threejs.org/docs/#InstancedMesh)

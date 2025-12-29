@@ -17,7 +17,7 @@ The display name for this Node Type.
 The minimum Core level required for the player to purchase this Node. This value overrides [`freeCount`](#freecount--number).
 
 ### .data : *Object.< [`data`](#data) > | `null`*
-Assigned to the Node's [exported `data`](<../../Objects/Node.md#data--object-null--typedata->) object at initalization. 
+Assigned to the Node's [exported `data`](../../Modules/Mesh/Node.md#data--object-null--typedata-) object at initalization. 
 
 Defaults to `null`.
 ### .settings : *Object.< [`settings`](#settings) >*
@@ -32,20 +32,20 @@ Node Type data intended to only be used in the Attack Phase.
 ## .data
 If the object is not null, the properties within the `data` object are abritrary, and specific to each Node Type.
 
-*Data structures with nested objects must remain undefined at the start Node initialization and be assigned specifically within the Node Type's own [`initialization function`](#init--nodedata--exportdata-)- as [Nodes](<../../Objects/Node.md>) only assign a shallow copy by default.*
+*Data structures with nested objects must remain undefined at the start Node initialization and be assigned specifically within the Node Type's own [`initialization function`](#init--nodedata--exportdata-)- as [Nodes](../../Modules/Mesh/Node.md) only assign a shallow copy by default.*
 ## .settings
-### .init ( nodeData : [`exportData`](<../../Objects/Node.md#exportdata--objectexportdata--undefined>) )
-This method is called at the end of [Node](<../../Objects/Node.md>) creation, and can be used to set up any custom behavior for a Node Type's [`data`](#data--object-data---null).
+### .init ( nodeData : [`exportData`](../../Modules/Mesh/Node.md#exportdata--objectexportdata--undefined) )
+This method is called at the end of [Node](../../Modules/Mesh/Node.md) creation, and can be used to set up any custom behavior for a Node Type's [`data`](#data--object-data---null).
 
 |||
 |:-|:-|
 | **nodeData** | The newly created Node's exportData object, passed in for modification. |
 
 Defaults to `()`.
-### .upgrade ( nodeData : [`exportData`](<../../Objects/Node.md#exportdata--objectexportdata--undefined>) )
+### .upgrade ( nodeData : [`exportData`](../../Modules/Mesh/Node.md#exportdata--objectexportdata--undefined) )
 This method is called when after upgrading a Node of the corrosponding type, and can be used to modify the Node's [`data`](#data--object-data---null) that may be type-specific.
 
-*This method should extrapolate the Node's current level to use for upgrade-related calculations independently. This method should not modify [`level`](<../../Objects/Node.md#level--number>) or [`maxConnections`](<../../Objects/Node.md#maxconnections--number>), as these values are updated before calling.*
+*This method should extrapolate the Node's current level to use for upgrade-related calculations independently. This method should not modify [`level`](../../Modules/Mesh/Node.md#level--number) or [`maxConnections`](../../Modules/Mesh/Node.md#maxconnections--number), as these values are updated before calling.*
 
 |||
 |:-|:-|
@@ -77,7 +77,7 @@ The maximum number of connections to other Nodes this Node Type supports.
 The maximum quantity of this Node Type a player can have on their Network.
 
 *Scales linearly with (`Core level - Required Core Level to unlock Node`)*
-### .buy : *[`Cost`](<../../Objects/Cost.md#cost>)*
+### .buy : *[`Cost`](../../Modules/Currency/Cost.md#cost)*
 
 ### .upgrade : *Object.< `Number`, [`upgrade requirements`](#upgrade-requirements) > | Object*
 An object with entries that contain the levels available for the Node Type to upgrade to. The number of available upgrades for each Node Type may vary and should be appendable without corrupting existing Node data on the server in future updates.
@@ -127,4 +127,4 @@ Represents the prequisites to meet and cost of upgrading a Node Type to a specif
 |||
 |:-|:-|
 | **coreLevel** | A `Number` representing the minimum Core level required to unlock the upgrade.|
-| **upgradeCost** | The [`Cost`](<../../Objects/Cost.md#cost>) required to upgrade the Node.|
+| **upgradeCost** | The [`Cost`](../../Modules/Currency/Cost.md#cost) required to upgrade the Node.|

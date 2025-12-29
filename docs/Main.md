@@ -5,11 +5,11 @@
 # Execution flow
 Once the page is loaded, the `threejs` library is made importable, and the following instances are created and made accessible globally to all other parts of the program for the rest of runtime.
 
-[`Logger`](Managers/LogManager.md)
+[`Logger`](Modules/Logger/LogManager.md)
 
-[`CookieJar`](Managers/CookieJar.md)
+[`CookieJar`](Modules/Cookies/CookieJar.md)
 
-[`Storage`](Managers/StorageManager.md)
+[`Storage`](Modules/Storage/StorageManager.md)
 
 The following values are also exposed globally to be referenced, and should not be modified.
 
@@ -17,7 +17,19 @@ The following values are also exposed globally to be referenced, and should not 
 
 [`DEFAULT`](<Game Settings.md#default-values>)
 
+# Game Mode Phases
+Gameplay can be divided into three distinct Phases. Players start in the Build Phase, where they can perform actions within that Phase or transition to the Select Phase. Players able to proceed to the Attack Phase from there, or return to the Build Phase.
+## Attack Phase
 
+[More](<Game Phases/Attack.md>)
+
+## Build Phase
+
+[More](<Game Phases/Build.md>)
+
+## Select Phase
+
+[More](<Game Phases/Select.md>)
 
 # Modifiying Game Constants
 

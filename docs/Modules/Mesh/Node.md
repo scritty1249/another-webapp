@@ -1,12 +1,12 @@
 *< This page is unfinished >*
 
 # Node
-Handles [Mesh](<ThreeJS References.md#mesh>) data used for rendering and stores instance-specific Node information.
+Handles [Mesh](<../../ThreeJS References.md#mesh>) data used for rendering and stores instance-specific Node information.
 
-> **Extends** : [`MeshWrapper`](<../Structures/MeshWrapper.md>)
+> **Extends** : [`MeshWrapper`](./MeshWrapper.md)
 
 ## Constructor
-**Node** ( nodeType : `String`, meshes: [`Array.< three.Mesh >`](<ThreeJS References.md#mesh>), animations : [`AnimationsWrapper`](<../Structures/AnimationWrapper.md>) )
+**Node** ( nodeType : `String`, meshes: [`Array.< three.Mesh >`](<../../ThreeJS References.md#mesh>), animations : [`AnimationsWrapper`](../ThreeUtils/AnimationWrapper.md) )
 
 Constructs a new [Node](#node) instance.
 | | |
@@ -16,7 +16,7 @@ Constructs a new [Node](#node) instance.
 | **animations** | The animation data tied to the Node's Meshes. |
 
 ## userData Properties
-### .materials : *[`MaterialTable`](<MaterialTable.md>)*
+### .materials : *[`MaterialTable`](./MaterialTable.md)*
 A material table containing all the materials associated with this Node's meshes.
 ### .exportData : *Object.<[`exportData`](<#exportdata-properties>)> | `undefined`*
 Data to be saved to the server. Node properties from the server with conflicting names override the values set at initalization.\
@@ -29,6 +29,6 @@ The current, zero-indexed level of the Node.
 The `Integer` amount of maximum connections this Node supports at it's current level.\
 *This value is calculated from the
 
-### .data : *Object.< `null` | [`typeData`](<../Settings/Configuration/Node Type Configuration.md#data>) >*
+### .data : *Object.< `null` | [`typeData`](<../../Settings/Configuration/Node Type Configuration.md#data>) >*
 
 *This object may have a `null` prototype if no initialization data is defined for the node's type configuration. Developers are advised to implement exclusive, type-specific methods of verifying this property, as null-prototyped objects lack common methods such as `hasOwnProperty` and `hasOwn`.*

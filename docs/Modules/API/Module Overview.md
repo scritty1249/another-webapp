@@ -1,0 +1,2 @@
+# API
+This module provides methods for communicating with the game server. This module should not be called directly during gameplay, and is handled soley through the [Session module](<../Session/Module Overview.md>).

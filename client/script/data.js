@@ -1,4 +1,4 @@
-import { AttackManagerFactory } from "./mesh.js";
+import { Attacks } from "./mesh.js";
 import { AttackLogic } from "./attacker.js";
 import { Vector2, Vector3, PlaneGeometry }  from "three";
 import { SSMaterialType, SSFramesMesh } from "./spritesheet.js";
@@ -52,7 +52,7 @@ export const DataStore = {
     AttackTypeData: function (camera) {
         return {
             particle: {
-                mesh: AttackManagerFactory.Particle,
+                mesh: Attacks.Particle,
                 sfx: "pew",
                 maxTargets: 1,
                 cooldown: 650, // ms
@@ -71,7 +71,7 @@ export const DataStore = {
                 },
             },
             laser: {
-                mesh: AttackManagerFactory.Laser,
+                mesh: Attacks.Laser,
                 sfx: undefined,
                 maxTargets: 1,
                 cooldown: 0, // ms
@@ -90,7 +90,7 @@ export const DataStore = {
                 },
             },
             pascualcannon: {
-                mesh: (a) => AttackManagerFactory.PascualCannon(camera, a),
+                mesh: (a) => Attacks.PascualCannon(camera, a),
                 maxTargets: 1,
                 sfx: undefined,
                 cooldown: 1000, // ms
@@ -120,7 +120,7 @@ export const DataStore = {
     DefenseTypeData: function (camera) {
         return {
             cube: {
-                mesh: (a) => AttackManagerFactory.CubeDefense(camera, a),
+                mesh: (a) => Attacks.CubeDefense(camera, a),
                 maxTargets: 7, // [!] unlimited, but for now cap it at the maximum number of node connections we technically support.
                 sfx: undefined,
                 cooldown: 2150, // ms

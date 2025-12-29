@@ -1,0 +1,2 @@
+# AttackManagerFactory
+This module creates new [AttackManager](../../Attacker/AttackManager.md#attackmanager) instances for different types of [Attack](<../Attacks/Module Overview.md>) [Meshes](<../../../ThreeJS References.md#mesh>)
