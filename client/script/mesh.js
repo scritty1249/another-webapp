@@ -1245,5 +1245,4 @@ export {
     Attacks,
     SelectionGlobe,
     WorldMarker,
-    MaterialTable,
 };
